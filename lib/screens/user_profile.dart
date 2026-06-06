@@ -12,9 +12,6 @@ import 'package:aaram_bd/widgets/thoughtsection.dart';
 import 'package:aaram_bd/widgets/userstarwidget.dart';
 import 'package:aaram_bd/widgets/view_history_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:aaram_bd/localization/app_localizations.dart';
-import 'package:aaram_bd/localization/language_provider.dart';
 import 'package:aaram_bd/screens/editprofile_screen.dart';
 import 'package:aaram_bd/screens/post_upload.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,10 +43,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
 
   _UserProfileState({required this.userPhone});
 
-  AppLocalizations get _l10n =>
-      Provider.of<LanguageProvider>(context, listen: false).l10n;
-
-  final FocusNode _focusNode = FocusNode();
+final FocusNode _focusNode = FocusNode();
   late String userID;
   bool isActive = true;
   String selectedSortValue = 'recent';
@@ -324,7 +318,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_l10n.profileErrorSharing}$e'),
+          content: Text('Error sharing: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -518,10 +512,10 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
   }
 
 
+
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    final l10n = context.watch<LanguageProvider>().l10n;
     final kbOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
@@ -620,7 +614,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                             ),
                             // Avatar — overlapping cover bottom-left
                             Positioned(
-                              bottom: -44,
+                              bottom: -54,
                               left: 16,
                               child: GestureDetector(
                                 onTap: () {
@@ -633,15 +627,15 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                       ),
                                       child: ClipOval(
                                         child: SizedBox(
-                                          height: 280,
-                                          width: 280,
+                                          height: 300,
+                                          width: 300,
                                           child: profile_pic.isNotEmpty
                                               ? Image.network(profile_pic,
                                                   fit: BoxFit.cover)
                                               : Container(
                                                   color: const Color(0xFF1A56DB),
                                                   child: const Icon(Icons.person,
-                                                      size: 100,
+                                                      size: 120,
                                                       color: Colors.white),
                                                 ),
                                         ),
@@ -653,18 +647,24 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                   clipBehavior: Clip.none,
                                   children: [
                                     Container(
-                                      width: 90,
-                                      height: 90,
+                                      width: 110,
+                                      height: 110,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                            color: Colors.white, width: 3),
+                                            color: Colors.white, width: 3.5),
                                         boxShadow: [
                                           BoxShadow(
                                             color: Colors.black
+                                                .withValues(alpha: 0.22),
+                                            blurRadius: 18,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                          BoxShadow(
+                                            color: const Color(0xFF1A56DB)
                                                 .withValues(alpha: 0.18),
-                                            blurRadius: 14,
-                                            offset: const Offset(0, 6),
+                                            blurRadius: 24,
+                                            offset: const Offset(0, 4),
                                           ),
                                         ],
                                       ),
@@ -675,7 +675,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                             : Container(
                                                 color: const Color(0xFF1A56DB),
                                                 child: const Icon(Icons.person,
-                                                    size: 40,
+                                                    size: 52,
                                                     color: Colors.white),
                                               ),
                                       ),
@@ -706,107 +706,247 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
 
                       // ── Profile body ─────────────────────────────────────
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 52, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(16, 64, 16, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Name + active toggle
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    userName,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF111827),
-                                      letterSpacing: -0.3,
-                                      height: 1.1,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                            // Name
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF111827),
+                                letterSpacing: -0.4,
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // ── Action Bar: Status toggle + Edit + Share ──
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                    color: Colors.black
+                                        .withValues(alpha: 0.07)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 5),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Active / Inactive tap-to-toggle pill
-                                GestureDetector(
-                                  onTap: () {
-                                    final newStatus = call_status == 'active'
-                                        ? 'inactive'
-                                        : 'active';
-                                    setState(() => call_status = newStatus);
-                                    updateUserStatus(
-                                      userId: user_id,
-                                      status: newStatus,
-                                      context: context,
-                                    );
-                                    showQuickSnack(
-                                      context,
-                                      newStatus == 'active'
-                                          ? _l10n.profileCallActive
-                                          : _l10n.profileCallInactive,
-                                    );
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: call_status == 'active'
-                                          ? const Color(0xFF16A34A)
-                                              .withValues(alpha: 0.10)
-                                          : Colors.red
-                                              .withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: call_status == 'active'
-                                            ? const Color(0xFF16A34A)
-                                            : Colors.red.shade400,
-                                        width: 1.2,
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Active / Inactive toggle — gradient pill
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        final newStatus =
+                                            call_status == 'active'
+                                                ? 'inactive'
+                                                : 'active';
+                                        setState(
+                                            () => call_status = newStatus);
+                                        updateUserStatus(
+                                          userId: user_id,
+                                          status: newStatus,
+                                          context: context,
+                                        );
+                                        showQuickSnack(
+                                          context,
+                                          newStatus == 'active'
+                                              ? 'Everyone can call you now'
+                                              : 'No one can call you now.',
+                                        );
+                                      },
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 280),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: call_status == 'active'
+                                                ? [
+                                                    const Color(0xFF15803D),
+                                                    const Color(0xFF22C55E),
+                                                  ]
+                                                : [
+                                                    const Color(0xFFB91C1C),
+                                                    const Color(0xFFEF4444),
+                                                  ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: (call_status == 'active'
+                                                      ? const Color(0xFF16A34A)
+                                                      : const Color(
+                                                          0xFFDC2626))
+                                                  .withValues(alpha: 0.34),
+                                              blurRadius: 14,
+                                              offset: const Offset(0, 5),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      call_status == 'active'
+                                                          ? 'ACTIVE'
+                                                          : 'INACTIVE',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        letterSpacing: 0.8,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      call_status == 'active'
+                                                          ? 'Tap to deactivate'
+                                                          : 'Tap to activate',
+                                                      style: TextStyle(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                                alpha: 0.78),
+                                                        fontSize: 9.5,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            AnimatedSwitcher(
+                                              duration: const Duration(
+                                                  milliseconds: 240),
+                                              transitionBuilder: (child,
+                                                      anim) =>
+                                                  ScaleTransition(
+                                                      scale: anim,
+                                                      child: child),
+                                              child: Icon(
+                                                call_status == 'active'
+                                                    ? Icons
+                                                        .phone_in_talk_rounded
+                                                    : Icons
+                                                        .phone_disabled_rounded,
+                                                key: ValueKey(call_status),
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        AnimatedContainer(
-                                          duration: const Duration(
-                                              milliseconds: 250),
-                                          width: 6,
-                                          height: 6,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: call_status == 'active'
-                                                ? const Color(0xFF16A34A)
-                                                : Colors.red.shade400,
+                                  ),
+
+                                  const SizedBox(width: 8),
+
+                                  // Edit profile
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              EditProfileScreen(
+                                            userName: userName,
+                                            userPhone: widget.userPhone,
+                                            userCategory: userCategory,
+                                            userDescription: userDescription,
+                                            userAddress: userAddress,
                                           ),
                                         ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          call_status == 'active'
-                                              ? l10n.profileActive
-                                              : l10n.profileInactive,
-                                          style: TextStyle(
-                                            color: call_status == 'active'
-                                                ? const Color(0xFF16A34A)
-                                                : Colors.red.shade600,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11.5,
-                                          ),
+                                      );
+                                      if (result == true) {
+                                        fetchSortedPosts(
+                                            userPhone.toString(), 'recent');
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1A56DB)
+                                            .withValues(alpha: 0.09),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: const Color(0xFF1A56DB)
+                                              .withValues(alpha: 0.22),
+                                          width: 1.2,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.phone_in_talk_rounded,
-                                          size: 11,
-                                          color: call_status == 'active'
-                                              ? const Color(0xFF16A34A)
-                                              : Colors.red.shade400,
-                                        ),
-                                      ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.edit_rounded,
+                                        color: Color(0xFF1A56DB),
+                                        size: 18,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+
+                                  const SizedBox(width: 6),
+
+                                  // Share profile
+                                  GestureDetector(
+                                    onTap: shareProfile,
+                                    child: Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED)
+                                            .withValues(alpha: 0.08),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: const Color(0xFF7C3AED)
+                                              .withValues(alpha: 0.22),
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.share_rounded,
+                                        color: Color(0xFF7C3AED),
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
 
                             const SizedBox(height: 7),
@@ -963,11 +1103,10 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                           ),
                                                         ),
                                                         Text(
-                                                          l10n.profileViews,
+                                                          'Views',
                                                           style: TextStyle(
                                                             fontSize: 10.5,
-                                                            color: Colors.grey
-                                                                .shade600,
+                                                            color: Colors.grey.shade600,
                                                           ),
                                                         ),
                                                       ],
@@ -1075,11 +1214,10 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                           ),
                                                         ),
                                                         Text(
-                                                          l10n.profileCalls,
+                                                          'Calls',
                                                           style: TextStyle(
                                                             fontSize: 10.5,
-                                                            color: Colors.grey
-                                                                .shade600,
+                                                            color: Colors.grey.shade600,
                                                           ),
                                                         ),
                                                       ],
@@ -1108,202 +1246,100 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                   const SizedBox(height: 10),
 
                                   // Pure stat chips (Posts + Shares — not interactive)
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      // Posts
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(5),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF0FDF4),
-                                              borderRadius:
-                                                  BorderRadius.circular(7),
-                                            ),
-                                            child: const Icon(
-                                                Icons.article_rounded,
-                                                size: 14,
-                                                color: Color(0xFF16A34A)),
-                                          ),
-                                          const SizedBox(width: 7),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                Config.formatLargeNumber(
-                                                    posts.length),
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 13,
-                                                  color: Color(0xFF111827),
-                                                ),
-                                              ),
-                                              Text(
-                                                l10n.profilePost,
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  color: Colors.grey.shade500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                          width: 1,
-                                          height: 28,
-                                          color: Colors.black
-                                              .withValues(alpha: 0.08)),
-                                      // Shares
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(5),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF5F0FF),
-                                              borderRadius:
-                                                  BorderRadius.circular(7),
-                                            ),
-                                            child: const Icon(
-                                                Icons.share_rounded,
-                                                size: 14,
-                                                color: Color(0xFF7C3AED)),
-                                          ),
-                                          const SizedBox(width: 7),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                Config.formatLargeNumber(
-                                                    usershare),
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 13,
-                                                  color: Color(0xFF111827),
-                                                ),
-                                              ),
-                                              Text(
-                                                l10n.profileShare,
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  color: Colors.grey.shade500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            // ── Action buttons ────────────────────────────
-                            Row(
-                              children: [
-                                // Edit Profile
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              EditProfileScreen(
-                                            userName: userName,
-                                            userPhone: widget.userPhone,
-                                            userCategory: userCategory,
-                                            userDescription: userDescription,
-                                            userAddress: userAddress,
-                                          ),
-                                        ),
-                                      );
-                                      if (result == true) {
-                                        fetchSortedPosts(
-                                            userPhone.toString(), 'recent');
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 11),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFF1040B0),
-                                            Color(0xFF1A56DB),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF1A56DB)
-                                                .withValues(alpha: 0.32),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.edit_rounded,
-                                              size: 14, color: Colors.white),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            l10n.profileEdit,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Share icon button
-                                GestureDetector(
-                                  onTap: () => shareProfile(),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(11),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF7C3AED)
-                                          .withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: const Color(0xFF7C3AED)
-                                            .withValues(alpha: 0.30),
-                                        width: 1.4,
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.share_rounded,
-                                      size: 20,
-                                      color: Color(0xFF7C3AED),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // ── Share Thought CTA ─────────────────────────
+                                  // Row(
+                                  //   mainAxisAlignment:
+                                  //       MainAxisAlignment.spaceEvenly,
+                                  //   children: [
+                                  //     // Posts
+                                  //     Row(
+                                  //       mainAxisSize: MainAxisSize.min,
+                                  //       children: [
+                                  //         Container(
+                                  //           padding: const EdgeInsets.all(5),
+                                  //           decoration: BoxDecoration(
+                                  //             color: const Color(0xFFF0FDF4),
+                                  //             borderRadius:
+                                  //                 BorderRadius.circular(7),
+                                  //           ),
+                                  //           child: const Icon(
+                                  //               Icons.article_rounded,
+                                  //               size: 14,
+                                  //               color: Color(0xFF16A34A)),
+                                  //         ),
+                                  //         const SizedBox(width: 7),
+                                  //         Column(
+                                  //           crossAxisAlignment:
+                                  //               CrossAxisAlignment.start,
+                                  //           children: [
+                                  //             Text(
+                                  //               Config.formatLargeNumber(
+                                  //                   posts.length),
+                                  //               style: const TextStyle(
+                                  //                 fontWeight: FontWeight.w800,
+                                  //                 fontSize: 13,
+                                  //                 color: Color(0xFF111827),
+                                  //               ),
+                                  //             ),
+                                  //             Text(
+                                  //               l10n.profilePost,
+                                  //               style: TextStyle(
+                                  //                 fontSize: 10.5,
+                                  //                 color: Colors.grey.shade500,
+                                  //               ),
+                                  //             ),
+                                  //           ],
+                                  //         ),
+                                  //       ],
+                                  //     ),
+                                  //     Container(
+                                  //         width: 1,
+                                  //         height: 28,
+                                  //         color: Colors.black
+                                  //             .withValues(alpha: 0.08)),
+                                  //     // Shares
+                                  //     Row(
+                                  //       mainAxisSize: MainAxisSize.min,
+                                  //       children: [
+                                  //         Container(
+                                  //           padding: const EdgeInsets.all(5),
+                                  //           decoration: BoxDecoration(
+                                  //             color: const Color(0xFFF5F0FF),
+                                  //             borderRadius:
+                                  //                 BorderRadius.circular(7),
+                                  //           ),
+                                  //           child: const Icon(
+                                  //               Icons.share_rounded,
+                                  //               size: 14,
+                                  //               color: Color(0xFF7C3AED)),
+                                  //         ),
+                                  //         const SizedBox(width: 7),
+                                  //         Column(
+                                  //           crossAxisAlignment:
+                                  //               CrossAxisAlignment.start,
+                                  //           children: [
+                                  //             Text(
+                                  //               Config.formatLargeNumber(
+                                  //                   usershare),
+                                  //               style: const TextStyle(
+                                  //                 fontWeight: FontWeight.w800,
+                                  //                 fontSize: 13,
+                                  //                 color: Color(0xFF111827),
+                                  //               ),
+                                  //             ),
+                                  //             Text(
+                                  //               l10n.profileShare,
+                                  //               style: TextStyle(
+                                  //                 fontSize: 10.5,
+                                  //                 color: Colors.grey.shade500,
+                                  //               ),
+                                  //             ),
+                                  //           ],
+                                  //         ),
+                                  //       ],
+                                  //     ),
+                                  //   ],
+                                  // ),
+                                  // ── Share Thought CTA ─────────────────────────
                             Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
@@ -1424,7 +1460,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                       MainAxisAlignment.center,
                                                   children: [
                                                     Text(
-                                                      l10n.profilePortalTitle,
+                                                      'Share a Need',
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 15,
@@ -1435,7 +1471,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                     ),
                                                     const SizedBox(height: 3),
                                                     Text(
-                                                      l10n.profilePortalSubtitle,
+                                                      'Write thoughts • Discuss • Explore',
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -1477,7 +1513,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                       MainAxisSize.min,
                                                   children: [
                                                     Text(
-                                                      l10n.profilePortalOpen,
+                                                      'Open',
                                                       style: const TextStyle(
                                                         color:
                                                             Color(0xFF1040B0),
@@ -1504,6 +1540,10 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                 ),
                               ),
                             ),
+                                ],
+                              ),
+                            ),
+
                           ],
                         ),
                       ),
@@ -1547,7 +1587,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              l10n.profileTotalCollections,
+                              'Total Collections',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -1598,7 +1638,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                l10n.profileSeeDetails,
+                                'See details',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
@@ -1790,7 +1830,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          l10n.profileNoPosts,
+                          'No posts found',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -1913,7 +1953,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                     mainDescription.isNotEmpty
                                                         ? mainDescription
                                                         : (post['post_description'] ??
-                                                                l10n.profileNoDescription)
+                                                                'No description')
                                                             .toString(),
                                                     textAlign: TextAlign.center,
                                                     maxLines: 4,
@@ -2089,7 +2129,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                       ],
                                     ),
                                     child: PopupMenuButton<String>(
-                                      tooltip: l10n.profileOptions,
+                                      tooltip: 'Options',
                                       splashRadius: 20,
                                       elevation: 12,
                                       color: Colors.white,
@@ -2111,10 +2151,9 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                 borderRadius:
                                                     BorderRadius.circular(18),
                                               ),
-                                              title: Text(
-                                                  l10n.profileConfirmDelete),
-                                              content: Text(
-                                                  l10n.profileDeleteMessage),
+                                              title: const Text('Confirm Delete'),
+                                              content: const Text(
+                                                  'Are you sure you want to delete this post?'),
                                               actionsPadding:
                                                   const EdgeInsets.only(
                                                       left: 12,
@@ -2139,8 +2178,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                                         12),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                            l10n.profileCancel),
+                                                        child: const Text('Cancel'),
                                                       ),
                                                     ),
                                                     const SizedBox(width: 10),
@@ -2164,8 +2202,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                                         12),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                            l10n.profileDelete),
+                                                        child: const Text('Delete'),
                                                       ),
                                                     ),
                                                   ],
@@ -2186,11 +2223,11 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                 _syncPostControllers();
                                               });
                                               showQuickSnack(context,
-                                                  _l10n.profileDeleteSuccess);
+                                                  'Post deleted successfully!');
                                             } else {
                                               showQuickSnack(
                                                 context,
-                                                _l10n.profileDeleteFailed,
+                                                "Couldn't delete the post. Try again!",
                                                 isError: true,
                                               );
                                             }
@@ -2235,7 +2272,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                 selectedSortValue,
                                                 page: 1);
                                             showQuickSnack(context,
-                                                _l10n.profileUpdateSuccess);
+                                                'Post updated successfully!');
                                           }
                                         }
                                       },
@@ -2249,11 +2286,10 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                   size: 20,
                                                   color: Color(0xFF1A56DB)),
                                               const SizedBox(width: 10),
-                                              Text(l10n.profileModify,
-                                                  style: const TextStyle(
+                                              const Text('Modify',
+                                                  style: TextStyle(
                                                       fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w600)),
+                                                      fontWeight: FontWeight.w600)),
                                             ],
                                           ),
                                         ),
@@ -2267,9 +2303,9 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                   size: 20,
                                                   color: Colors.redAccent),
                                               const SizedBox(width: 10),
-                                              Text(
-                                                l10n.profileDelete,
-                                                style: const TextStyle(
+                                              const Text(
+                                                'Delete',
+                                                style: TextStyle(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w700,
                                                   color: Colors.redAccent,

@@ -108,8 +108,10 @@ class ShopsFavorite extends StatefulWidget {
 
 class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
   Timer? _debounce;
+  bool _searchFocused = false;
 
   // Pagination — unchanged
   int _servicePage = 1;
@@ -126,6 +128,16 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   String sortBy = 'most_called';
   bool isLoading = false;
 
+  static const Color _brand = Color(0xFF1A56DB);
+  static const Color _bg = Color(0xFFF3F7FF);
+
+  static const _sortOptions = [
+    {'value': 'most_called', 'label': 'Most Called', 'icon': Icons.phone_rounded},
+    {'value': 'most_viewed', 'label': 'Most Viewed', 'icon': Icons.visibility_rounded},
+    {'value': 'recent',      'label': 'Recent',      'icon': Icons.schedule_rounded},
+    {'value': 'nearby',      'label': 'Nearby',      'icon': Icons.near_me_rounded},
+  ];
+
   List<UserDetail> get _visibleUsers {
     if (_query.trim().isEmpty) return combinedUsers;
     final q = _query.toLowerCase();
@@ -134,21 +146,15 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
         .toList();
   }
 
-  // ── Sort options metadata ────────────────────────────────────────────────
-
-  static const _sortOptions = [
-    {'value': 'most_called', 'label': 'সর্বাধিক কল',   'icon': Icons.phone_rounded},
-    {'value': 'most_viewed', 'label': 'সর্বাধিক দেখা',  'icon': Icons.visibility_rounded},
-    {'value': 'recent',      'label': 'সাম্প্রতিক',     'icon': Icons.schedule_rounded},
-    {'value': 'nearby',      'label': 'কাছাকাছি',       'icon': Icons.near_me_rounded},
-  ];
-
-  // ── Lifecycle — unchanged ────────────────────────────────────────────────
+  // ── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchFocus.addListener(() {
+      if (mounted) setState(() => _searchFocused = _searchFocus.hasFocus);
+    });
     fetchData();
   }
 
@@ -163,6 +169,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+    _searchFocus.dispose();
     _debounce?.cancel();
     routeObserver.unsubscribe(this);
     super.dispose();
@@ -322,16 +329,13 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      // Fix: plain Scaffold — BaseScaffold was injecting a duplicate
-      // CustomBottomNavigation bar that conflicted with NavigationScreen's
-      // existing bottom nav, resulting in two stacked nav bars.
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFF),
+        backgroundColor: _bg,
         appBar: _buildAppBar(),
         body: Column(
           children: [
-            _buildSortBar(),
             _buildSearchField(),
+            _buildSortBar(),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -342,6 +346,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   // ── AppBar ────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar() {
+    final count = _visibleUsers.length;
     return AppBar(
       backgroundColor: Colors.white,
       foregroundColor: const Color(0xFF111827),
@@ -366,7 +371,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
           ),
           if (!isLoading)
             Text(
-              '${_visibleUsers.length}টি দোকান পাওয়া গেছে',
+              '$count shop${count != 1 ? 's' : ''} found',
               style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF9CA3AF),
@@ -382,100 +387,40 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     );
   }
 
-  // ── Sort bar ──────────────────────────────────────────────────────────────
-
-  Widget _buildSortBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: _sortOptions.map((opt) {
-            final val = opt['value'] as String;
-            final label = opt['label'] as String;
-            final icon = opt['icon'] as IconData;
-            final selected = sortBy == val;
-
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFF1A56DB)
-                      : const Color(0xFFF5F7FF),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: selected
-                        ? const Color(0xFF1A56DB)
-                        : const Color(0xFFE5EAF5),
-                  ),
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          )
-                        ]
-                      : [],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(22),
-                    onTap: () => updateSorting(val),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(icon,
-                              size: 15,
-                              color: selected
-                                  ? Colors.white
-                                  : const Color(0xFF6B7280)),
-                          const SizedBox(width: 6),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: selected
-                                  ? Colors.white
-                                  : const Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
   // ── Search field ──────────────────────────────────────────────────────────
 
   Widget _buildSearchField() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-      child: Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F7FF),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5EAF5)),
+          color: _searchFocused ? Colors.white : const Color(0xFFF0F4FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _searchFocused ? _brand : const Color(0xFFDDE3F5),
+            width: _searchFocused ? 1.8 : 1.0,
+          ),
+          boxShadow: _searchFocused
+              ? [
+                  BoxShadow(
+                    color: _brand.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: TextField(
           controller: _searchController,
+          focusNode: _searchFocus,
           onChanged: (val) {
             _debounce?.cancel();
             _debounce = Timer(
@@ -484,18 +429,28 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             );
           },
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             color: Color(0xFF111827),
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
-            hintText: 'দোকানের নাম দিয়ে খুঁজুন...',
-            hintStyle: const TextStyle(
-              color: Color(0xFFADB5C7),
+            hintText: 'Search shops by name...',
+            hintStyle: TextStyle(
+              color: _searchFocused
+                  ? const Color(0xFFADB5C7)
+                  : const Color(0xFFB4BBC9),
               fontSize: 14,
+              fontWeight: FontWeight.w400,
             ),
-            prefixIcon: const Icon(Icons.search_rounded,
-                color: Color(0xFF1A56DB), size: 20),
+            prefixIcon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.search_rounded,
+                key: ValueKey(_searchFocused),
+                color: _searchFocused ? _brand : const Color(0xFFADB5C7),
+                size: 22,
+              ),
+            ),
             suffixIcon: _query.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.close_rounded,
@@ -509,9 +464,98 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 13),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ── Sort bar ──────────────────────────────────────────────────────────────
+
+  Widget _buildSortBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: _sortOptions.map((opt) {
+            final val = opt['value'] as String;
+            final label = opt['label'] as String;
+            final icon = opt['icon'] as IconData;
+            final selected = sortBy == val;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                decoration: BoxDecoration(
+                  gradient: selected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF1A56DB), Color(0xFF2563EB)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: selected ? null : const Color(0xFFF5F7FF),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: selected
+                        ? const Color(0xFF1A56DB)
+                        : const Color(0xFFE0E7F3),
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.32),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () => updateSorting(val),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 14,
+                            color: selected
+                                ? Colors.white
+                                : const Color(0xFF6B7280),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF6B7280),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -535,7 +579,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
       onRefresh: () async => fetchInitialData(),
       child: ListView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
         itemCount: _visibleUsers.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (ctx, index) {
           if (index >= _visibleUsers.length) {
@@ -547,15 +591,15 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
               ),
             );
           }
-          return _buildUserCard(_visibleUsers[index]);
+          return _buildShopCard(_visibleUsers[index]);
         },
       ),
     );
   }
 
-  // ── Shop card ─────────────────────────────────────────────────────────────
+  // ── Shop visiting card ────────────────────────────────────────────────────
 
-  Widget _buildUserCard(UserDetail user) {
+  bool _wasInteracted(UserDetail user) {
     DateTime? lastSeenDt;
     DateTime? lastCalledDt;
     try {
@@ -568,268 +612,216 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             DateFormat("EEE dd MMM yyyy HH:mm:ss").parse(user.lastCalled);
       }
     } catch (_) {}
-
     final now = DateTime.now();
     final seenRecently =
         lastSeenDt != null && now.difference(lastSeenDt).inDays <= 7;
     final calledRecently =
         lastCalledDt != null && now.difference(lastCalledDt).inDays <= 7;
-    final wasInteracted = seenRecently || calledRecently;
+    return seenRecently || calledRecently;
+  }
 
-    final accentColor = wasInteracted
-        ? const Color(0xFFF97316)
-        : const Color(0xFF1A56DB);
+  Widget _buildShopCard(UserDetail user) {
+    final bool isActive = (user.call_status ?? '').toLowerCase() == 'active';
+    final Color accent =
+        _wasInteracted(user) ? const Color(0xFFF97316) : const Color(0xFF1A56DB);
 
-    final bool isActive =
-        (user.call_status ?? '').toLowerCase() == 'active';
+    void navigate() {
+      handleAction(user.view_id, 'view', 0);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AdvertScreen(
+            userId: user.service_id.toString(),
+            isService: user.is_service,
+            advertData: AdvertData(
+              userId: user.service_id.toString(),
+              isService: user.is_service,
+              additionalData: user.service_id != 0
+                  ? {'service_id': user.service_id}
+                  : user.shop_id != 0
+                      ? {'shop_id': user.shop_id}
+                      : {'user_only': user.view_id.toString()},
+            ),
+          ),
+        ),
+      );
+    }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            handleAction(user.view_id, 'view', 0);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AdvertScreen(
-                  userId: user.service_id.toString(),
-                  isService: user.is_service,
-                  advertData: AdvertData(
-                    userId: user.service_id.toString(),
-                    isService: user.is_service,
-                    additionalData: user.service_id != 0
-                        ? {'service_id': user.service_id}
-                        : user.shop_id != 0
-                            ? {'shop_id': user.shop_id}
-                            : {'user_only': user.view_id.toString()},
-                  ),
-                ),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border(
-                left: BorderSide(color: accentColor, width: 4),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border(left: BorderSide(color: accent, width: 5)),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.10),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
             ),
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Photo + verified badge ──────────────────────────────
-                Stack(
-                  children: [
-                    Container(
-                      width: 62,
-                      height: 62,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: accentColor.withValues(alpha: 0.25),
-                            width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: user.photo.isNotEmpty
-                            ? Image.network(
-                                user.photo,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _buildNoImage(),
-                              )
-                            : _buildNoImage(),
-                      ),
-                    ),
-                    if (user.sub_type != null)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: user.sub_type == 'paid'
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.blueAccent
-                                          .withValues(alpha: 0.5),
-                                      blurRadius: 6,
-                                      spreadRadius: 1,
-                                    )
-                                  ]
-                                : [],
-                          ),
-                          padding: const EdgeInsets.all(3),
-                          child: Icon(
-                            Icons.verified_rounded,
-                            size: 16,
-                            color: user.sub_type == 'paid'
-                                ? Colors.blueAccent
-                                : Colors.grey.shade400,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(width: 12),
-
-                // ── Details ─────────────────────────────────────────────
-                Expanded(
-                  child: Column(
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: navigate,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Top row: photo + info ──────────────────────────────
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Name row + status badge
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              user.business_name,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF111827),
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Status pill
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 400),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? Colors.green.shade50
-                                  : const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: isActive
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.greenAccent
-                                            .withValues(alpha: 0.4),
-                                        blurRadius: 6,
-                                        spreadRadius: 1,
-                                      )
-                                    ]
-                                  : [],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                      _buildPhoto(user, accent),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Name + status pill
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isActive
-                                        ? Colors.green
-                                        : Colors.grey.shade400,
-                                    boxShadow: isActive
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.greenAccent
-                                                  .withValues(alpha: 0.8),
-                                              blurRadius: 4,
-                                              spreadRadius: 1,
-                                            )
-                                          ]
-                                        : [],
+                                Expanded(
+                                  child: Text(
+                                    user.business_name,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                _buildStatusPill(isActive),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            // Category
+                            Row(
+                              children: [
+                                Icon(Icons.storefront_rounded,
+                                    size: 12,
+                                    color: accent.withValues(alpha: 0.75)),
                                 const SizedBox(width: 4),
-                                Text(
-                                  isActive ? 'সক্রিয়' : 'অফলাইন',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: isActive
-                                        ? Colors.green.shade700
-                                        : Colors.grey.shade500,
+                                Expanded(
+                                  child: Text(
+                                    user.category,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      // Category
-                      Row(
-                        children: [
-                          Icon(Icons.storefront_rounded,
-                              size: 12,
-                              color: accentColor.withValues(alpha: 0.7)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              user.category,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
+                            // Address / location
+                            if (user.address.isNotEmpty &&
+                                user.address != 'No Address') ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on_rounded,
+                                      size: 12,
+                                      color: Colors.grey.shade400),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      user.address,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      // Sort-specific stat + timestamps row
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: _getSortChipContent(user, accentColor),
-                          ),
-                          const Spacer(),
-                          if (user.lastSeen.isNotEmpty ||
-                              user.lastCalled.isNotEmpty)
-                            _buildTimestamps(user),
-                        ],
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 10),
+                  Container(height: 1, color: const Color(0xFFF0F3FA)),
+                  const SizedBox(height: 10),
+
+                  // ── Bottom row: stat chip + timestamps + Visit button ───
+                  Row(
+                    children: [
+                      _buildStatChip(user, accent),
+                      if (user.lastSeen.isNotEmpty ||
+                          user.lastCalled.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildTimestamps(user),
+                      ],
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: navigate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accent,
+                                accent.withValues(alpha: 0.82),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.32),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Visit',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(Icons.arrow_forward_rounded,
+                                  size: 13, color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -837,60 +829,189 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     );
   }
 
-  // ── Sort stat chip content ────────────────────────────────────────────────
+  // ── Photo + verified badge ────────────────────────────────────────────────
 
-  Widget _getSortChipContent(UserDetail user, Color color) {
-    Widget txt(String t) => Text(t,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w700, color: color));
+  Widget _buildPhoto(UserDetail user, Color accent) {
+    return Stack(
+      children: [
+        Container(
+          width: 68,
+          height: 68,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border:
+                Border.all(color: accent.withValues(alpha: 0.28), width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.14),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: user.photo.isNotEmpty
+                ? Image.network(
+                    user.photo,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildNoImage(),
+                  )
+                : _buildNoImage(),
+          ),
+        ),
+        if (user.sub_type != null)
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: user.sub_type == 'paid'
+                    ? [
+                        BoxShadow(
+                          color: Colors.blueAccent.withValues(alpha: 0.5),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : [],
+              ),
+              padding: const EdgeInsets.all(2.5),
+              child: Icon(
+                Icons.verified_rounded,
+                size: 15,
+                color: user.sub_type == 'paid'
+                    ? Colors.blueAccent
+                    : Colors.grey.shade400,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── Status pill ───────────────────────────────────────────────────────────
+
+  Widget _buildStatusPill(bool isActive) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.green.shade50 : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: Colors.greenAccent.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                )
+              ]
+            : [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? Colors.green : Colors.grey.shade400,
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: Colors.greenAccent.withValues(alpha: 0.8),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : [],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isActive ? 'Active' : 'Offline',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isActive ? Colors.green.shade700 : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Stat chip ─────────────────────────────────────────────────────────────
+
+  Widget _buildStatChip(UserDetail user, Color color) {
+    Widget txt(String t) => Text(
+          t,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: color),
+        );
     Widget ico(IconData i) => Icon(i, size: 11, color: color);
 
+    Widget content;
     switch (sortBy) {
       case 'most_called':
-        return Row(mainAxisSize: MainAxisSize.min, children: [
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
           ico(Icons.phone_rounded),
           const SizedBox(width: 4),
           txt(user.user_called == '0'
-              ? 'কোনো কল নেই'
-              : '${Config.formatLargeNumber(int.parse(user.user_called))} কল'),
+              ? 'No calls'
+              : '${Config.formatLargeNumber(int.parse(user.user_called))} calls'),
         ]);
+        break;
       case 'most_viewed':
-        return Row(mainAxisSize: MainAxisSize.min, children: [
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
           ico(Icons.visibility_rounded),
           const SizedBox(width: 4),
           txt(user.user_viewed == '0'
-              ? 'কোনো ভিউ নেই'
-              : '${Config.formatLargeNumber(int.parse(user.user_viewed))} ভিউ'),
+              ? 'No views'
+              : '${Config.formatLargeNumber(int.parse(user.user_viewed))} views'),
         ]);
+        break;
       case 'recent':
-        return Row(mainAxisSize: MainAxisSize.min, children: [
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
           ico(Icons.schedule_rounded),
           const SizedBox(width: 4),
           txt(Config.getTimeDifference(user.days_since_creation)),
         ]);
+        break;
       case 'nearby':
-        return Row(mainAxisSize: MainAxisSize.min, children: [
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
           ico(Icons.near_me_rounded),
           const SizedBox(width: 4),
           txt(user.distance != null && user.distance!.isNotEmpty
               ? user.distance!
-              : 'দূরত্ব অজানা'),
+              : 'Unknown dist.'),
         ]);
+        break;
       default:
-        return const SizedBox.shrink();
+        content = const SizedBox.shrink();
     }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: content,
+    );
   }
 
   // ── Timestamps ────────────────────────────────────────────────────────────
 
   Widget _buildTimestamps(UserDetail user) {
-    final seenStr =
-        Config.getTimeDifference(user.lastSeen, fallback: '');
-    final calledStr =
-        Config.getTimeDifference(user.lastCalled, fallback: '');
+    final seenStr = Config.getTimeDifference(user.lastSeen, fallback: '');
+    final calledStr = Config.getTimeDifference(user.lastCalled, fallback: '');
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (seenStr.isNotEmpty)
@@ -948,9 +1069,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             ),
             const SizedBox(height: 20),
             Text(
-              isNearbyNoLoc
-                  ? 'লোকেশন অ্যাক্সেস নেই'
-                  : 'কোনো দোকান পাওয়া যায়নি',
+              isNearbyNoLoc ? 'Location Access Denied' : 'No shops found',
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -960,8 +1079,8 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             const SizedBox(height: 8),
             Text(
               isNearbyNoLoc
-                  ? 'কাছাকাছি ফলাফল দেখতে লোকেশন অনুমতি দিন।'
-                  : 'এই বিভাগে এখনো কোনো দোকান যোগ হয়নি।\nঅন্য ফিল্টার দিয়ে চেষ্টা করুন।',
+                  ? 'Allow location access to see nearby results.'
+                  : 'No shops have been added in this category yet.\nTry a different filter.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,

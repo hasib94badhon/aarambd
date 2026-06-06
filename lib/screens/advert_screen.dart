@@ -3,18 +3,16 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/profile_picture_dialog.dart';
-import 'package:aaram_bd/widgets/userstarwidget.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:marquee/marquee.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
@@ -511,126 +509,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
     );
   }
 
-  // ── Review UI ────────────────────────────────────────────────────────────────
-
-  Widget _buildReviewSection(UserDetail user) {
-    final good  = _reviewSummary?['good_count'] ?? 0;
-    final bad   = _reviewSummary?['bad_count'] ?? 0;
-    final total = _reviewSummary?['total'] ?? 0;
-    final isOwnProfile =
-        loginUserId != null && int.tryParse(loginUserId!) == user.user_id;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: const Border.fromBorderSide(BorderSide(color: Color(0xFFE8EDF5))),
-        boxShadow: const [
-          BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Reviews',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A2340),
-                ),
-              ),
-              if (!isOwnProfile)
-                GestureDetector(
-                  onTap: () => _showReviewSheet(user),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDF4FF),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _myReviewId != null
-                              ? Icons.edit_outlined
-                              : Icons.rate_review_outlined,
-                          size: 13,
-                          color: const Color(0xFF1A56DB),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _myReviewId != null ? 'Edit Review' : 'Write Review',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1A56DB),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _reviewBadge(Icons.thumb_up_rounded, '$good Good',
-                  const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
-              const SizedBox(width: 8),
-              _reviewBadge(Icons.thumb_down_rounded, '$bad Bad',
-                  const Color(0xFFDC2626), const Color(0xFFFEF2F2)),
-              const Spacer(),
-              if (total > 0)
-                GestureDetector(
-                  onTap: () => _showReviewSheet(user),
-                  child: Text(
-                    'See all $total',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1A56DB),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _reviewBadge(IconData icon, String label, Color color, Color bg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -799,304 +677,607 @@ class _AdvertScreenState extends State<AdvertScreen> {
     return img;
   }
 
+  // ── Star count replication of UserStarWidget.calculateStars() ───────────────
+  int _calcUserStars(UserDetail user) {
+    int stars = 0;
+    if (user.phone.isNotEmpty &&
+        user.businessName.isNotEmpty &&
+        user.photo.isNotEmpty) stars++;
+    if ((user.tin ?? '').isNotEmpty || (user.nid ?? '').isNotEmpty) stars++;
+    if (user.user_viewed >= 1500 && user.user_called > 500) stars++;
+    if (user.posts.length >= 150) stars++;
+    if (user.sub_type == 'paid') stars++;
+    return stars;
+  }
+
+  // Single star dot for the curved arc
+  Widget _arcStarDot(bool lit) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: lit ? Colors.amber.shade50 : const Color(0xFFF1F5F9),
+        border: Border.all(
+          color: lit ? Colors.amber.shade300 : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: lit
+            ? [
+                BoxShadow(
+                  color: Colors.amber.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Icon(
+        Icons.star_rounded,
+        size: 13,
+        color: lit ? Colors.amber.shade500 : const Color(0xFFCBD5E1),
+        shadows: lit
+            ? [Shadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 8)]
+            : null,
+      ),
+    );
+  }
+
+  // Compact review panel shown to the right of the avatar in the header
   Widget _buildHeader(UserDetail user) {
     final bool isActive = user.call_status?.toLowerCase() == 'active';
+    const double avatarSz = 140.0;
+    const double starRadius = 84.0;
+    const double starSz = 20.0;
+    final int starCount = _calcUserStars(user);
+    final bool isOwn =
+        loginUserId != null && int.tryParse(loginUserId!) == user.user_id;
+    final int good = _reviewSummary?['good_count'] ?? 0;
+    final int bad = _reviewSummary?['bad_count'] ?? 0;
+    final int total = _reviewSummary?['total'] ?? 0;
+
+    // 5 stars in a 64° arc (122° → 58°, 16° steps) centred at 12 o'clock (90°)
+    final List<Widget> arcStars = List.generate(5, (i) {
+      final double theta = (122.0 - 16.0 * i) * math.pi / 180.0;
+      return Positioned(
+        left: avatarSz / 2 + starRadius * math.cos(theta) - starSz / 2,
+        top: avatarSz / 2 - starRadius * math.sin(theta) - starSz / 2,
+        child: _arcStarDot(i < starCount),
+      );
+    });
+
     return Container(
-      color: const Color(0xFFF0F4FA),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      color: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top row: Star badge + Favorite button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              UserStarWidget(
-                phone: user.phone,
-                name: user.businessName,
-                profilePicture: user.photo,
-                tin: user.tin,
-                nid: user.nid,
-                postCount: user.posts.length,
-                view: user.user_viewed,
-                sub_type: user.sub_type,
-                usercall: user.user_called,
-              ),
-              GestureDetector(
-                onTap: () => toggleFavorite(user),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isFavorited(user)
-                        ? const Color(0xFFFFF0F0)
-                        : const Color(0xFFF1F5F9),
-                    border: Border.all(
-                      color: isFavorited(user)
-                          ? const Color(0xFFFCA5A5)
-                          : const Color(0xFFCBD5E1),
-                      width: 1.5,
+          // ─── Avatar ──────────────────────────────────────────────────────
+          Container(
+            color: const Color(0xFFF8FAFF),
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+            child: Center(
+              child: SizedBox(
+                width: avatarSz,
+                height: avatarSz,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: avatarSz,
+                      height: avatarSz,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 18,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.08),
+                            blurRadius: 24,
+                            spreadRadius: 4,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ProfilePictureDialog(
+                          photoUrl: user.photo, size: avatarSz),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isFavorited(user)
-                            ? const Color(0xFFFCA5A5).withValues(alpha: 0.5)
-                            : Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 8,
-                        spreadRadius: 1,
+                    ...arcStars,
+                    if (user.sub_type != null)
+                      Positioned(
+                        bottom: 5,
+                        right: 5,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: user.sub_type == 'paid'
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF1A56DB)
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 8,
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(
+                            Icons.verified_rounded,
+                            size: 18,
+                            color: user.sub_type == 'paid'
+                                ? const Color(0xFF1A56DB)
+                                : const Color(0xFFCBD5E1),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ─── Name / Category / Status / Address ──────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  user.businessName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 21,
+                    color: Color(0xFF0F172A),
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDF4FF),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                        color:
+                            const Color(0xFF93C5FD).withValues(alpha: 0.6)),
+                  ),
+                  child: Text(
+                    user.category,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A56DB),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _statusPill(isActive),
+                    if ((user.user_distance ?? '').isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(99),
+                          border:
+                              Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.near_me_rounded,
+                                size: 11, color: Color(0xFF16A34A)),
+                            const SizedBox(width: 3),
+                            Text(
+                              user.user_distance!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (user.address.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on_rounded,
+                          size: 12, color: Color(0xFF9CA3AF)),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          user.address,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    isFavorited(user)
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_outline_rounded,
-                    color: isFavorited(user)
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF64748B),
-                    size: 22,
-                  ),
-                ),
-              ),
-            ],
+                ],
+              ],
+            ),
           ),
 
-          const SizedBox(height: 12),
-
-          // Profile info card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
+          // ─── Call Now + WhatsApp ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _actionBtn(
+                    label: isActive ? 'Call Now' : 'Unavailable',
+                    icon: Icons.call_rounded,
+                    faIcon: null,
+                    gradient: isActive
+                        ? const LinearGradient(
+                            colors: [Color(0xFF16A34A), Color(0xFF15803D)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    glowColor: const Color(0xFF16A34A),
+                    isActive: isActive,
+                    onTap: isActive
+                        ? () async {
+                            handleAction(user.user_id, 'call', 0);
+                            updateUserCalled(
+                                user.service_or_shop_id.toString(),
+                                user.is_service);
+                            final Uri telUri =
+                                Uri(scheme: 'tel', path: user.phone);
+                            if (await canLaunchUrl(telUri)) {
+                              await launchUrl(telUri);
+                            }
+                          }
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _actionBtn(
+                    label: 'WhatsApp',
+                    icon: null,
+                    faIcon: FontAwesomeIcons.whatsapp,
+                    gradient: isActive
+                        ? const LinearGradient(
+                            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    glowColor: const Color(0xFF25D366),
+                    isActive: isActive,
+                    onTap: isActive
+                        ? () async {
+                            handleAction(user.user_id, 'call', 0);
+                            updateUserCalled(
+                                user.service_or_shop_id.toString(),
+                                user.is_service);
+                            final phoneNumber = user.phone.trim();
+                            final fullNumber = phoneNumber.startsWith('+')
+                                ? phoneNumber
+                                : '+88$phoneNumber';
+                            final Uri whatsappUri = Uri.parse(
+                                "https://wa.me/${fullNumber.replaceAll('+', '')}");
+                            if (await canLaunchUrl(whatsappUri)) {
+                              await launchUrl(whatsappUri,
+                                  mode: LaunchMode.externalApplication);
+                            }
+                          }
+                        : null,
+                  ),
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F3FA)),
+
+          // ─── Reviews + Fav + Share ────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar + name/category
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Stack(
-                      children: [
-                        ProfilePictureDialog(photoUrl: user.photo),
-                        if (user.sub_type != null)
-                          Positioned(
-                            bottom: 8,
-                            right: 8,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: user.sub_type == 'paid'
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFF1A56DB)
-                                              .withValues(alpha: 0.25),
-                                          blurRadius: 6,
-                                          spreadRadius: 1,
-                                        )
-                                      ]
-                                    : [],
-                              ),
-                              padding: const EdgeInsets.all(3),
-                              child: Icon(
-                                Icons.verified_rounded,
-                                size: 22,
-                                color: user.sub_type == 'paid'
-                                    ? const Color(0xFF1A56DB)
-                                    : const Color(0xFFCBD5E1),
-                              ),
-                            ),
-                          ),
-                      ],
+                const Text(
+                  'Reviews',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => toggleFavorite(user),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isFavorited(user)
+                          ? const Color(0xFFFEF2F2)
+                          : const Color(0xFFF8FAFC),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isFavorited(user)
+                            ? const Color(0xFFFECACA)
+                            : const Color(0xFFE2E8F0),
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.businessName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
-                              color: Color(0xFF1A2340),
-                            ),
+                    child: Icon(
+                      isFavorited(user)
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_outline_rounded,
+                      size: 18,
+                      color: isFavorited(user)
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => shareAdvertProfile(
+                    id: user.is_service ? user.serviceId : user.shopId,
+                    isService: user.is_service,
+                    userName: user.businessName,
+                    userCategory: user.category,
+                    userAddress: user.location,
+                    context: context,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Icon(Icons.share_outlined,
+                        size: 18, color: Color(0xFF94A3B8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: Row(
+              children: [
+                _inlineReviewBadge(
+                  Icons.thumb_up_rounded, '$good', 'Good',
+                  const Color(0xFF16A34A), const Color(0xFFF0FDF4),
+                  const Color(0xFFBBF7D0),
+                ),
+                const SizedBox(width: 8),
+                _inlineReviewBadge(
+                  Icons.thumb_down_rounded, '$bad', 'Bad',
+                  const Color(0xFFDC2626), const Color(0xFFFEF2F2),
+                  const Color(0xFFFECACA),
+                ),
+                if (total > 0) ...[
+                  const SizedBox(width: 8),
+                  Text('$total total',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                if (!isOwn)
+                  GestureDetector(
+                    onTap: () => _showReviewSheet(user),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(99),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.28),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEDF4FF),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              user.category,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1A56DB),
-                              ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _myReviewId != null
+                                ? Icons.edit_outlined
+                                : Icons.rate_review_outlined,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _myReviewId != null ? 'Edit' : 'Review',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F3FA)),
+
+          // ─── Stats ────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              children: [
+                _buildStatBlock(
+                  icon: Icons.phone_in_talk_rounded,
+                  value: Config.formatLargeNumber(user.user_called),
+                  label: 'Calls',
+                  color: const Color(0xFF1A56DB),
+                  bg: const Color(0xFFEDF4FF),
                 ),
-
-                if (user.description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
-                  const SizedBox(height: 10),
-                  ExpandableDescription(text: user.description.trim()),
-                ],
-
-                const SizedBox(height: 14),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-
-                // Stats row
-                Row(
-                  children: [
-                    _statBadge(
-                      icon: Icons.phone_in_talk_rounded,
-                      label: '${Config.formatLargeNumber(user.user_called)} Calls',
-                      iconColor: const Color(0xFF1A56DB),
-                      bgColor: const Color(0xFFEDF4FF),
-                    ),
-                    const SizedBox(width: 8),
-                    _statBadge(
-                      icon: Icons.visibility_rounded,
-                      label: '${Config.formatLargeNumber(user.user_viewed)} Views',
-                      iconColor: const Color(0xFFDB2777),
-                      bgColor: const Color(0xFFFDF2F8),
-                    ),
-                  ],
+                Container(
+                    width: 1, height: 40, color: const Color(0xFFF0F3FA)),
+                _buildStatBlock(
+                  icon: Icons.visibility_rounded,
+                  value: Config.formatLargeNumber(user.user_viewed),
+                  label: 'Views',
+                  color: const Color(0xFFDB2777),
+                  bg: const Color(0xFFFDF2F8),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Action buttons row
-                Row(
-                  children: [
-                    // Share
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => shareAdvertProfile(
-                          id: user.is_service ? user.serviceId : user.shopId,
-                          isService: user.is_service,
-                          userName: user.businessName,
-                          userCategory: user.category,
-                          userAddress: user.location,
-                          context: context,
-                        ),
-                        icon: const Icon(Icons.share_outlined, size: 17),
-                        label: const Text('Share'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF7C3AED),
-                          side: const BorderSide(color: Color(0xFF7C3AED)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Call
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: isActive
-                            ? () async {
-                                handleAction(user.user_id, 'call', 0);
-                                updateUserCalled(
-                                  user.service_or_shop_id.toString(),
-                                  user.is_service,
-                                );
-                                final Uri telUri =
-                                    Uri(scheme: 'tel', path: user.phone);
-                                if (await canLaunchUrl(telUri)) {
-                                  await launchUrl(telUri);
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.call_rounded, size: 17),
-                        label: const Text('Call'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isActive
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFE2E8F0),
-                          foregroundColor:
-                              isActive ? Colors.white : const Color(0xFF94A3B8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // WhatsApp
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: isActive
-                            ? () async {
-                                handleAction(user.user_id, 'call', 0);
-                                updateUserCalled(
-                                  user.service_or_shop_id.toString(),
-                                  user.is_service,
-                                );
-                                final phoneNumber = user.phone.trim();
-                                final fullNumber = phoneNumber.startsWith('+')
-                                    ? phoneNumber
-                                    : '+88$phoneNumber';
-                                final Uri whatsappUri = Uri.parse(
-                                    "https://wa.me/${fullNumber.replaceAll('+', '')}");
-                                if (await canLaunchUrl(whatsappUri)) {
-                                  await launchUrl(whatsappUri,
-                                      mode: LaunchMode.externalApplication);
-                                }
-                              }
-                            : null,
-                        icon: FaIcon(
-                          FontAwesomeIcons.whatsapp,
-                          size: 16,
-                          color: isActive ? Colors.white : const Color(0xFF94A3B8),
-                        ),
-                        label: const Text('WhatsApp'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isActive
-                              ? const Color(0xFF25D366)
-                              : const Color(0xFFE2E8F0),
-                          foregroundColor:
-                              isActive ? Colors.white : const Color(0xFF94A3B8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
+                Container(
+                    width: 1, height: 40, color: const Color(0xFFF0F3FA)),
+                _buildStatBlock(
+                  icon: Icons.article_rounded,
+                  value: user.totalpost ?? '0',
+                  label: 'Posts',
+                  color: const Color(0xFF0D9488),
+                  bg: const Color(0xFFF0FDFA),
                 ),
               ],
+            ),
+          ),
+
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F3FA)),
+          const SizedBox(height: 14),
+
+          // ─── Description ─────────────────────────────────────────────────
+          if (user.description.trim().isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+              child: ExpandableDescription(text: user.description.trim()),
+            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFF0F3FA)),
+            const SizedBox(height: 14),
+          ],
+
+        ],
+      ),
+    );
+  }
+
+
+  Widget _inlineReviewBadge(IconData icon, String count, String label,
+      Color iconColor, Color bg, Color border) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: iconColor),
+          const SizedBox(width: 4),
+          Text(
+            count,
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: iconColor),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: iconColor.withValues(alpha: 0.7)),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _statusPill(bool isActive) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.green.shade50 : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(99),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: Colors.greenAccent.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                )
+              ]
+            : [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? Colors.green : Colors.grey.shade400,
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: Colors.greenAccent.withValues(alpha: 0.8),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : [],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isActive ? 'Available Now' : 'Offline',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color:
+                  isActive ? Colors.green.shade700 : Colors.grey.shade500,
             ),
           ),
         ],
@@ -1104,50 +1285,107 @@ class _AdvertScreenState extends State<AdvertScreen> {
     );
   }
 
-  Widget _statBadge({
+  Widget _buildStatBlock({
     required IconData icon,
+    required String value,
     required String label,
-    required Color iconColor,
-    required Color bgColor,
+    required Color color,
+    required Color bg,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Expanded(
+      child: Column(
         children: [
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 5),
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: iconColor,
-            ),
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF9CA3AF)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _actionBtn({
+    required String label,
+    required IconData? icon,
+    required IconData? faIcon,
+    required LinearGradient? gradient,
+    required Color glowColor,
+    required bool isActive,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          color: gradient == null ? const Color(0xFFE2E8F0) : null,
+          borderRadius: BorderRadius.circular(13),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: glowColor.withValues(alpha: 0.30),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  )
+                ]
+              : [],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (icon != null)
+              Icon(icon,
+                  size: 17,
+                  color: isActive ? Colors.white : const Color(0xFF94A3B8)),
+            if (faIcon != null)
+              FaIcon(faIcon,
+                  size: 16,
+                  color: isActive ? Colors.white : const Color(0xFF94A3B8)),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isActive ? Colors.white : const Color(0xFF94A3B8),
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildImageSlider(List<PostDetail> posts, int userId) {
-    // Collect first image + postId for each post
     final items = posts
         .map((p) {
           final urls = _parseMediaToList(p.postMedia);
-          if (urls.isNotEmpty) {
-            return {'url': urls.first, 'postId': p.postId};
-          }
+          if (urls.isNotEmpty) return {'url': urls.first, 'postId': p.postId};
           return null;
         })
-        .where((e) => e != null)
+        .whereType<Map<String, dynamic>>()
         .toList();
 
-    // ✅ If no post images, show animated banner
     if (items.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
@@ -1155,41 +1393,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: CarouselSlider.builder(
-        itemCount: items.length,
-        options: CarouselOptions(
-          height: 200,
-          enlargeCenterPage: true,
-          enableInfiniteScroll: false,
-          viewportFraction: 0.9,
-        ),
-        itemBuilder: (context, index, realIndex) {
-          final item = items[index]!;
-          final url = item['url'] as String;
-          final postId = item['postId'] as int;
-
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PostDetails(
-                    postId: postId.toString(),
-                    userId: userId.toString(),
-                  ),
-                ),
-              );
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: _coverImage(url, fit: BoxFit.cover),
-            ),
-          );
-        },
-      ),
-    );
+    return _BillboardSlider(items: items, userId: userId);
   }
 
   Widget _buildPostCard(PostDetail post) {
@@ -1324,43 +1528,17 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
         final users = snapshot.data!;
         final user = users[0];
-        final address = (user.user_distance ?? '').toString();
 
         return Scaffold(
-          appBar: AppBar(
-            title: SizedBox(
-              height: 25,
-              child: Marquee(
-                text: address,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
-                scrollAxis: Axis.horizontal,
-                blankSpace: 100.0,
-                velocity: 35.0,
-                pauseAfterRound: const Duration(seconds: 1),
-                startPadding: 10.0,
-                accelerationDuration: const Duration(seconds: 1),
-                accelerationCurve: Curves.linear,
-                decelerationDuration: const Duration(milliseconds: 500),
-                decelerationCurve: Curves.easeOut,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: CustomScrollView(
+          backgroundColor: const Color(0xFFF3F7FF),
+          body: Stack(
+            children: [
+              CustomScrollView(
             controller: _scrollController,
             slivers: [
               // HEADER
               SliverToBoxAdapter(
                 child: _buildHeader(user),
-              ),
-
-              // REVIEW SUMMARY
-              SliverToBoxAdapter(
-                child: _buildReviewSection(user),
               ),
 
               // IMAGE SLIDER (previous design, but uses paginated posts)
@@ -1376,7 +1554,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
                   onSortSelected: (newSort) {
                     if (newSort != selectedSortValue) {
                       setState(() => selectedSortValue = newSort);
-                      _scrollController.jumpTo(0);
                       _loadPosts(reset: true);
                     }
                   },
@@ -1406,6 +1583,40 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     return _buildPostCard(post);
                   },
                   childCount: _posts.length + (_hasMore ? 1 : 0),
+                ),
+              ),
+            ],
+          ),
+              // Floating back button – always visible at top-left
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 8),
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.14),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1978,6 +2189,204 @@ class _ReviewSheetState extends State<_ReviewSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BillboardSlider extends StatefulWidget {
+  final List<Map<String, dynamic>> items;
+  final int userId;
+
+  const _BillboardSlider({required this.items, required this.userId});
+
+  @override
+  State<_BillboardSlider> createState() => _BillboardSliderState();
+}
+
+class _BillboardSliderState extends State<_BillboardSlider> {
+  late final PageController _pc;
+  int _active = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pc = PageController(viewportFraction: 0.9);
+    if (widget.items.length > 1) {
+      _timer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
+        if (!mounted) return;
+        final next = (_active + 1) % widget.items.length;
+        _pc.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeInOutCubic,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 280,
+          child: PageView.builder(
+                controller: _pc,
+                itemCount: widget.items.length,
+                onPageChanged: (i) => setState(() => _active = i),
+                itemBuilder: (ctx, i) {
+                  final item = widget.items[i];
+                  final url = item['url'] as String;
+                  final postId = item['postId'] as int;
+                  final isActive = i == _active;
+
+                  return AnimatedScale(
+                    scale: isActive ? 1.0 : 0.93,
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PostDetails(
+                            postId: postId.toString(),
+                            userId: widget.userId.toString(),
+                          ),
+                        ),
+                      ),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isActive ? 0.28 : 0.10,
+                              ),
+                              blurRadius: isActive ? 24 : 10,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              // Full-bleed image
+                              Image.network(
+                                url,
+                                fit: BoxFit.cover,
+                                frameBuilder:
+                                    (ctx, child, frame, wasSyncLoaded) {
+                                  if (wasSyncLoaded) return child;
+                                  return AnimatedOpacity(
+                                    opacity: frame == null ? 0 : 1,
+                                    duration:
+                                        const Duration(milliseconds: 300),
+                                    curve: Curves.easeIn,
+                                    child: child,
+                                  );
+                                },
+                                errorBuilder: (ctx, err, stack) => Container(
+                                  color: const Color(0xFFF1F5F9),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.broken_image_rounded,
+                                    size: 48,
+                                    color: Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                              ),
+                              // Bottom gradient vignette
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.58),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.0, 0.52],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Slide counter chip
+                              Positioned(
+                                right: 12,
+                                bottom: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.48),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${i + 1} / ${widget.items.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        // Animated pill-dot indicators
+        if (widget.items.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.items.length, (i) {
+                final isActive = i == _active;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOut,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: isActive ? 22.0 : 6.0,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF1A56DB)
+                        : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 }

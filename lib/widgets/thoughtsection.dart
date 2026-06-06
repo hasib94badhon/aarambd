@@ -80,7 +80,9 @@ class NeedLayer {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class NeedBuilderPage extends StatefulWidget {
-  const NeedBuilderPage({super.key});
+  final String? initialCatId;
+
+  const NeedBuilderPage({super.key, this.initialCatId});
 
   @override
   State<NeedBuilderPage> createState() => _NeedBuilderPageState();
@@ -138,6 +140,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
   @override
   void initState() {
     super.initState();
+    selectedCatId = widget.initialCatId;
     _catAnimCtrl =
         AnimationController(vsync: this, duration: const Duration(milliseconds: 240));
     _catAnim = CurvedAnimation(parent: _catAnimCtrl, curve: Curves.easeInOut);

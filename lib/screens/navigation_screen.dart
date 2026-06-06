@@ -13,7 +13,6 @@ import 'package:aaram_bd/pages/ServiceCart.dart';
 import 'package:aaram_bd/screens/user_profile.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
 import 'package:aaram_bd/localization/language_provider.dart';
-import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
 
@@ -47,7 +46,8 @@ class _NotificationBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: Colors.white, width: 1.5),
           boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
+            BoxShadow(
+                color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
           ],
         ),
         alignment: Alignment.center,
@@ -92,13 +92,13 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // ── One navigator key per tab (index 0–3) ─────────────────────────────────
-  // Sub-pages (ShopsCart, UpdatePost, advert, shops_favorite …) are pushed
-  // onto the ACTIVE tab's navigator so the bottom nav stays visible.
+  // ── One navigator key per tab (index 0–5) ─────────────────────────────────
   final GlobalKey<NavigatorState> _tab0Key = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _tab1Key = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _tab2Key = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _tab3Key = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _tab4Key = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _tab5Key = GlobalKey<NavigatorState>();
 
   _NavigationScreenState({required this.userPhone});
 
@@ -111,19 +111,20 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   late List<Widget> pages;
 
-  // 4 persistent tab pages — satisfies AnimatedBottomNavigationBar (max 5,
-  // min 2).  GapLocation.center splits [Feeds, Top | gap+FAB | Experts, Profile]
-  final List<UniqueKey> pageKeys = List.generate(4, (_) => UniqueKey());
+  // 6 persistent tab pages.
+  final List<UniqueKey> pageKeys = List.generate(6, (_) => UniqueKey());
 
   dynamic serviceData;
   dynamic userData;
 
-  // ── Bottom nav config ──────────────────────────────────────────────────────
+  // ── Bottom nav config (6 items) ────────────────────────────────────────────
   static const _navIcons = [
     Icons.dashboard_outlined,  // 0  Feeds
     Icons.hive_rounded,        // 1  Top
-    Icons.engineering_rounded, // 2  Experts
-    Icons.person_rounded,      // 3  Profile
+    Icons.storefront_rounded,  // 2  Mart
+    Icons.edit_note_rounded,   // 3  Post
+    Icons.engineering_rounded, // 4  Experts
+    Icons.person_rounded,      // 5  Profile
   ];
 
   // nav labels are built dynamically in build() via l10n
@@ -143,7 +144,8 @@ class _NavigationScreenState extends State<NavigationScreen>
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.1), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 0.1, end: -0.1), weight: 2),
       TweenSequenceItem(tween: Tween(begin: -0.1, end: 0.0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _bellController, curve: Curves.easeInOut));
+    ]).animate(
+        CurvedAnimation(parent: _bellController, curve: Curves.easeInOut));
 
     initializePages();
     fetchPageData(pageIndex);
@@ -168,15 +170,29 @@ class _NavigationScreenState extends State<NavigationScreen>
   // ── Tab root pages (raw widgets — Navigator wrapping happens in build) ──────
   void initializePages() {
     pages = [
+      // 0 — Feeds
       DescriptionLandingPage(
         onLoaded: () {
           if (!mounted) return;
           setState(() => isDescLoading = false);
         },
       ),
+      // 1 — Top
       Homepage(),
-      ServiceCart(key: pageKeys[2], dataa: serviceData, userPhone: userPhone),
-      UserProfile(key: pageKeys[3], userPhone: userPhone, userData: userData),
+      // 2 — Mart: ShopsCart wrapped in a bare Scaffold (no AppBar — outer bar handles nav)
+      Scaffold(
+        backgroundColor: const Color(0xFFF8FAFF),
+        body: ShopsCart(userPhone: userPhone),
+      ),
+      // 3 — Post: UpdatePost wrapped similarly
+      Scaffold(
+        backgroundColor: const Color(0xFFF0F4FA),
+        body: UpdatePost(posts: const [], selectedSort: 'recent'),
+      ),
+      // 4 — Experts
+      ServiceCart(key: pageKeys[4], dataa: serviceData, userPhone: userPhone),
+      // 5 — Profile
+      UserProfile(key: pageKeys[5], userPhone: userPhone, userData: userData),
     ];
   }
 
@@ -245,31 +261,23 @@ class _NavigationScreenState extends State<NavigationScreen>
   Future<void> fetchPageData(int index) async {
     final ctx = context;
     switch (index) {
-      case 0:
-        break; // DescriptionLandingPage loads itself
-      case 1:
-        break; // Homepage loads itself
-      case 2:
+      case 0: break; // DescriptionLandingPage loads itself
+      case 1: break; // Homepage loads itself
+      case 2: break; // ShopsCart loads itself
+      case 3: break; // UpdatePost loads itself
+      case 4:
         final resp = await Config.apiGet('/get_service_data', ctx);
         if (resp != null && resp.statusCode == 200) {
           if (!mounted) return;
-          setState(() {
-            serviceData = resp.body;
-            initializePages();
-          });
+          setState(() { serviceData = resp.body; initializePages(); });
         }
         break;
-      case 3:
+      case 5:
         final resp = await Config.apiGet(
-          '/get_user_by_phone?phone=$userPhone',
-          ctx,
-        );
+          '/get_user_by_phone?phone=$userPhone', ctx);
         if (resp != null && resp.statusCode == 200) {
           if (!mounted) return;
-          setState(() {
-            userData = resp.body;
-            initializePages();
-          });
+          setState(() { userData = resp.body; initializePages(); });
         }
         break;
     }
@@ -277,14 +285,15 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   // ── Nested navigator helpers ───────────────────────────────────────────────
 
-  /// Returns the [NavigatorState] key for the currently visible tab.
-  /// pageIndex is always 0–3 (matches the 4 bottom-nav items).
+  /// Returns the [NavigatorState] key for the currently visible tab (0–5).
   GlobalKey<NavigatorState> get _currentNavKey {
     switch (pageIndex) {
       case 0: return _tab0Key;
       case 1: return _tab1Key;
       case 2: return _tab2Key;
-      default: return _tab3Key;
+      case 3: return _tab3Key;
+      case 4: return _tab4Key;
+      default: return _tab5Key;
     }
   }
 
@@ -302,41 +311,11 @@ class _NavigationScreenState extends State<NavigationScreen>
   // ── AppBar actions — all push into the active tab's nested navigator ────────
 
   /// Opens ThoughtSectionPage on the ROOT navigator (full-screen compose flow).
-  void _openThoughtSection() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => NeedBuilderPage()),
-    ).then((_) => refreshCurrentPage());
-  }
+
 
   /// Opens ShopsCart inside the active tab's navigator so the bottom nav
   /// remains visible while the user browses categories and shops.
-  void _openMart() {
-    final title = _l10n.navMartTitle;
-    _currentNavKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: const Color(0xFFF8FAFF),
-          appBar: _buildSimpleAppBar(title, Icons.storefront_rounded),
-          body: ShopsCart(userPhone: userPhone),
-        ),
-      ),
-    );
-  }
 
-  /// Opens UpdatePost inside the active tab's navigator.
-  void _openUpdatePost() {
-    final title = _l10n.navUpdatePostTitle;
-    _currentNavKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: const Color(0xFFF0F4FA),
-          appBar: _buildSimpleAppBar(title, Icons.edit_note_rounded),
-          body: UpdatePost(posts: const [], selectedSort: 'recent'),
-        ),
-      ),
-    );
-  }
 
   // ── Shared simple AppBar for nested-navigator screens ─────────────────────
   AppBar _buildSimpleAppBar(String title, IconData titleIcon) {
@@ -441,21 +420,7 @@ class _NavigationScreenState extends State<NavigationScreen>
 
         const Spacer(),
 
-        // ── Quick action: Mart ──
-        _appBarActionBtn(
-          icon: Icons.storefront_rounded,
-          label: l10n.navMart,
-          onTap: _openMart,
-        ),
 
-        const SizedBox(width: 6),
-
-        // ── Quick action: Update Post ──
-        _appBarActionBtn(
-          icon: Icons.edit_note_rounded,
-          label: l10n.navPost,
-          onTap: _openUpdatePost,
-        ),
 
         const SizedBox(width: 6),
 
@@ -557,43 +522,106 @@ class _NavigationScreenState extends State<NavigationScreen>
     );
   }
 
-  // ── Bottom nav item ────────────────────────────────────────────────────────
+  // ──    nav item ────────────────────────────────────────────────────────
   Widget _buildNavItem({
     required bool isActive,
     required IconData icon,
     required String label,
+    required VoidCallback onTap,
   }) {
-    final color = isActive ? _brand : _inactive;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: isActive ? 26 : 22, color: color),
-        const SizedBox(height: 2),
-        AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: isActive ? 12 : 11,
-            color: color,
-            fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-            inherit: false,
-          ),
-          child: Text(label),
-        ),
-        const SizedBox(height: 3),
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: isActive ? 1.0 : 0.0,
-          child: Container(
-            width: 14,
-            height: 3,
-            decoration: BoxDecoration(
-              color: _brand,
-              borderRadius: BorderRadius.circular(999),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ── Pseudo-3D icon container ──────────────────────────────────────
+          // Active: gradient fill + dual shadow (glow below + specular above)
+          //         → appears raised from the surface.
+          // Inactive: neutral tinted card + neumorphic shadow pair
+          //           → appears slightly recessed.
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            width: isActive ? 50 : 42,
+            height: isActive ? 36 : 32,
+            decoration: isActive
+                ? BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF4B80FF), // lighter at top-left (light source)
+                        Color(0xFF1A56DB), // mid brand blue
+                        Color(0xFF1240BE), // deeper at bottom-right (shadow side)
+                      ],
+                      stops: [0.0, 0.55, 1.0],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      // Primary coloured glow — creates elevation illusion
+                      BoxShadow(
+                        color: const Color(0xFF1A56DB).withValues(alpha: 0.46),
+                        blurRadius: 18,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 6),
+                      ),
+                      // Soft secondary spread for depth
+                      BoxShadow(
+                        color: const Color(0xFF1A56DB).withValues(alpha: 0.14),
+                        blurRadius: 6,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  )
+                : BoxDecoration(
+                    color: const Color(0xFFEEF1F8),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      // Dark shadow bottom-right (recessed depth)
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.07),
+                        blurRadius: 7,
+                        offset: const Offset(2, 3),
+                      ),
+                      // White highlight top-left (neumorphic lift — very subtle)
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        blurRadius: 4,
+                        offset: const Offset(-1, -1),
+                      ),
+                    ],
+                  ),
+            child: Center(
+              child: Icon(
+                icon,
+                size: isActive ? 20 : 17,
+                color: isActive ? Colors.white : const Color(0xFF8896B3),
+              ),
             ),
           ),
-        ),
-      ],
+
+          const SizedBox(height: 5),
+
+          // ── Premium label ─────────────────────────────────────────────────
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: isActive ? 9.5 : 9.0,
+              color: isActive
+                  ? const Color(0xFF1A56DB)
+                  : const Color(0xFFA0AABF),
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: isActive ? 0.30 : 0.15,
+              inherit: false,
+            ),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
     );
   }
 
@@ -601,7 +629,14 @@ class _NavigationScreenState extends State<NavigationScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = context.watch<LanguageProvider>().l10n;
-    final navLabels = [l10n.navFeeds, l10n.navTop, l10n.navExperts, l10n.navProfile];
+    final navLabels = [
+      l10n.navFeeds,
+      l10n.navTop,
+      l10n.navMart,
+      l10n.navPost,
+      l10n.navExperts,
+      l10n.navProfile,
+    ];
     // PopScope intercepts hardware back / iOS swipe-back and delegates to the
     // active tab's nested navigator.  If there is nothing to pop on the nested
     // navigator (user is at the tab root) the back event is swallowed so the
@@ -637,19 +672,18 @@ class _NavigationScreenState extends State<NavigationScreen>
 
         drawer: AppDrawer(userPhone: userPhone),
 
-        // ── Body — IndexedStack with 4 nested navigators ──────────────────────
-        // Each tab gets its own Navigator so sub-pages (ShopsCart, advert,
-        // shops_favorite …) pushed from within a tab stay inside the shell and
-        // the bottom nav + AppBar remain visible.
+        // ── Body — IndexedStack with 6 nested navigators ──────────────────────
         body: Stack(
           children: [
             IndexedStack(
               index: pageIndex,
               children: [
-                _tabNav(_tab0Key, pages[0]),
-                _tabNav(_tab1Key, pages[1]),
-                _tabNav(_tab2Key, pages[2]),
-                _tabNav(_tab3Key, pages[3]),
+                _tabNav(_tab0Key, pages[0]), // Feeds
+                _tabNav(_tab1Key, pages[1]), // Top
+                _tabNav(_tab2Key, pages[2]), // Mart
+                _tabNav(_tab3Key, pages[3]), // Post
+                _tabNav(_tab4Key, pages[4]), // Experts
+                _tabNav(_tab5Key, pages[5]), // Profile
               ],
             ),
             if (pageIndex == 0 && isDescLoading)
@@ -678,111 +712,71 @@ class _NavigationScreenState extends State<NavigationScreen>
           ],
         ),
 
-        // ── Center FAB → ThoughtSectionPage (root navigator, full-screen) ─────
-       floatingActionButton: Container(
-  height: 70,
-  width: 70,
-  decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    gradient: const LinearGradient(
-      colors: [
-        Color(0xFF00E676), // neon green
-        Color(0xFF00C853), // deep green
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: const Color(0xFF00E676).withOpacity(0.6),
-        blurRadius: 22,
-        spreadRadius: 2,
-        offset: const Offset(0, 6),
-      ),
-      BoxShadow(
-        color: Colors.black.withOpacity(0.25),
-        blurRadius: 10,
-        offset: const Offset(0, 4),
-      ),
-    ],
-  ),
-  child: FloatingActionButton(
-    elevation: 0,
-    backgroundColor: Colors.transparent,
-    onPressed: _openThoughtSection,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(
-          Icons.bolt_rounded, // more “live” than auto_awesome
-          size: 28,
-          color: Colors.white,
-        ),
-        const SizedBox(height: 2),
-        const Text(
-          "LIVE",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
-        // ── Bottom nav (4 items, activeIndex always 0–3) ──────────────────────
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x1A000000),
-                blurRadius: 14,
-                offset: Offset(0, -4),
+        // ── Floating dock nav bar ─────────────────────────────────────────────
+        // Wrapped in Padding to detach it from the screen edges — creates the
+        // "floating dock" effect common in premium mobile apps.
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Container(
+            decoration: BoxDecoration(
+              // Fractionally off-white with a cool blue undertone — not pure
+              // white, which reads as flat. This tint harmonises with _brand.
+              color: const Color(0xFFFCFDFF),
+              borderRadius: BorderRadius.circular(30),
+              // Refined 1 px border — separates the dock from the page
+              // without a heavy line.
+              border: Border.all(
+                color: const Color(0xFFE5E9F5),
+                width: 1,
               ),
-            ],
-            border: Border(
-              top: BorderSide(color: Color(0xFFEAEDF2), width: 1),
+              boxShadow: [
+                // Deep diffuse shadow — conveys that the bar floats above
+                // the page content.
+                BoxShadow(
+                  color: const Color(0xFF1A2B6B).withValues(alpha: 0.09),
+                  blurRadius: 32,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 12),
+                ),
+                // Secondary tighter shadow — adds crispness at the base.
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            child: AnimatedBottomNavigationBar.builder(
-              itemCount: _navIcons.length, // 4 — within the 2–5 constraint ✅
-              activeIndex: pageIndex,      // always 0–3, no assertion risk ✅
-              gapLocation: GapLocation.center,
-              notchSmoothness: NotchSmoothness.softEdge,
-              notchMargin: 6,
-              leftCornerRadius: 20,
-              rightCornerRadius: 20,
-              backgroundColor: Colors.white,
-              elevation: 0,
-              height: 68,
-              tabBuilder: (int index, bool isActive) => _buildNavItem(
-                isActive: isActive,
-                icon: _navIcons[index],
-                label: navLabels[index],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < _navIcons.length; i++)
+                        Expanded(
+                          child: _buildNavItem(
+                            isActive: pageIndex == i,
+                            icon: _navIcons[i],
+                            label: navLabels[i],
+                            onTap: () {
+                              if (pageIndex == i) {
+                                refreshPage(i);
+                              } else {
+                                setState(() => pageIndex = i);
+                                fetchPageData(i);
+                                getUnreadCount();
+                              }
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-              onTap: (index) {
-                if (index == pageIndex) {
-                  refreshPage(index);
-                } else {
-                  setState(() => pageIndex = index);
-                  fetchPageData(index);
-                  getUnreadCount();
-                }
-              },
             ),
           ),
         ),

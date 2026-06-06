@@ -700,63 +700,66 @@ Future<void> _refreshAll() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FA),
+      backgroundColor: const Color(0xFFF3F7FF),
       body: RefreshIndicator(
         onRefresh: _refreshAll,
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAdSlider(),
-              const SizedBox(height: 12),
-              _sectionShell(
-                child: Column(
-                  children: [
-                    _buildBanner('Facebook Business', onTap: fb_page),
-                    _buildFbPageSection(),
-                  ],
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAdSlider(),
+                const SizedBox(height: 10),
+                _sectionShell(
+                  child: Column(
+                    children: [
+                      _buildBanner('Facebook Business', onTap: fb_page),
+                      _buildFbPageSection(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              _sectionShell(
-                child: Column(
-                  children: [
-                    _buildBanner('Trending post', onTap: mostUpdatePost),
-                    _buildPostSection(),
-                  ],
+                const SizedBox(height: 10),
+                _sectionShell(
+                  child: Column(
+                    children: [
+                      _buildBanner('Trending post', onTap: mostUpdatePost),
+                      _buildPostSection(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              _sectionShell(
-                child: Column(
-                  children: [
-                    _buildBanner('Top Peoples',
-                        onTap: navigateToMostUsedCategoryPage, showSeeAll: false),
-                    MostViewedUserSlider(users: _mostViewedUsers),
-                  ],
+                const SizedBox(height: 10),
+                _sectionShell(
+                  child: Column(
+                    children: [
+                      _buildBanner('Top Peoples',
+                          onTap: navigateToMostUsedCategoryPage, showSeeAll: false),
+                      MostViewedUserSlider(users: _mostViewedUsers),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              _sectionShell(
-                child: Column(
-                  children: [
-                    _buildBanner('Top Apps', onTap: fetchAppDataa),
-                    _buildAppSection(),
-                  ],
+                const SizedBox(height: 10),
+                _sectionShell(
+                  child: Column(
+                    children: [
+                      _buildBanner('Top Apps', onTap: fetchAppDataa),
+                      _buildAppSection(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              _sectionShell(
-                child: Column(
-                  children: [
-                    _buildBanner('Hotline numbers',
-                        onTap: fetchHotlineCategoriess),
-                    _buildHotlineSection(),
-                  ],
+                const SizedBox(height: 10),
+                _sectionShell(
+                  child: Column(
+                    children: [
+                      _buildBanner('Hotline numbers',
+                          onTap: fetchHotlineCategoriess),
+                      _buildHotlineSection(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -767,16 +770,18 @@ Future<void> _refreshAll() async {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
         ],
-        border: const Border.fromBorderSide(
-          BorderSide(color: Color(0xFFE8EDF5)),
-        ),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      padding: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.only(bottom: 10),
       child: child,
     );
   }
@@ -882,14 +887,16 @@ Widget _buildAdSlider() {
       AnimatedSmoothIndicator(
         activeIndex: _currentPage,
         count: _sliderPosts.length,
-        effect: WormEffect(
-          dotHeight: 8,
-          dotWidth: 8,
-          spacing: 8,
+        effect: ExpandingDotsEffect(
+          dotHeight: 6,
+          dotWidth: 6,
+          spacing: 6,
           activeDotColor: const Color(0xFF1A56DB),
-          dotColor: Colors.grey.shade300,
+          dotColor: Color(0xFFCBD5E1),
+          expansionFactor: 3,
         ),
       ),
+      const SizedBox(height: 10),
     ],
   );
 }
@@ -945,7 +952,7 @@ Widget _chip({
 
         final pages = snapshot.data!;
         return SizedBox(
-          height: 162,
+          height: 170,
           child: EdgeFadeList(
             overlayWidth: 34,
             chevronColor: Colors.black26,
@@ -956,23 +963,22 @@ Widget _chip({
               itemBuilder: (context, index) {
                 final page = pages[index];
                 return Container(
-                  width: 140,
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  width: 136,
+                  margin: const EdgeInsets.only(left: 4, right: 10, bottom: 8),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     color: Colors.white,
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 6,
-                          offset: Offset(0, 2))
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
-                    border: const Border.fromBorderSide(
-                      BorderSide(color: Color(0xFFE8EDF5)),
-                    ),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
                   ),
                   child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () async {
                       final webUrl = page.link;
                       final webUri = Uri.parse(webUrl);
@@ -995,43 +1001,66 @@ Widget _chip({
                       );
                     },
                     child: Padding(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          CircleAvatar(
-  radius: 32,
-  backgroundColor: const Color(0xFF1877F2),
-  child: const FaIcon(
-    FontAwesomeIcons.facebookF,
-    color: Colors.white,
-    size: 28,
-  ),
-),
-                          const SizedBox(height: 6),
+                          page.photo.isNotEmpty
+                              ? CircleAvatar(
+                                  backgroundImage: NetworkImage(page.photo),
+                                  radius: 28,
+                                )
+                              : CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: const Color(0xFF1877F2),
+                                  child: const FaIcon(FontAwesomeIcons.facebookF, color: Colors.white, size: 26),
+                                ),
+                          const SizedBox(height: 8),
                           Text(
                             page.name,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                              color: Colors.black87,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                           ),
-                          Text(
-                            page.cat,
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.black54),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
+                          const SizedBox(height: 3),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A56DB).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              page.cat,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1A56DB),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          Text(
-                            '${Config.formatLargeNumber(page.totalViews)} views',
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.black54),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.remove_red_eye_outlined, size: 11, color: Colors.black38),
+                              const SizedBox(width: 3),
+                              Text(
+                                Config.formatLargeNumber(page.totalViews),
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.black45,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1131,7 +1160,7 @@ Widget _chip({
     }
 
     return SizedBox(
-      height: 120,
+      height: 118,
       child: EdgeFadeList(
         overlayWidth: 34,
         builder: (ctrl) => ListView.builder(
@@ -1143,40 +1172,66 @@ Widget _chip({
             return GestureDetector(
               onTap: () => _launchApp(context, app),
               child: Container(
-                width: 120,
-                margin: const EdgeInsets.only(right: 8, bottom: 12, left: 8),
+                width: 100,
+                margin: const EdgeInsets.only(left: 4, right: 10, bottom: 8),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   color: Colors.white,
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                        color: Color(0x0A000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 2))
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
-                  border: const Border.fromBorderSide(
-                    BorderSide(color: Color(0xFFE8EDF5)),
-                  ),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     app.photo.isNotEmpty
-                        ? CircleAvatar(
-                            backgroundImage: NetworkImage(app.photo),
-                            radius: 28)
-                        : const Icon(Icons.apps,
-                            color: Colors.purple, size: 40),
-                    const SizedBox(height: 6),
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              app.photo,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A56DB).withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.apps_rounded,
+                                    color: Color(0xFF1A56DB), size: 24),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A56DB).withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.apps_rounded,
+                                color: Color(0xFF1A56DB), size: 24),
+                          ),
+                    const SizedBox(height: 8),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Text(
                         app.name,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ],
@@ -1197,7 +1252,7 @@ Widget _chip({
     }
 
     return SizedBox(
-      height: 150,
+      height: 170,
       child: EdgeFadeList(
         overlayWidth: 34,
         builder: (ctrl) => ListView.builder(
@@ -1220,26 +1275,25 @@ Widget _chip({
               },
               child: Container(
                 width: 160,
-                margin: const EdgeInsets.only(right: 8, bottom: 8, left: 8),
-                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(left: 4, right: 10, bottom: 8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   color: Colors.white,
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                        color: Color(0x0A000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 2))
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
-                  border: const Border.fromBorderSide(
-                    BorderSide(color: Color(0xFFE8EDF5)),
-                  ),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
-                      height: 70,
+                      height: 68,
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -1301,15 +1355,25 @@ Widget _chip({
                     Text(
                       cat.category,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.black87),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      '${cat.count} numbers',
-                      style:
-                          const TextStyle(fontSize: 11, color: Colors.black54),
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A56DB).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${cat.count} numbers',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF1A56DB),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1337,15 +1401,18 @@ Widget _buildPostSection() {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildSortButton("🗨️ Comments", PostSortType.mostCommented),
-          const SizedBox(width: 6),
-          _buildSortButton("👁️ Views", PostSortType.mostViewed),
-          const SizedBox(width: 6),
-          _buildSortButton("🕒 Recent", PostSortType.mostRecent),
-        ],
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildSortButton(Icons.chat_bubble_outline_rounded, "Comments", PostSortType.mostCommented),
+            const SizedBox(width: 8),
+            _buildSortButton(Icons.remove_red_eye_outlined, "Views", PostSortType.mostViewed),
+            const SizedBox(width: 8),
+            _buildSortButton(Icons.access_time_rounded, "Recent", PostSortType.mostRecent),
+          ],
+        ),
       ),
       const SizedBox(height: 12),
 
@@ -1546,24 +1613,33 @@ Widget _buildPostSection() {
                                 const Spacer(),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
+                                      horizontal: 13, vertical: 7),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1A56DB)
-                                        .withValues(alpha: 0.10),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: const Color(0xFF1A56DB)
-                                          .withValues(alpha: 0.15),
-                                    ),
+                                    color: const Color(0xFF1A56DB),
+                                    borderRadius: BorderRadius.circular(9),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF1A56DB).withValues(alpha: 0.30),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
                                   ),
-                                  child: const Text(
-                                    "Open",
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF1A56DB),
-                                      letterSpacing: 0.2,
-                                    ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Open',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.white),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -1673,16 +1749,26 @@ Widget _metricChip({required IconData icon, required String value}) {
   Widget _buildBanner(String title,
       {required VoidCallback onTap, bool showSeeAll = true}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
       child: Row(
         children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A56DB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: Color(0xFF1A2340),
+                letterSpacing: -0.2,
               ),
             ),
           ),
@@ -1690,29 +1776,28 @@ Widget _metricChip({required IconData icon, required String value}) {
             GestureDetector(
               onTap: () => _avoidMultipleClick(onTap),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDF4FF),
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: const Color(0xFFBFD7FF)),
+                  color: const Color(0xFF1A56DB).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF1A56DB).withValues(alpha: 0.18),
+                  ),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      "See All",
+                      'See all',
                       style: TextStyle(
                         color: Color(0xFF1A56DB),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
                       ),
                     ),
                     SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 11,
-                      color: Color(0xFF1A56DB),
-                    ),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        size: 10, color: Color(0xFF1A56DB)),
                   ],
                 ),
               ),
@@ -1742,34 +1827,46 @@ Widget _metricChip({required IconData icon, required String value}) {
 /* ===================== Helper: Sort Button (unchanged logic) ===================== */
 
 extension on _HomepageState {
-  Widget _buildSortButton(String label, PostSortType type) {
+  Widget _buildSortButton(IconData icon, String label, PostSortType type) {
     final isSelected = _selectedSortType == type;
 
     return GestureDetector(
       onTap: () => _onPostSortChanged(type),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1A56DB) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(99),
+          color: isSelected ? const Color(0xFF1A56DB) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF1A56DB)
+                : Colors.black.withValues(alpha: 0.10),
+          ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF1A56DB).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: const Color(0xFF1A56DB).withValues(alpha: 0.30),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ]
               : [],
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: isSelected ? Colors.white : const Color(0xFF64748B),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: isSelected ? Colors.white : Colors.black54),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ],
         ),
       ),
     );

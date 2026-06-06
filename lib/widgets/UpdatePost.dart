@@ -383,111 +383,132 @@ class _UpdatePostState extends State<UpdatePost> {
 
         return Scaffold(
 
+          backgroundColor: const Color(0xFFF3F7FF),
           body: Column(
             children: [
-              Padding(
+              // ── Toolbar ─────────────────────────────────────────────────
+              Container(
+                margin: const EdgeInsets.fromLTRB(14, 12, 14, 8),
                 padding: const EdgeInsets.all(12),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    // boxShadow: [
-                    //   BoxShadow(
-                    //     color: Colors.black12,
-                    //     blurRadius: 6,
-                    //     offset: Offset(0, 2),
-                    //   ),
-                    // ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showCategorySearchSheet(context),
-                          icon: const Icon(Icons.category, color: Colors.white),
-                          label: Text(
-                            selectedCategoryId != null
-                                ? catIdName[selectedCategoryId!] ??
-                                    'Select Category'
-                                : 'Select Category',
-                            style: const TextStyle(color: Colors.white),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.06)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Category picker
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _showCategorySearchSheet(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 11),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: const Color(0xFF1A56DB)
+                                    .withValues(alpha: 0.20)),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[200],
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 14, horizontal: 6),
-                            textStyle: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.campaign_rounded,
+                                  color: Color(0xFF1A56DB), size: 17),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  selectedCategoryId != null
+                                      ? catIdName[selectedCategoryId!] ??
+                                          'All Categories'
+                                      : 'All Categories',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A56DB),
+                                  ),
+                                ),
+                              ),
+                              const Icon(Icons.expand_more_rounded,
+                                  color: Color(0xFF1A56DB), size: 17),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 210,
-                        child: DropdownButtonFormField<String>(
-                          value: selectedSort,
-                          isExpanded: true,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                selectedSort = value;
-                                _resetTrigger++;
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                          borderRadius: BorderRadius.circular(35),
-                          dropdownColor: Colors.white, // menu background
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Sort by',
-                            prefixIcon: const Icon(Icons.sort_rounded),
-                            labelStyle: TextStyle(color: Colors.grey[700]),
-                            isDense: true,
-                            filled: true,
-                            fillColor: Colors.white, // field background
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE0E3E7)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF14B8A6), // teal focus
-                                width: 1.6,
-                              ),
-                            ),
-                          ),
-                          items:
-                              const ['recent', 'most_viewed', 'most_commented']
-                                  .map(
-                                    (s) => DropdownMenuItem<String>(
-                                      value: s,
-                                      child: Text(
-                                        s.replaceAll('_', ' ').toUpperCase(),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                    ),
+                    const SizedBox(width: 10),
+                    // Sort dropdown
+                    SizedBox(
+                      width: 170,
+                      child: DropdownButtonFormField<String>(
+                        value: selectedSort,
+                        isExpanded: true,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              selectedSort = value;
+                              _resetTrigger++;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 18, color: Color(0xFF1A56DB)),
+                        borderRadius: BorderRadius.circular(16),
+                        dropdownColor: Colors.white,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
                         ),
-                      )
-                    ],
-                  ),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.sort_rounded,
+                              size: 17, color: Color(0xFF1A56DB)),
+                          isDense: true,
+                          filled: true,
+                          fillColor: const Color(0xFF1A56DB)
+                              .withValues(alpha: 0.06),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 13),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: const Color(0xFF1A56DB)
+                                    .withValues(alpha: 0.20)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF1A56DB), width: 1.5),
+                          ),
+                        ),
+                        items: const [
+                          'recent',
+                          'most_viewed',
+                          'most_commented'
+                        ]
+                            .map((s) => DropdownMenuItem<String>(
+                                  value: s,
+                                  child: Text(
+                                    s.replaceAll('_', ' ').toUpperCase(),
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -503,343 +524,326 @@ class _UpdatePostState extends State<UpdatePost> {
                     final createdAt = post['time'];
                     final formattedTime = Config.getTimeDifference(createdAt);
 
+                    // ── Extract fields ───────────────────────────────
+                    final mainDesc =
+                        (post['main_description'] ?? '').toString().trim();
+                    final name = (post['name'] ?? '').toString().trim();
+                    final category =
+                        (post['category'] ?? '').toString().trim();
+
                     return Container(
-  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-  decoration: BoxDecoration(
-    gradient: LinearGradient(
-      colors: [
-        Colors.white,
-        Colors.blue.shade50.withValues(alpha: 0.6),
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(
-      color: Colors.blue.shade100.withValues(alpha: 0.6),
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.blue.shade100.withValues(alpha: 0.35),
-        blurRadius: 14,
-        offset: const Offset(0, 8),
-      ),
-      const BoxShadow(
-        color: Color(0x14000000),
-        blurRadius: 8,
-        offset: Offset(0, 4),
-      ),
-    ],
-  ),
-  child: ClipRRect(
-    borderRadius: BorderRadius.circular(18),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        splashColor: Colors.blue.shade100.withValues(alpha: 0.3),
-        highlightColor: Colors.blue.shade50.withValues(alpha: 0.4),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PostDetails(
-                postId: post['post_id'].toString(),
-                userId: userId.toString(),
-              ),
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ---------- TOP MEDIA ----------
-            if (hasImage)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      post['photo'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(Icons.broken_image,
-                              size: 40, color: Colors.grey),
-                        ),
-                      ),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return Container(color: Colors.grey.shade200);
-                      },
-                    ),
-
-                    // gradient overlay
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.blue.shade900.withValues(alpha: 0.35),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // chips
-                    Positioned(
-                      left: 10,
-                      right: 10,
-                      bottom: 10,
-                      child: Row(
-                        children: [
-                          if ((post['category'] ?? '')
-                              .toString()
-                              .trim()
-                              .isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: Colors.blue.shade100.withValues(alpha: 0.8),
-                                ),
-                              ),
-                              child: Text(
-                                Config.capitalizeFirst(
-                                  (post['category'] ?? '').toString().trim(),
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade900.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              formattedTime,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.06)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 18,
+                            offset: const Offset(0, 7),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // ---------- BODY ----------
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Builder(
-                builder: (_) {
-                  final mainDesc =
-                      (post['main_description'] ?? '').toString().trim();
-                  final name =
-                      (post['name'] ?? '').toString().trim();
-                  final category =
-                      (post['category'] ?? '').toString().trim();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (name.isNotEmpty)
-                        Text(
-                          Config.capitalizeFirst(name),
-                          style: const TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black87,
-                            height: 1.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                      if (mainDesc.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          Config.capitalizeFirst(mainDesc),
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            height: 1.5,
-                            color: Colors.grey[800],
-                          ),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-
-                      if (!hasImage) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            if (category.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  
-                                  
-                                ),
-                                child: Text(
-                                  Config.capitalizeFirst(category),
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.blue.shade800,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            splashColor: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.08),
+                            highlightColor: const Color(0xFF1A56DB)
+                                .withValues(alpha: 0.04),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PostDetails(
+                                    postId: post['post_id'].toString(),
+                                    userId: userId.toString(),
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                           
-                            
-                            Row(
+                              );
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Icon(Icons.schedule,
-                                size: 14, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                                Text(
-                                  formattedTime,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w600,
+
+                                // ── Billboard header strip ───────────
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 9),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFF1040B0),
+                                        Color(0xFF1A56DB),
+                                        Color(0xFF2563EB),
+                                      ],
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // AD badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.22),
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                          border: Border.all(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.40),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'AD',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 9),
+                                      // Category name
+                                      Expanded(
+                                        child: Text(
+                                          category.isNotEmpty
+                                              ? Config.capitalizeFirst(category)
+                                              : 'Advertisement',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.1,
+                                          ),
+                                        ),
+                                      ),
+                                      // Time
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.schedule_rounded,
+                                              size: 11,
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.70)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            formattedTime,
+                                            style: TextStyle(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.80),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // ── Media ────────────────────────────
+                                AspectRatio(
+                                  aspectRatio: 16 / 9,
+                                  child: hasImage
+                                      ? Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            Image.network(
+                                              post['photo'],
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  _billboardPlaceholder(),
+                                              loadingBuilder:
+                                                  (_, child, progress) {
+                                                if (progress == null) {
+                                                  return child;
+                                                }
+                                                return Container(
+                                                    color: const Color(
+                                                        0xFFF3F7FF));
+                                              },
+                                            ),
+                                            // Subtle bottom vignette
+                                            Positioned.fill(
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin:
+                                                        Alignment.topCenter,
+                                                    end: Alignment
+                                                        .bottomCenter,
+                                                    colors: [
+                                                      Colors.transparent,
+                                                      Colors.black
+                                                          .withValues(
+                                                              alpha: 0.28),
+                                                    ],
+                                                    stops: const [0.5, 1.0],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : _billboardPlaceholder(),
+                                ),
+
+                                // ── Ad copy (body) ───────────────────
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      14, 13, 14, 13),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Headline
+                                      if (name.isNotEmpty)
+                                        Text(
+                                          Config.capitalizeFirst(name),
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF111827),
+                                            height: 1.2,
+                                            letterSpacing: -0.3,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+
+                                      // Body copy
+                                      if (mainDesc.isNotEmpty) ...[
+                                        const SizedBox(height: 7),
+                                        Text(
+                                          Config.capitalizeFirst(mainDesc),
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            height: 1.55,
+                                            color: Colors.black
+                                                .withValues(alpha: 0.60),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+
+                                      const SizedBox(height: 12),
+                                      Divider(
+                                          height: 1,
+                                          color: Colors.black
+                                              .withValues(alpha: 0.07)),
+                                      const SizedBox(height: 10),
+
+                                      // Stats + CTA
+                                      Row(
+                                        children: [
+                                          // Views
+                                          Icon(Icons.remove_red_eye_outlined,
+                                              size: 14,
+                                              color: Colors.black38),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            Config.formatLargeNumber(
+                                                post['view']),
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF374151),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 14),
+                                          // Comments
+                                          Icon(
+                                              Icons
+                                                  .chat_bubble_outline_rounded,
+                                              size: 13,
+                                              color: Colors.black38),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            Config.formatLargeNumber(
+                                                post['comment_count']),
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF374151),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          // View Ad CTA
+                                          Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                    vertical: 8),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF1040B0),
+                                                  Color(0xFF2563EB),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(
+                                                          0xFF1A56DB)
+                                                      .withValues(alpha: 0.35),
+                                                  blurRadius: 10,
+                                                  offset:
+                                                      const Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  'View Ad',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: Colors.white,
+                                                    letterSpacing: 0.2,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 5),
+                                                Icon(
+                                                  Icons
+                                                      .arrow_forward_rounded,
+                                                  size: 13,
+                                                  color: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
-                      ],
-
-                      const SizedBox(height: 6),
-                      const Divider(height: 1, color: Color(0x11000000)),
-                      const SizedBox(height: 8),
-
-                      Row(
-  children: [
-    Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.blue.shade100.withValues(alpha: 0.8)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.visibility_rounded,
-                size: 18, color: Colors.blue.shade700),
-            const SizedBox(width: 6),
-            Text(
-              Config.formatLargeNumber(post['view']),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 13.5,
-                color: Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              "Views",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-    const SizedBox(width: 10),
-    Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.mode_comment_outlined,
-                size: 18, color: Colors.orange.shade700),
-            const SizedBox(width: 6),
-            Text(
-              Config.formatLargeNumber(post['comment_count']),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 13.5,
-                color: Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              "Comments",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-    const SizedBox(width: 10),
-    Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.blue.shade100.withValues(alpha: 0.8)),
-      ),
-      child: Icon(
-        Icons.chevron_right_rounded,
-        color: Colors.blueGrey.shade400,
-        size: 22,
-      ),
-    ),
-  ],
-)
-
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  ),
-);
+                      ),
+                    );
 
                   },
                 ),
@@ -848,6 +852,25 @@ class _UpdatePostState extends State<UpdatePost> {
           ),
         );
       },
+    );
+  }
+
+  Widget _billboardPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1040B0), Color(0xFF1A56DB), Color(0xFF3B7CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.campaign_rounded,
+          size: 64,
+          color: Colors.white.withValues(alpha: 0.22),
+        ),
+      ),
     );
   }
 }

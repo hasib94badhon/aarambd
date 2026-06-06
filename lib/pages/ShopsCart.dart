@@ -1,9 +1,6 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:aaram_bd/config.dart';
-import 'package:aaram_bd/screens/Search_Category.dart';
 import 'package:aaram_bd/screens/shops_favorite_screen.dart';
-import 'package:aaram_bd/widgets/SearchPillButton.dart';
 import 'package:flutter/material.dart';
 
 // ── Models — unchanged ────────────────────────────────────────────────────────
@@ -115,169 +112,225 @@ Future<void> updateCategoryUsage(String catId, BuildContext context) async {
   }
 }
 
-// ── Accent palette ────────────────────────────────────────────────────────────
+// ── Shop category card ────────────────────────────────────────────────────────
 
-const List<Color> _accents = [
-  Color(0xFF1A56DB),
-  Color(0xFF0891B2),
-  Color(0xFF059669),
-  Color(0xFFD97706),
-  Color(0xFF7C3AED),
-  Color(0xFFDC2626),
-  Color(0xFF0D9488),
-  Color(0xFF9333EA),
-];
-
-Color _accentFor(int i) => _accents[i % _accents.length];
-
-// ── Shop category card — StatelessWidget (no per-tile AnimationController) ────
-
+// ── Shop category card — storefront banner theme ──────────────────────────────
 class _ShopCategoryCard extends StatelessWidget {
   final String imageUrl;
   final String name;
   final int count;
-  final Color accent;
   final VoidCallback onTap;
 
   const _ShopCategoryCard({
     required this.imageUrl,
     required this.name,
     required this.count,
-    required this.accent,
     required this.onTap,
   });
+
+  static const Color _blue = Color(0xFF1A56DB);
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border(
-              left: BorderSide(color: accent, width: 4),
-            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
             boxShadow: [
               BoxShadow(
-                color: accent.withValues(alpha: 0.08),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 7),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(13),
-          child: Row(
-            children: [
-              // ── Image / avatar ─────────────────────────────────────────
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 78,
-                  height: 78,
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildAvatarFallback(),
-                          loadingBuilder: (_, child, progress) =>
-                              progress == null ? child : _buildAvatarFallback(),
-                        )
-                      : _buildAvatarFallback(),
-                ),
-              ),
-
-              const SizedBox(width: 14),
-
-              // ── Details ─────────────────────────────────────────────────
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF111827),
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        // Count pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Banner image with overlays ─────────────────────────
+                AspectRatio(
+                  aspectRatio: 2.4,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Image
+                      imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildBannerFallback(),
+                              loadingBuilder: (_, child, progress) =>
+                                  progress == null ? child : _buildBannerFallback(),
+                            )
+                          : _buildBannerFallback(),
+                      // Bottom gradient so text is readable
+                      Positioned.fill(
+                        child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(20),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.62),
+                              ],
+                              stops: const [0.35, 1.0],
+                            ),
                           ),
-                          child: Row(
+                        ),
+                      ),
+                      // SHOP badge — top left
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _blue,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _blue.withValues(alpha: 0.40),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.storefront_rounded,
-                                  size: 12, color: accent),
-                              const SizedBox(width: 5),
+                              Icon(Icons.shopping_bag_rounded,
+                                  size: 10, color: Colors.white),
+                              SizedBox(width: 4),
                               Text(
-                                '$count টি দোকান',
+                                'SHOP',
                                 style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: accent,
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Spacer(),
-                        // CTA arrow
-                        Text(
-                          'দেখুন →',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: accent.withValues(alpha: 0.75),
+                      ),
+                      // Category name overlay — bottom left
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 9,
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 6,
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+
+                // ── Footer ────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(13, 10, 13, 13),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.storefront_rounded,
+                          size: 13, color: _blue),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$count shops available',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black.withValues(alpha: 0.52),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 13, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _blue,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _blue.withValues(alpha: 0.32),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Browse',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            SizedBox(width: 5),
+                            Icon(Icons.arrow_forward_rounded,
+                                size: 12, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAvatarFallback() {
-    final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+  Widget _buildBannerFallback() {
     return Container(
-      color: accent.withValues(alpha: 0.10),
+      color: _blue.withValues(alpha: 0.08),
       child: Center(
-        child: Text(
-          letter,
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            color: accent.withValues(alpha: 0.55),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.storefront_rounded, color: _blue, size: 30),
+            const SizedBox(height: 4),
+            Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _blue,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -299,14 +352,17 @@ class ShopsCart extends StatefulWidget {
 
 class _ShopsCartState extends State<ShopsCart> {
   final ScrollController _scrollCtrl = ScrollController();
-  double _pillOpacity = 1.0;
-  Timer? _opacityTimer;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   Future<Map<String, List<dynamic>>>? _dataFuture;
 
   @override
   void initState() {
     super.initState();
-    _scrollCtrl.addListener(_onScroll);
+    _searchController.addListener(() {
+      final q = _searchController.text.toLowerCase().trim();
+      if (q != _searchQuery) setState(() => _searchQuery = q);
+    });
   }
 
   @override
@@ -317,20 +373,9 @@ class _ShopsCartState extends State<ShopsCart> {
 
   @override
   void dispose() {
-    _scrollCtrl.removeListener(_onScroll);
-    _opacityTimer?.cancel();
+    _searchController.dispose();
     _scrollCtrl.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_pillOpacity != 0.25) {
-      setState(() => _pillOpacity = 0.25);
-    }
-    _opacityTimer?.cancel();
-    _opacityTimer = Timer(const Duration(milliseconds: 260), () {
-      if (mounted) setState(() => _pillOpacity = 1.0);
-    });
   }
 
   Future<void> _refresh() async {
@@ -340,7 +385,7 @@ class _ShopsCartState extends State<ShopsCart> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
+      backgroundColor: const Color(0xFFF3F7FF),
       body: FutureBuilder<Map<String, List<dynamic>>>(
         future: _dataFuture,
         builder: (context, snapshot) {
@@ -371,7 +416,7 @@ class _ShopsCartState extends State<ShopsCart> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'ডেটা লোড হয়নি',
+                      'Unable to load data',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -380,7 +425,7 @@ class _ShopsCartState extends State<ShopsCart> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'ইন্টারনেট সংযোগ পরীক্ষা করুন\nএবং আবার চেষ্টা করুন।',
+                      'Check your internet connection\nand try again.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 13,
@@ -391,7 +436,7 @@ class _ShopsCartState extends State<ShopsCart> {
                     ElevatedButton.icon(
                       onPressed: _refresh,
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('আবার চেষ্টা করুন'),
+                      label: const Text('Try Again'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1A56DB),
                         foregroundColor: Colors.white,
@@ -412,44 +457,43 @@ class _ShopsCartState extends State<ShopsCart> {
           final categories =
               snapshot.data!['categoryCounts'] as List<CategoryCount>;
 
-          return Stack(
-            children: [
-              RefreshIndicator(
-                color: const Color(0xFF1A56DB),
-                onRefresh: _refresh,
-                child: CustomScrollView(
-                  controller: _scrollCtrl,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    // ── Header ───────────────────────────────────────────
-                    SliverToBoxAdapter(
-                      child: _buildHeader(categories.length),
-                    ),
+          final filtered = _searchQuery.isEmpty
+              ? categories
+              : categories
+                  .where((c) => c.categoryName
+                      .toLowerCase()
+                      .contains(_searchQuery))
+                  .toList();
 
-                    // ── Category list ────────────────────────────────────
-                    categories.isEmpty
-                        ? SliverFillRemaining(
-                            child: _buildEmptyState(),
-                          )
+          return RefreshIndicator(
+            color: const Color(0xFF1A56DB),
+            onRefresh: _refresh,
+            child: CustomScrollView(
+              controller: _scrollCtrl,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildHeader(categories.length, filtered.length),
+                ),
+                categories.isEmpty
+                    ? SliverFillRemaining(child: _buildEmptyState())
+                    : filtered.isEmpty
+                        ? SliverFillRemaining(child: _buildSearchEmpty())
                         : SliverPadding(
-                            padding:
-                                const EdgeInsets.fromLTRB(14, 0, 14, 100),
+                            padding: EdgeInsets.fromLTRB(
+                                14, 0, 14, 20 + MediaQuery.of(context).padding.bottom),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (ctx, i) {
-                                  final cat = categories[i];
+                                  final cat = filtered[i];
                                   return Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.only(bottom: 10),
                                     child: _ShopCategoryCard(
-                                      imageUrl:
-                                          cat.photo?.toString() ?? '',
+                                      imageUrl: cat.photo?.toString() ?? '',
                                       name: cat.categoryName,
                                       count: cat.categoryCount,
-                                      accent: _accentFor(i),
                                       onTap: () {
-                                        updateCategoryUsage(
-                                            cat.cat_id, context);
+                                        updateCategoryUsage(cat.cat_id, context);
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
@@ -464,30 +508,12 @@ class _ShopsCartState extends State<ShopsCart> {
                                     ),
                                   );
                                 },
-                                childCount: categories.length,
+                                childCount: filtered.length,
                               ),
                             ),
                           ),
-                  ],
-                ),
-              ),
-
-              // ── Floating search pill ─────────────────────────────────────
-              Positioned(
-                right: 10,
-                bottom: 10 + MediaQuery.of(context).padding.bottom,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  opacity: _pillOpacity,
-                  child: SearchPillButton(
-                    onTap: () => openSearchCategorySheet(
-                      context,
-                      CategoryType.shop,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
@@ -496,13 +522,13 @@ class _ShopsCartState extends State<ShopsCart> {
 
   // ── Header ────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(int total) {
+  Widget _buildHeader(int total, int filtered) {
+    final isFiltering = _searchQuery.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title row
           Row(
             children: [
               Container(
@@ -527,7 +553,7 @@ class _ShopsCartState extends State<ShopsCart> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'দোকান বিভাগসমূহ',
+                    'Shop Categories',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -535,12 +561,20 @@ class _ShopsCartState extends State<ShopsCart> {
                       letterSpacing: -0.3,
                     ),
                   ),
-                  Text(
-                    'মোট $total টি বিভাগ পাওয়া গেছে',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF9CA3AF),
-                      fontWeight: FontWeight.w500,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      isFiltering
+                          ? '$filtered of $total matched'
+                          : '$total categories available',
+                      key: ValueKey(isFiltering ? filtered : -1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isFiltering
+                            ? const Color(0xFF1A56DB)
+                            : const Color(0xFF9CA3AF),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -548,40 +582,106 @@ class _ShopsCartState extends State<ShopsCart> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Info banner
-          Container(
-            width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          // ── Inline search bar ──────────────────────────────────────────
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFDDE8FF)),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.info_outline_rounded,
-                    size: 15, color: Color(0xFF1A56DB)),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'বিভাগ ট্যাপ করুন সেই বিভাগের সব দোকান দেখতে।',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF3B5BA0),
-                      height: 1.35,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isFiltering
+                    ? const Color(0xFF1A56DB).withValues(alpha: 0.40)
+                    : Colors.black.withValues(alpha: 0.08),
+                width: isFiltering ? 1.5 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.07),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search shop categories…',
+                hintStyle: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.32),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 8),
+                  child: Icon(Icons.search_rounded,
+                      color: Color(0xFF1A56DB), size: 21),
+                ),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 48, minHeight: 48),
+                suffixIcon: isFiltering
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        color: Colors.black38,
+                        splashRadius: 18,
+                        onPressed: _searchController.clear,
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+              ),
+            ),
           ),
-
-          const SizedBox(height: 6),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEEF2FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.search_off_rounded,
+                  size: 34, color: Color(0xFF1A56DB)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No results found',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'No categories match "$_searchQuery".',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -607,7 +707,7 @@ class _ShopsCartState extends State<ShopsCart> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'কোনো বিভাগ পাওয়া যায়নি',
+              'No categories found',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -616,7 +716,7 @@ class _ShopsCartState extends State<ShopsCart> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'নিচে টেনে পেজটি রিফ্রেশ করুন।',
+              'Pull down to refresh.',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 13, color: Color(0xFF6B7280), height: 1.5),

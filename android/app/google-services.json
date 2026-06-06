@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "623371541775",
+    "project_id": "aarambd-6e757",
+    "storage_bucket": "aarambd-6e757.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:623371541775:android:2788dd1ad8daa33465727a",
+        "android_client_info": {
+          "package_name": "com.aarambd.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBp88mcXXsfp2uNU_M_1eAUKGq9d-J7pVc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

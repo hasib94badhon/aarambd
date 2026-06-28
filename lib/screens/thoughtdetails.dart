@@ -481,25 +481,16 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
       child: Container(
   padding: const EdgeInsets.all(12),
   decoration: BoxDecoration(
-    gradient: const LinearGradient(
-      colors: [
-        Color(0xFFFFFFFF),
-        Colors.lightBlue, // soft off-white
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ),
-    borderRadius: BorderRadius.circular(30),
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
     boxShadow: [
       BoxShadow(
         color: Colors.black.withValues(alpha: 0.06),
         blurRadius: 14,
-        offset: const Offset(0, 8),
+        offset: const Offset(0, 5),
       ),
     ],
-    border: Border.all(
-      color: Colors.grey.withValues(alpha: 0.12),
-    ),
+    border: Border.all(color: const Color(0xFFF0F3FA)),
   ),
   child: Row(
     children: [
@@ -552,231 +543,339 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     );
   }
 
-  Widget _thoughtImage() {
-    final url = thought!["des_photo"]?.toString() ?? '';
-    if (url.isEmpty) return const SizedBox.shrink();
-
-    final tag = 'thought-image-${url.hashCode}';
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) =>
-                  FullscreenImageView(imageUrl: url, heroTag: tag),
-              transitionsBuilder: (_, anim, __, child) =>
-                  FadeTransition(opacity: anim, child: child),
-            ),
-          );
-        },
-        child: Hero(
-          tag: tag,
-          child: Image.network(
-            url,
-            width: double.infinity,
-            height: 220,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, err, st) => Container(
-              height: 200,
-              alignment: Alignment.center,
-              color: Colors.grey.shade200,
-              child: const Icon(Icons.broken_image, color: Colors.grey),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _descriptionCard() {
+  // ─── Content card: full-width image + description ───────────────────────
+  Widget _buildContentCard() {
+    final hasImage =
+        (thought!["des_photo"]?.toString().isNotEmpty ?? false);
     final text = (thought!["des"] ?? '').toString();
+    if (!hasImage && text.isEmpty) return const SizedBox.shrink();
+
+    final imageUrl = hasImage ? thought!["des_photo"].toString() : '';
+    final heroTag = 'thought-image-${imageUrl.hashCode}';
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        //border: Border.all(color: Colors.black12.withValues(alpha: 0.05)),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: ExpandableText(
-        text: text,
-        maxLines: 5,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: Colors.black87,
-          height: 1.5,
-        ),
-        moreLabel: 'See more',
-        lessLabel: 'See less',
-        linkStyle: const TextStyle(
-          fontSize: 14,
-          color: Colors.blue,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasImage)
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => FullscreenImageView(
+                      imageUrl: imageUrl, heroTag: heroTag),
+                  transitionsBuilder: (_, anim, __, child) =>
+                      FadeTransition(opacity: anim, child: child),
+                ),
+              ),
+              child: Hero(
+                tag: heroTag,
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: 220,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, st) => Container(
+                    height: 180,
+                    alignment: Alignment.center,
+                    color: Colors.grey.shade100,
+                    child: const Icon(Icons.broken_image,
+                        color: Colors.grey, size: 48),
+                  ),
+                ),
+              ),
+            ),
+          if (text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: ExpandableText(
+                text: text,
+                maxLines: 6,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1A2340),
+                  height: 1.6,
+                ),
+                moreLabel: 'Read more',
+                lessLabel: 'Show less',
+                linkStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF1A56DB),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _statsRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _Pill(
-          child: Row(
-            children: [
-              const Icon(Icons.remove_red_eye, size: 18, color: Colors.blueGrey),
-              const SizedBox(width: 6),
-              Text(
-                Config.formatLargeNumber(thought!['des_view'] ?? 0),
-                style: const TextStyle(fontSize: 14),
-              ),
-            ],
+  // ─── Stats bar ───────────────────────────────────────────────────────────
+  Widget _buildStatsBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-        ),
-        _Pill(
-          child: Row(
-            children: [
-              const Icon(Icons.comment, size: 18, color: Colors.blueGrey),
-              const SizedBox(width: 6),
-              Text(
-                Config.formatLargeNumber(thought!['des_com'] ?? 0),
-                style: const TextStyle(fontSize: 14),
-              ),
-            ],
+        ],
+      ),
+      child: Row(
+        children: [
+          _statChip(
+            Icons.visibility_outlined,
+            Config.formatLargeNumber(thought!['des_view'] ?? 0),
+            'views',
+            const Color(0xFF3B82F6),
           ),
-        ),
-        _Pill(
-          child: Row(
+          const SizedBox(width: 16),
+          _statChip(
+            Icons.chat_bubble_outline_rounded,
+            Config.formatLargeNumber(thought!['des_com'] ?? 0),
+            'comments',
+            const Color(0xFF10B981),
+          ),
+          const Spacer(),
+          Row(
             children: [
-              const Icon(Icons.access_time, size: 18, color: Colors.blueGrey),
-              const SizedBox(width: 6),
+              const Icon(Icons.access_time_rounded,
+                  size: 13, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 4),
               Text(
                 Config.getTimeDifference(thought!["time"]),
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statChip(
+      IconData icon, String value, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 5),
+        Text(value,
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+        const SizedBox(width: 3),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.w400)),
+      ],
+    );
+  }
+
+  // ─── Discussion section header ────────────────────────────────────────────
+  Widget _buildDiscussionHeader() {
+    final count = thought!['des_com'] ?? 0;
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 18,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A56DB),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text(
+          'Discussion',
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111827)),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A56DB).withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A56DB)),
           ),
         ),
       ],
     );
   }
 
-  /// Builds each comment, with inline edit for the author (UI only)
+  Widget _buildNoComments() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.chat_bubble_outline_rounded,
+                  size: 34, color: Color(0xFF1A56DB)),
+            ),
+            const SizedBox(height: 14),
+            const Text('No comments yet',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827))),
+            const SizedBox(height: 6),
+            Text(
+              'Be the first to share your thoughts!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Individual comment card ──────────────────────────────────────────────
   Widget _buildComment(dynamic comment) {
     final comId = comment['com_id'].toString();
     final comUserId = comment['user_id'].toString();
     final isOwn = comUserId == currentUserId;
     final isEditing = editingCommentId == comId;
 
-    // —— EDIT MODE —— (UI only)
+    // Edit mode
     if (isEditing) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.blue.shade100,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade100.withValues(alpha: 0.5),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Text Field
-          TextField(
-            controller: editingController,
-            maxLines: null,
-            decoration: InputDecoration(
-              hintText: 'Edit your comment',
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Action Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => setState(() => editingCommentId = null),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blueGrey,
-                ),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () {
-                  submitComment(
-                    editingController.text.trim(),
-                    commentId: comId,
-                  );
-                  _refreshComments();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A56DB),
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blue.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.shade100.withValues(alpha: 0.5),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: editingController,
+                maxLines: null,
+                decoration: InputDecoration(
+                  hintText: 'Edit your comment',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => editingCommentId = null),
+                    style: TextButton.styleFrom(
+                        foregroundColor: Colors.blueGrey),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      submitComment(editingController.text.trim(),
+                          commentId: comId);
+                      _refreshComments();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A56DB),
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('Save',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Read-only mode
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
-    ),
-  );
-}
-
-
-    // —— READ-ONLY MODE —— (UI only)
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(18),
-        
-      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         onTap: () {
           final serviceId = comment["service_id"];
           final shopId = comment["shop_id"];
           final userId = comment["user_id"].toString();
-
           Map<String, String> additionalData;
           if (serviceId != null && serviceId != 0) {
             additionalData = {'service_id': serviceId.toString()};
@@ -785,7 +884,6 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
           } else {
             additionalData = {'user_only': userId};
           }
-
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -802,18 +900,17 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          padding:
+              const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Avatar with FULLSCREEN preview on tap
                   _avatarWithPreview(
                     comment['photo'],
-                    radius: 24,
+                    radius: 22,
                     heroTag:
                         'comment-avatar-${comment['photo']}-${comment['com_id']}',
                   ),
@@ -825,87 +922,83 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                         Text(
                           comment['commenter_name'] ?? 'Anonymous',
                           style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: Color(0xFF111827)),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          comment['cat_name'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.blueAccent,
+                        if ((comment['cat_name'] ?? '').isNotEmpty)
+                          Text(
+                            comment['cat_name'],
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF1A56DB),
+                                fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    // Time chip
-    Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        Config.getTimeDifference(comment['com_time'] ?? ''),
-        style: TextStyle(
-          fontSize: 11,
-          color: Colors.grey.shade600,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    ),
-
-    if (isOwn) ...[
-      const SizedBox(width: 8),
-
-      // Edit button
-      InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          setState(() {
-            editingCommentId = comId;
-            editingController.text = comment['com_text'] ?? '';
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.edit_rounded,
-            size: 16,
-            color: const Color(0xFF1A56DB),
-          ),
-        ),
-      ),
-    ],
-  ],
-)
-
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4F6FB),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          Config.getTimeDifference(
+                              comment['com_time'] ?? ''),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      if (isOwn) ...[
+                        const SizedBox(width: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            setState(() {
+                              editingCommentId = comId;
+                              editingController.text =
+                                  comment['com_text'] ?? '';
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F4FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.edit_rounded,
+                                size: 15, color: Color(0xFF1A56DB)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
-              // Body
               ExpandableText(
                 text: (comment['com_text'] ?? '').toString(),
                 maxLines: 3,
-                style: const TextStyle(fontSize: 14, height: 1.4),
+                style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.45,
+                    color: Color(0xFF374151)),
                 moreLabel: 'See more',
                 lessLabel: 'See less',
                 linkStyle: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w600,
-                ),
+                    fontSize: 13,
+                    color: Color(0xFF1A56DB),
+                    fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -914,52 +1007,76 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     );
   }
 
-  // NEW: Small row to show the current commenter avatar before the input
-  Widget _commenterAvatarRow() {
-    return Row(
-      children: [
-        // _avatarWithPreview(
-        //   _currentUserPhoto,
-        //   radius: 30,
-        //   heroTag: 'current-user-avatar-${_currentUserPhoto ?? 'placeholder'}',
-        // ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _commentInput(), // keep your original input here
+  // ─── Fixed bottom comment input ───────────────────────────────────────────
+  Widget _buildCommentBar() {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
-      ],
-    );
-  }
-
-  Widget _commentInput() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.5)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: TextField(
-        controller: commentController,
-        decoration: InputDecoration(
-          hintText: "Write a comment...",
-          
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.send, color: Colors.blueAccent),
-            onPressed: () async {
-              final text = commentController.text.trim();
-              if (text.isEmpty) return;
-              // call helper to submit and show newly created comment
-              await submitCommentAndShowNew(text);
-            },
-          ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F6FB),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: TextField(
+                  controller: commentController,
+                  decoration: const InputDecoration(
+                    hintText: 'Share your thoughts...',
+                    hintStyle: TextStyle(
+                        color: Color(0xFF94A3B8), fontSize: 14),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  maxLines: null,
+                  textInputAction: TextInputAction.newline,
+                  style: const TextStyle(
+                      fontSize: 14, color: Color(0xFF1A2340)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () async {
+                final text = commentController.text.trim();
+                if (text.isEmpty) return;
+                await submitCommentAndShowNew(text);
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A56DB),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1A56DB).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.send_rounded,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+          ],
         ),
-        maxLines: null,
-        textInputAction: TextInputAction.newline,
       ),
     );
   }
@@ -968,194 +1085,143 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FA),
-      appBar: AppBar(
-        title: const Text("Discussion Details"),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFEAEDF2)),
-        ),
-      ),
-
+      backgroundColor: const Color(0xFFF4F6FB),
+      resizeToAvoidBottomInset: true,
+      bottomNavigationBar: thought != null ? _buildCommentBar() : null,
       body: thought == null
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _headerCard(context),
-                  const SizedBox(height: 12),
-                  if ((thought!["des_photo"]?.toString().isNotEmpty ?? false))
-                    _thoughtImage(),
-                  if ((thought!["des_photo"]?.toString().isNotEmpty ?? false))
-                    const SizedBox(height: 12),
-                  _descriptionCard(),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 10)
-                      ],
-                      border:
-                          Border.all(color: Colors.black12.withValues(alpha: 0.05)),
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1A56DB)))
+          : NotificationListener<ScrollNotification>(
+              onNotification: (info) {
+                if (_commentsHasMore &&
+                    !_commentsLoading &&
+                    info.metrics.pixels >=
+                        info.metrics.maxScrollExtent - 200) {
+                  _loadMoreComments();
+                }
+                return false;
+              },
+              child: CustomScrollView(
+                controller: _commentsScrollController,
+                slivers: [
+                  // Back button + header card as a matched-height row
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(14, topPad + 8, 14, 10),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Back button — same card style as _headerCard
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 52,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.06),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                      color: const Color(0xFFF0F3FA)),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    size: 18,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Poster info card
+                            Expanded(child: _headerCard(context)),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: _statsRow(),
                   ),
-                  const SizedBox(height: 10),
 
-                  // ====== NEW: Commenter avatar + input combined row ======
-                  _commenterAvatarRow(),
-                  // ========================================================
-
-                  const SizedBox(height: 8),
-
-                  // COMMENTS SECTION (paginated, auto-load)
-                  SizedBox(
-                    // give a fixed height for comment area so inner ListView can scroll
-                    // you can adjust this height or compute dynamically
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    child: _buildCommentsList(),
+                  // Post content (image + description)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: _buildContentCard(),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+
+                  // Stats (views · comments · time)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+                      child: _buildStatsBar(),
+                    ),
+                  ),
+
+                  // Discussion heading
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      child: _buildDiscussionHeader(),
+                    ),
+                  ),
+
+                  // Comment list
+                  if (_commentsLoading && comments.isEmpty)
+                    const SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF1A56DB)),
+                        ),
+                      ),
+                    )
+                  else if (comments.isEmpty)
+                    SliverToBoxAdapter(child: _buildNoComments())
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) {
+                          if (i < comments.length) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                              child: _buildComment(comments[i]),
+                            );
+                          }
+                          return Padding(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: _commentsLoading
+                                  ? const CircularProgressIndicator(
+                                      color: Color(0xFF1A56DB),
+                                      strokeWidth: 2.5,
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          );
+                        },
+                        childCount:
+                            comments.length + (_commentsHasMore ? 1 : 0),
+                      ),
+                    ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ),
             ),
-    );
-  }
 
-  // Builds the scrollable comments list with auto-loading
-  Widget _buildCommentsList() {
-    if (_commentsLoading && comments.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (comments.isEmpty) {
-      return SingleChildScrollView(
-  physics: const AlwaysScrollableScrollPhysics(),
-  child: Center(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.blue.shade100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.shade100.withValues(alpha: 0.5),
-              blurRadius: 14,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 34,
-                color: const Color(0xFF1A56DB),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "No comments yet",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "Be the first to comment and start the discussion!",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton.icon(
-              onPressed: () => fetchComments(page: 1),
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text(
-                "Refresh",
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A56DB),
-                foregroundColor: Colors.white,
-                elevation: 2,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  ),
-);
-
-    }
-
-    return NotificationListener<ScrollNotification>(
-      onNotification: (scrollInfo) {
-        // additional safety: if user scrolls (e.g., via single child scroll), trigger load
-        if (!_commentsHasMore || _commentsLoading) return false;
-        if (scrollInfo.metrics.pixels >=
-            scrollInfo.metrics.maxScrollExtent - 200) {
-          _loadMoreComments();
-        }
-        return false;
-      },
-      child: ListView.builder(
-        controller: _commentsScrollController,
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        itemCount: comments.length + (_commentsHasMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index < comments.length) {
-            final c = comments[index];
-            return _buildComment(c);
-          } else {
-            // bottom loader
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: _commentsLoading
-                    ? const CircularProgressIndicator()
-                    : const SizedBox.shrink(),
-              ),
-            );
-          }
-        },
-      ),
     );
   }
 }

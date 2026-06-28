@@ -481,191 +481,198 @@ class _ServiceCartState extends State<ServiceCart> {
 
           final isFiltering = _searchQuery.isNotEmpty;
 
-          return RefreshIndicator(
-            color: _brand,
-            onRefresh: _refresh,
-            child: CustomScrollView(
-              controller: _scrollCtrl,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // ── Header + search bar ──────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 20, 14, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1040B0),
-                                    Color(0xFF1A56DB),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(13),
-                              ),
-                              child: const Icon(
-                                Icons.engineering_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Service Categories',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF111827),
-                                    letterSpacing: -0.3,
+          return Column(
+            children: [
+              // ── Pinned search bar ──────────────────────────────────────
+              _buildSearchBar(),
+              // ── Scrollable content ─────────────────────────────────────
+              Expanded(
+                child: RefreshIndicator(
+                  color: _brand,
+                  onRefresh: _refresh,
+                  child: CustomScrollView(
+                    controller: _scrollCtrl,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      // ── Title ──────────────────────────────────────────
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1040B0),
+                                      Color(0xFF1A56DB),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
+                                  borderRadius: BorderRadius.circular(13),
                                 ),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 200),
-                                  child: Text(
-                                    isFiltering
-                                        ? '${filtered.length} of ${categories.length} matched'
-                                        : '${categories.length} categories available',
-                                    key: ValueKey(
-                                        isFiltering ? filtered.length : -1),
+                                child: const Icon(
+                                  Icons.engineering_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Service Categories',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: isFiltering
-                                          ? _brand
-                                          : const Color(0xFF9CA3AF),
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF111827),
+                                      letterSpacing: -0.3,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        // ── Inline search bar ──────────────────────────
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isFiltering
-                                  ? _brand.withValues(alpha: 0.40)
-                                  : Colors.black.withValues(alpha: 0.08),
-                              width: isFiltering ? 1.5 : 1.0,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.07),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Text(
+                                      isFiltering
+                                          ? '${filtered.length} of ${categories.length} matched'
+                                          : '${categories.length} categories available',
+                                      key: ValueKey(
+                                          isFiltering ? filtered.length : -1),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isFiltering
+                                            ? _brand
+                                            : const Color(0xFF9CA3AF),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          child: TextField(
-                            controller: _searchController,
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                        ),
+                      ),
+
+                      // ── Grid or empty states ────────────────────────────
+                      if (categories.isEmpty)
+                        SliverFillRemaining(child: _buildEmptyState())
+                      else if (filtered.isEmpty)
+                        SliverFillRemaining(child: _buildSearchEmpty())
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            14,
+                            0,
+                            14,
+                            20 + MediaQuery.of(context).padding.bottom,
+                          ),
+                          sliver: SliverGrid(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final category = filtered[index];
+                                return CategoryImageTile(
+                                  imageUrl: category.photo?.toString() ?? '',
+                                  title: category.categoryName,
+                                  count: category.categoryCount,
+                                  onTap: () {
+                                    updateCategoryUsage(
+                                        category.cat_id.toString(), context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ServiceFavorite(
+                                          userPhone: widget.userPhone,
+                                          cat_id: category.cat_id,
+                                          category_name: category.categoryName,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              childCount: filtered.length,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Search service categories…',
-                              hintStyle: TextStyle(
-                                color: Colors.black.withValues(alpha: 0.32),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              prefixIcon: const Padding(
-                                padding: EdgeInsets.only(left: 14, right: 8),
-                                child: Icon(Icons.search_rounded,
-                                    color: _brand, size: 21),
-                              ),
-                              prefixIconConstraints: const BoxConstraints(
-                                  minWidth: 48, minHeight: 48),
-                              suffixIcon: isFiltering
-                                  ? IconButton(
-                                      icon: const Icon(Icons.close_rounded,
-                                          size: 18),
-                                      color: Colors.black38,
-                                      splashRadius: 18,
-                                      onPressed: _searchController.clear,
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 14),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.70,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-
-                // ── Grid or empty states ─────────────────────────────────
-                if (categories.isEmpty)
-                  SliverFillRemaining(child: _buildEmptyState())
-                else if (filtered.isEmpty)
-                  SliverFillRemaining(child: _buildSearchEmpty())
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      14,
-                      0,
-                      14,
-                      20 + MediaQuery.of(context).padding.bottom,
-                    ),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final category = filtered[index];
-                          return CategoryImageTile(
-                            imageUrl: category.photo?.toString() ?? '',
-                            title: category.categoryName,
-                            count: category.categoryCount,
-                            onTap: () {
-                              updateCategoryUsage(
-                                  category.cat_id.toString(), context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ServiceFavorite(
-                                    userPhone: widget.userPhone,
-                                    cat_id: category.cat_id,
-                                    category_name: category.categoryName,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        childCount: filtered.length,
-                      ),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.70,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final isFiltering = _searchQuery.isNotEmpty;
+    return Container(
+      color: const Color(0xFFF3F7FF),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isFiltering
+                ? _brand.withValues(alpha: 0.40)
+                : Colors.black.withValues(alpha: 0.08),
+            width: isFiltering ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Search service categories…',
+            hintStyle: TextStyle(
+              color: Colors.black.withValues(alpha: 0.32),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Padding(
+              padding: EdgeInsets.only(left: 14, right: 8),
+              child: Icon(Icons.search_rounded, color: _brand, size: 21),
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 48, minHeight: 48),
+            suffixIcon: isFiltering
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: Colors.black38,
+                    splashRadius: 18,
+                    onPressed: _searchController.clear,
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+          ),
+        ),
       ),
     );
   }

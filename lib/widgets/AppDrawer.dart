@@ -1,18 +1,15 @@
 import 'dart:convert';
 
 import 'package:aaram_bd/config.dart';
-import 'package:aaram_bd/pages/subscriptionofferpage.dart';
+import 'package:aaram_bd/pages/AccountControlPage.dart';
+import 'package:aaram_bd/pages/AccountSettingsPage.dart';
 import 'package:aaram_bd/screens/FavoriteProfilesPage.dart';
-import 'package:aaram_bd/widgets/SettingsPage.dart';
-import 'package:aaram_bd/widgets/my_app.dart';
-import 'package:flutter/material.dart';
-
-import 'MostUsedCategoriesPage.dart';
-import 'UpdatePost.dart';
-import 'FbPage.dart';
-import 'HotlineCategory.dart';
-
+import 'package:aaram_bd/screens/AboutAaramBDPage.dart';
+import 'package:aaram_bd/screens/login_screen.dart';
+import 'package:aaram_bd/widgets/termsPolicies.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 
 final String host = Config.host;
@@ -20,482 +17,339 @@ final String host = Config.host;
 class AppDrawer extends StatefulWidget {
   final String userPhone;
 
-  const AppDrawer({
-    Key? key,
-    required this.userPhone,
-  }) : super(key: key);
+  const AppDrawer({Key? key, required this.userPhone}) : super(key: key);
 
   @override
   _AppDrawerState createState() => _AppDrawerState();
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  late String userName;
-  late String userPhotoUrl;
-  late String category;
-  late int cat_id;
-  late String userID;
+  String userName     = 'Loading...';
+  String userPhotoUrl = '';
+  String category     = 'Loading...';
+  String userID       = '';
+  bool   _isLoading   = true;
 
-  bool _isLoading = true;
-  bool _isNavigating = false;
-
-  Map<String, dynamic> drawerData = {};
+  static const Color _blue = Color(0xFF1A56DB);
 
   @override
   void initState() {
     super.initState();
-    userName = "Loading...";
-    userPhotoUrl = '';
-    category = "Loading...";
-    cat_id = 0;
-    userID = "";
-    _fetchAllData();
+    _fetchProfile();
   }
 
-  Future<void> _fetchAllData() async {
+  Future<void> _fetchProfile() async {
     try {
-      final userResponse = await Config.apiGet(
+      final res = await Config.apiGet(
         '/get_user_by_phone?phone=${widget.userPhone}',
         context,
       );
-
-      if (userResponse != null && userResponse.statusCode == 200) {
-        final userData = json.decode(userResponse.body);
-        if (!mounted) return;
-
+      if (res != null && res.statusCode == 200 && mounted) {
+        final data = json.decode(res.body);
         setState(() {
-          userName = userData['name'] ?? "User Name";
-          category = userData['cat_name'] ?? "Category";
-          cat_id = userData['cat_id'] ?? 0;
-          userID = userData['user_id'] ?? "";
-          userPhotoUrl = userData['photo'] ?? '';
+          userName     = data['name']     ?? 'User Name';
+          category     = data['cat_name'] ?? 'Category';
+          userID       = data['user_id']?.toString() ?? '';
+          userPhotoUrl = data['photo']    ?? '';
         });
       }
-
-      final responses = await Future.wait([
-        Config.apiGet("/get_most_used_category", context),
-        Config.apiGet("/get_today_post?sort_by=recent", context),
-        Config.apiGet("/get_fb_page", context),
-        Config.apiGet("/get_app_by_category", context),
-        Config.apiGet("/get_hotlines_by_category", context),
-      ]);
-
-      if (!mounted) return;
-
-      setState(() {
-        drawerData = {
-          'most_used': responses[0] != null && responses[0]!.statusCode == 200
-              ? json.decode(responses[0]!.body)
-              : null,
-          'today_posts': responses[1] != null && responses[1]!.statusCode == 200
-              ? json.decode(responses[1]!.body)
-              : null,
-          'fb_pages': responses[2] != null && responses[2]!.statusCode == 200
-              ? json.decode(responses[2]!.body)
-              : null,
-          'social_apps': responses[3] != null && responses[3]!.statusCode == 200
-              ? json.decode(responses[3]!.body)
-              : null,
-          'hotlines': responses[4] != null && responses[4]!.statusCode == 200
-              ? json.decode(responses[4]!.body)
-              : null,
-        };
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: ${e.toString()}')),
-      );
-    }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
   }
 
-  void _reopenDrawerOnReturn(Future<dynamic> navFuture) {
-    navFuture.whenComplete(() {
-      if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (!mounted) return;
-        final scaffold = Scaffold.maybeOf(context);
-        scaffold?.openDrawer();
-      });
-    });
+  void _close() => Navigator.pop(context);
+
+  void _push(Widget page) {
+    _close();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
-  void _navigateToPage(String title) {
-    if (_isNavigating || _isLoading) return;
-
-    setState(() => _isNavigating = true);
-    Navigator.pop(context);
-
-    switch (title) {
-      case 'Daily Used Categories':
-        if (drawerData['most_used'] != null) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MostUsedCategoriesPage(
-                  categories: drawerData['most_used']['most_used_cat'],
-                ),
-              ),
-            ),
-          );
-        }
-        break;
-
-      case 'To-day Live':
-        if (drawerData['today_posts'] != null) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => UpdatePost(
-                  posts: drawerData['today_posts']['most_update_post'],
-                  selectedSort: 'recent',
-                ),
-              ),
-            ),
-          );
-        }
-        break;
-
-      case 'FB Business':
-        if (drawerData['fb_pages'] != null) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => FbCategoryPage(
-                  pages: drawerData['fb_pages']['fb_page'],
-                ),
-              ),
-            ),
-          );
-        }
-        break;
-
-      case 'BD Social Apps':
-        if (drawerData['social_apps'] != null &&
-            drawerData['social_apps']['success'] == true) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AppHomePage(
-                  categories: (drawerData['social_apps']['app_cat'] as List)
-                      .map((item) => AppCategory.fromJson(item))
-                      .toList(),
-                ),
-              ),
-            ),
-          );
-        }
-        break;
-
-      case 'Hotline Numbers':
-        if (drawerData['hotlines'] != null &&
-            drawerData['hotlines']['success'] == true) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => Hotlinecategory(
-                  categories: drawerData['hotlines']['hotline_cat'],
-                ),
-              ),
-            ),
-          );
-        }
-        break;
-
-      case 'Settings':
-        _reopenDrawerOnReturn(
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SettingsPage()),
-          ),
-        );
-        break;
-
-      case 'Subscription Offers':
-        _reopenDrawerOnReturn(
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SubscriptionOfferPage()),
-          ),
-        );
-        break;
-
-      case 'Favorite Contacts':
-        if (userID.isNotEmpty) {
-          _reopenDrawerOnReturn(
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => FavoriteProfilesPage(userId: userID),
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User ID not loaded yet')),
-          );
-        }
-        break;
-    }
-
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) setState(() => _isNavigating = false);
-    });
+  Future<void> _logout() async {
+    await Config.clearTokens();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userPhone');
+    await prefs.setBool('isLoggedIn', false);
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => LoginScreen()),
+      (_) => false,
+    );
   }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Drawer(
-          width: MediaQuery.of(context).size.width * 0.90,
+    return Stack(children: [
+      Drawer(
+        width: MediaQuery.of(context).size.width * 0.88,
+        child: Container(
+          color: const Color(0xFFF0F4FF),
+          child: Stack(children: [
+            // Subtle background blobs
+            Positioned(
+              top: 160, left: -30,
+              child: _Blob(size: 110, color: Colors.blue),
+            ),
+            Positioned(
+              top: 310, right: -40,
+              child: _Blob(size: 130, color: Colors.indigo),
+            ),
+            Positioned(
+              bottom: 110, left: -25,
+              child: _Blob(size: 85, color: Colors.lightBlue),
+            ),
+
+            Column(children: [
+              _buildHeader(),
+              Expanded(
+                child: _isLoading
+                    ? _buildShimmer()
+                    : _buildBody(),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+
+      // Close handle on right edge
+      Positioned(
+        right: 0,
+        top: MediaQuery.of(context).size.height / 2 - 28,
+        child: GestureDetector(
+          onTap: _close,
           child: Container(
-            decoration: BoxDecoration(color: Colors.blue[50]),
-            child: Stack(
-              children: [
-                // ✅ Background stickers (behind everything)
-                Positioned(
-                  top: 140,
-                  left: -30,
-                  child: _StickerDot(size: 110, color: Colors.blue),
-                ),
-                Positioned(
-                  top: 260,
-                  right: -40,
-                  child: _StickerDot(size: 140, color: Colors.indigo),
-                ),
-                Positioned(
-                  bottom: 90,
-                  left: -25,
-                  child: _StickerDot(size: 90, color: Colors.lightBlue),
-                ),
-                Positioned(
-                  bottom: 20,
-                  right: 20,
-                  child: _StickerDot(size: 34, color: Colors.blue, opacity: 0.22),
-                ),
+            width: 28, height: 56,
+            decoration: const BoxDecoration(
+              color: _blue,
+              borderRadius: BorderRadius.only(
+                topLeft:    Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(-2, 2))],
+            ),
+            child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 16),
+          ),
+        ),
+      ),
+    ]);
+  }
 
-                Column(
-                  children: [
-                    // ✅ Header with stickers + gradient
-                    Container(
-                      padding: const EdgeInsets.only(
-                        left: 20,
-                        right: 20,
-                        top: 50,
-                        bottom: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF1A56DB),
-                            Colors.indigo.shade900,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(22),
-                          bottomRight: Radius.circular(22),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 16,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          // Header stickers
-                          Positioned(
-                            top: -12,
-                            right: -10,
-                            child: _StickerDot(
-                              size: 70,
-                              color: Colors.white,
-                              opacity: 0.10,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: -18,
-                            left: -12,
-                            child: _StickerDot(
-                              size: 90,
-                              color: Colors.white,
-                              opacity: 0.08,
-                            ),
-                          ),
+  // ── Header ────────────────────────────────────────────────────────────────
 
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Profile picture
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child: _isLoading
-                                      ? Shimmer.fromColors(
-                                          baseColor: Colors.grey.shade300,
-                                          highlightColor: Colors.grey.shade100,
-                                          child: Container(color: Colors.white),
-                                        )
-                                      : userPhotoUrl.isNotEmpty
-                                          ? CachedNetworkImage(
-                                              imageUrl: userPhotoUrl,
-                                              fit: BoxFit.cover,
-                                              placeholder: (context, url) =>
-                                                  Container(color: Colors.grey.shade200),
-                                              errorWidget: (context, url, error) =>
-                                                  Icon(Icons.person, size: 40, color: Colors.grey.shade400),
-                                            )
-                                          : Icon(Icons.person, size: 40, color: Colors.grey.shade400),
-                                ),
-                              ),
-                              const SizedBox(width: 22),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      userName,
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      category,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Menu items
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(20),
-                            topRight: Radius.circular(20),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? _buildShimmerLoader()
-                            : ListView(
-                                children: [
-                                  _buildDrawerItem(
-                                    icon: Icons.category,
-                                    title: 'Daily Used Categories',
-                                  ),
-                                  _buildDrawerItem(
-                                    icon: Icons.apps,
-                                    title: 'BD Social Apps',
-                                  ),
-                                  _buildDrawerItem(
-                                    icon: Icons.business,
-                                    title: 'FB Business',
-                                  ),
-                                  _buildDrawerItem(
-                                    icon: Icons.live_tv,
-                                    title: 'To-day Live',
-                                  ),
-                                  _buildDrawerItem(
-                                    icon: Icons.phone,
-                                    title: 'Hotline Numbers',
-                                  ),
-                                  _buildDrawerItem(
-                                    icon: Icons.contacts,
-                                    title: 'Favorite Contacts',
-                                  ),
-                                  if (cat_id != 56)
-                                    _buildDrawerItem(
-                                      icon: Icons.group,
-                                      title: 'Subscription Offers',
-                                    ),
-                                  _buildDrawerItem(
-                                    icon: Icons.settings,
-                                    title: 'Settings',
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ],
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 52, bottom: 22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_blue, Colors.indigo.shade900],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft:  Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 16, offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(children: [
+        Positioned(
+          top: -12, right: -10,
+          child: _Blob(size: 70, color: Colors.white, opacity: 0.10),
+        ),
+        Positioned(
+          bottom: -18, left: -12,
+          child: _Blob(size: 90, color: Colors.white, opacity: 0.08),
+        ),
+        Row(children: [
+          // Avatar
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.30),
+                  blurRadius: 10, spreadRadius: 2,
                 ),
               ],
             ),
+            child: ClipOval(
+              child: _isLoading
+                  ? Shimmer.fromColors(
+                      baseColor: Colors.grey.shade300,
+                      highlightColor: Colors.grey.shade100,
+                      child: Container(color: Colors.white))
+                  : userPhotoUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: userPhotoUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                          errorWidget: (_, __, ___) => const _DefaultAvatar(),
+                        )
+                      : const _DefaultAvatar(),
+            ),
           ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(userName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
+              const SizedBox(height: 3),
+              Text(category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.80))),
+            ]),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+
+  Widget _buildBody() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
+      children: [
+        // ── Favorite Contacts ─────────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.favorite_rounded,
+          iconColor: const Color(0xFFDB2777),
+          bgColor: const Color(0xFFFFF0F6),
+          borderColor: const Color(0xFFFBCFE8),
+          title: 'Favorite Contacts',
+          onTap: () {
+            if (userID.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('User ID not loaded yet')),
+              );
+              return;
+            }
+            _push(FavoriteProfilesPage(userId: userID));
+          },
         ),
 
-        // Minimize icon outside the drawer (middle right)
-        Positioned(
-          right: 0,
-          top: MediaQuery.of(context).size.height / 2 - 25,
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 30,
-              height: 50,
+        const SizedBox(height: 20),
+
+        // ── Settings section header ───────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Row(children: [
+            Container(
+              width: 3, height: 16,
               decoration: BoxDecoration(
-                color: const Color(0xFF1A56DB),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(-2, 2),
+                  color: _blue, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(width: 8),
+            const Text('Settings',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF374151),
+                    letterSpacing: 1.1)),
+          ]),
+        ),
+
+        // ── Account Settings ─────────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.manage_accounts_rounded,
+          iconColor: _blue,
+          bgColor: const Color(0xFFEFF6FF),
+          borderColor: const Color(0xFFBFDBFE),
+          title: 'Account Settings',
+          subtitle: 'Phone, email, password',
+          onTap: () => _push(AccountSettingsPage()),
+        ),
+
+        // ── Terms & Policies ─────────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.gavel_rounded,
+          iconColor: const Color(0xFF7C3AED),
+          bgColor: const Color(0xFFF5F3FF),
+          borderColor: const Color(0xFFDDD6FE),
+          title: 'Terms & Policies',
+          subtitle: 'Terms of service and privacy',
+          onTap: () => _push(TermsPolicies()),
+        ),
+
+        // ── About AaramBD ─────────────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.info_outline_rounded,
+          iconColor: const Color(0xFF0891B2),
+          bgColor: const Color(0xFFECFEFF),
+          borderColor: const Color(0xFFA5F3FC),
+          title: 'About AaramBD',
+          subtitle: 'Our mission and vision',
+          onTap: () => _push(AboutAaramBDPage()),
+        ),
+
+        // ── Account Control ──────────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.delete_forever_rounded,
+          iconColor: const Color(0xFFDC2626),
+          bgColor: const Color(0xFFFFF5F5),
+          borderColor: const Color(0xFFFECACA),
+          title: 'Account Control',
+          subtitle: 'Deactivate account',
+          onTap: () => _push(AccountControlPage()),
+        ),
+
+        const SizedBox(height: 28),
+
+        // ── Log Out ───────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFFEF4444), Color(0xFFEA580C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5)),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: _logout,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 15),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 10),
+                      Text('Log Out',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.4)),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios,
-                color: Colors.white,
-                size: 18,
+                ),
               ),
             ),
           ),
@@ -504,133 +358,21 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
-  Widget _buildShimmerLoader() {
+  // ── Shimmer ───────────────────────────────────────────────────────────────
+
+  Widget _buildShimmer() {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 20),
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-  }) {
-    // Zigzag density depends on title length
-    final int zigCount = (title.length ~/ 2).clamp(7, 14);
-    final double zigDepth = (title.length / 2.8).clamp(10.0, 16.0);
-
-    final String? tag = (title == 'To-day Live')
-        ? 'LIVE'
-        : (title == 'Subscription Offers')
-            ? 'HOT'
-            : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: ClipPath(
-        clipper: RightZigZagClipper(zigs: zigCount, depth: zigDepth),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.blue.shade50],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: Colors.blue.shade100.withValues(alpha: 0.85)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 8),
-              ),
-            ],
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            leading: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.blue.shade100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.10),
-                    blurRadius: 10,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: const Color(0xFF1A56DB)),
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                ),
-                if (tag != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: tag == 'LIVE' ? Colors.red.shade50 : Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: tag == 'LIVE' ? Colors.red.shade200 : Colors.orange.shade200,
-                      ),
-                    ),
-                    child: Text(
-                      tag,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: tag == 'LIVE' ? Colors.red.shade700 : Colors.orange.shade700,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            onTap: () => _navigateToPage(title),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        itemCount: 6,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ),
@@ -638,60 +380,125 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 }
 
-// ✅ Zig-zag right edge clipper
-class RightZigZagClipper extends CustomClipper<Path> {
-  final int zigs;
-  final double depth;
+// ─────────────────────────────────────────────────────────────────────────────
+//  Drawer item tile
+// ─────────────────────────────────────────────────────────────────────────────
 
-  RightZigZagClipper({this.zigs = 10, this.depth = 12});
+class _DrawerItem extends StatelessWidget {
+  final IconData  icon;
+  final Color     iconColor;
+  final Color     bgColor;
+  final Color     borderColor;
+  final String    title;
+  final String?   subtitle;
+  final VoidCallback onTap;
 
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(size.width - depth, 0);
-
-    final step = size.height / zigs;
-    for (int i = 0; i < zigs; i++) {
-      final yMid = (i + 0.5) * step;
-      final yNext = (i + 1) * step;
-
-      path.lineTo(size.width, yMid);
-      path.lineTo(size.width - depth, yNext);
-    }
-
-    path.lineTo(0, size.height);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant RightZigZagClipper oldClipper) {
-    return oldClipper.zigs != zigs || oldClipper.depth != depth;
-    }
-}
-
-// ✅ Sticker dot widget
-class _StickerDot extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double opacity;
-
-  const _StickerDot({
-    required this.size,
-    required this.color,
-    this.opacity = 0.18,
+  const _DrawerItem({
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    required this.borderColor,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: opacity),
-        shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withValues(alpha: 0.10),
+              blurRadius: 10, offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              child: Row(children: [
+                // Icon bubble
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 14),
+                // Text
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827))),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!,
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ]),
+                ),
+                // Arrow
+                Icon(Icons.chevron_right_rounded,
+                    size: 20, color: iconColor.withValues(alpha: 0.55)),
+              ]),
+            ),
+          ),
+        ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Blob extends StatelessWidget {
+  final double size;
+  final Color  color;
+  final double opacity;
+
+  const _Blob({required this.size, required this.color, this.opacity = 0.15});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size, height: size,
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: opacity), shape: BoxShape.circle),
+    );
+  }
+}
+
+class _DefaultAvatar extends StatelessWidget {
+  const _DefaultAvatar();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFE0E7FF),
+      child: const Icon(Icons.person_rounded, size: 40, color: Color(0xFF6366F1)),
     );
   }
 }

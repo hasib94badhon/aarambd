@@ -4,15 +4,25 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-
 import '../utils/TextHelper.dart';
 
 final String host = Config.host;
+
+const _kPrimary     = Color(0xFF2563EB);
+const _kPrimaryDark = Color(0xFF1E40AF);
+const _kBg          = Color(0xFFF1F5F9);
+const _kCard        = Colors.white;
+const _kTextHead    = Color(0xFF0F172A);
+const _kTextSub     = Color(0xFF64748B);
+const _kBorder      = Color(0xFFE2E8F0);
+const _kSuccess     = Color(0xFF059669);
+const _kLocked      = Color(0xFF94A3B8);
 
 class EditProfileScreen extends StatefulWidget {
   final String userName;
   final String userPhone;
   final String userCategory;
+  final String userCategoryId;
   final String userDescription;
   final String userAddress;
 
@@ -20,6 +30,7 @@ class EditProfileScreen extends StatefulWidget {
     required this.userName,
     required this.userPhone,
     required this.userCategory,
+    required this.userCategoryId,
     required this.userDescription,
     required this.userAddress,
   });
@@ -29,11 +40,11 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _nameController        = TextEditingController();
+  final TextEditingController _phoneController       = TextEditingController();
+  final TextEditingController _categoryController    = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _referralController = TextEditingController();
+  final TextEditingController _referralController    = TextEditingController();
 
   String? _referralError;
   String? _existingReferralId;
@@ -41,32 +52,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _selectedCategory;
   int? _selectedCatYesService;
   int? _selectedCatYesShop;
-  bool _isLoading = true;
-
-  List<XFile> _images = [];
+  List<XFile> _images   = [];
   List<XFile> _nidFiles = [];
   List<XFile> _tinFiles = [];
 
+  // Existing photos already on the server
+  List<String> _existingPhotoUrls = [];
+  List<String> _existingNidUrls   = [];
+  List<String> _existingTinUrls   = [];
+
   bool _canChangeCategory = false;
-  bool _isUploading = false;
-  bool _isCompressing = false;
+  bool _isUploading       = false;
+  bool _isCompressing     = false;
+  String _displayCategoryName = '';
+
+  // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = widget.userName;
-    _phoneController.text = widget.userPhone;
+    _nameController.text        = widget.userName;
+    _phoneController.text       = widget.userPhone;
     _descriptionController.text = widget.userDescription;
+
+    _selectedCategory       = widget.userCategoryId;
+    _canChangeCategory      = (widget.userCategoryId == '56');
+    _displayCategoryName    = widget.userCategory;
 
     fetchCategories();
     fetchUserDetails(context);
   }
 
+  // ─── Data Fetching ───────────────────────────────────────────────────────────
+
   Future<void> fetchCategories() async {
-    final res = await Config.apiGet('/get_categories_name', context);
-    if (res == null) {
-      return;
+    http.Response? res = await Config.apiGet('/get_categories_name', context);
+    if (res == null || res.statusCode != 200) {
+      if (!mounted) return;
+      res = await Config.apiGet('/category/get_categories_name', context);
     }
+    if (res == null) return;
 
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(res.body);
@@ -75,24 +100,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _categories = categoryList.cast<Map<String, dynamic>>();
 
-        final selected = _categories.firstWhere(
-          (c) => c['cat_name'] == widget.userCategory,
+        final matched = _categories.firstWhere(
+          (c) => c['cat_id'].toString() == widget.userCategoryId,
           orElse: () => {
-            'cat_id': '0',
+            'cat_id': widget.userCategoryId,
+            'cat_name': widget.userCategory,
             'yes_service': 0,
             'yes_shop': 0,
           },
         );
 
-        _selectedCategory = selected['cat_id'].toString();
-        _selectedCatYesService = selected['yes_service'] ?? 0;
-        _selectedCatYesShop = selected['yes_shop'] ?? 0;
-        _canChangeCategory = (_selectedCategory == '56');
-        _categoryController.text = _selectedCategory!;
-        _isLoading = false;
+        _selectedCatYesService  = matched['yes_service'] ?? 0;
+        _selectedCatYesShop     = matched['yes_shop'] ?? 0;
+        _displayCategoryName    = matched['cat_name'] ?? widget.userCategory;
       });
-    } else {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -103,7 +124,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (res != null && res.statusCode == 200) {
         final data = json.decode(res.body);
-
         setState(() {
           _existingReferralId = data['referral_id']?.toString();
           if (_existingReferralId != null &&
@@ -111,16 +131,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               _existingReferralId!.isNotEmpty) {
             _referralController.text = _existingReferralId!;
           }
+
+          // Parse existing uploaded file URLs (comma-separated strings)
+          _existingPhotoUrls = _parseUrls(data['photo']);
+          _existingNidUrls   = _parseUrls(data['nid']);
+          _existingTinUrls   = _parseUrls(data['tin']);
         });
-      } else {
-        // ignore: avoid_print
-        print("Failed to fetch user details: ${res?.statusCode}");
       }
-    } catch (e) {
-      // ignore: avoid_print
-      print("Error fetching user details: $e");
-    }
+    } catch (_) {}
   }
+
+  List<String> _parseUrls(dynamic raw) {
+    if (raw == null) return [];
+    final str = raw.toString().trim();
+    if (str.isEmpty) return [];
+    return str
+        .split(',')
+        .map((u) => u.trim())
+        .where((u) => u.isNotEmpty && u.startsWith('http'))
+        .toList();
+  }
+
+  // ─── Image Picking ───────────────────────────────────────────────────────────
 
   Future<void> _pickFiles(bool isNID) async {
     final picker = ImagePicker();
@@ -128,7 +160,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked != null) {
       setState(() => _isCompressing = true);
       final compressed = await _compressOrFallback(File(picked.path));
-
       setState(() {
         if (isNID) {
           _nidFiles = [XFile(compressed.path)];
@@ -147,7 +178,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _isCompressing = true);
       final compressed = await _compressOrFallback(File(picked.path));
       setState(() {
-        _images = [XFile(compressed.path)];
+        _images        = [XFile(compressed.path)];
         _isCompressing = false;
       });
     }
@@ -161,18 +192,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // ─── Submit ──────────────────────────────────────────────────────────────────
+
   Future<void> updateProfile() async {
     if (_isUploading) return;
     setState(() {
-      _isUploading = true;
+      _isUploading   = true;
       _referralError = null;
     });
 
     const endpoint = '/update_user_profile';
 
     final fields = <String, String>{
-      'name': _nameController.text.trim(),
-      'category': _selectedCategory ?? '',
+      'name':        _nameController.text.trim(),
+      'category':    _selectedCategory ?? '',
       'description': _descriptionController.text.trim(),
     };
 
@@ -186,48 +219,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final files = <String, File>{};
 
     for (int i = 0; i < _images.length; i++) {
-      final originalFile = File(_images[i].path);
-      final compressedFile = await _compressOrFallback(originalFile);
-      files['images[$i]'] = compressedFile;
+      files['images[$i]'] = await _compressOrFallback(File(_images[i].path));
     }
-
     for (int i = 0; i < _nidFiles.length; i++) {
-      final originalFile = File(_nidFiles[i].path);
-      final compressedFile = await _compressOrFallback(originalFile);
-      files['nids[$i]'] = compressedFile;
+      files['nids[$i]'] = await _compressOrFallback(File(_nidFiles[i].path));
     }
-
     for (int i = 0; i < _tinFiles.length; i++) {
-      final originalFile = File(_tinFiles[i].path);
-      final compressedFile = await _compressOrFallback(originalFile);
-      files['tins[$i]'] = compressedFile;
+      files['tins[$i]'] = await _compressOrFallback(File(_tinFiles[i].path));
     }
 
     try {
-      final streamedResponse = await Config.apiMultipartPost(
-        endpoint,
-        context,
-        fields: fields,
-        files: files,
+      final streamed = await Config.apiMultipartPost(
+        endpoint, context, fields: fields, files: files,
       );
+      if (streamed == null) return;
+      if (!mounted) return;
 
-      if (streamedResponse == null) {
-        return;
-      }
-      final response = await http.Response.fromStream(streamedResponse);
-      final data = json.decode(response.body);
-
-      final msg = (data['message'] ?? '').toString().toLowerCase();
-      final success = data['success'] == true;
+      final response = await http.Response.fromStream(streamed);
+      final data     = json.decode(response.body);
+      final msg      = (data['message'] ?? '').toString().toLowerCase();
+      final success  = data['success'] == true;
 
       if (response.statusCode == 200 && success) {
         if (fields.containsKey('reg_referral_id')) {
-          setState(() => _existingReferralId = fields['reg_referral_id']);
-          setState(() => _referralError = null);
+          setState(() {
+            _existingReferralId = fields['reg_referral_id'];
+            _referralError      = null;
+          });
         }
-
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Profile updated successfully'),
+              ],
+            ),
+            backgroundColor: _kSuccess,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
         Navigator.pop(context, true);
         return;
@@ -239,58 +272,236 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           return;
         }
         if (msg.contains('cannot use your own referral')) {
-          setState(
-              () => _referralError = 'You cannot use your own referral ID');
+          setState(() => _referralError = 'You cannot use your own referral ID');
           return;
         }
       }
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Failed: ${data["message"] ?? "Unknown error"}')),
+          content: Text('Failed: ${data["message"] ?? "Unknown error"}'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('⚠️ Error: $e')),
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       setState(() => _isUploading = false);
     }
   }
 
-  // ---------- UI Helpers (visuals only, no logic change) ----------
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _sectionHeader(IconData icon, String title,
-      {Color? color, EdgeInsets margin = const EdgeInsets.only(bottom: 8)}) {
-    final c = color ?? Colors.blueGrey.shade800;
-    return Container(
-      margin: margin,
-      child: Row(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _kBg,
+      body: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF86A8E7), Color(0xFF91EAE4)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          CustomScrollView(
+            slivers: [
+              _buildHeader(context),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(_buildSections()),
+                ),
               ),
-              boxShadow: const [
-                BoxShadow(
-                    color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+            ],
+          ),
+          if (_isCompressing || _isUploading) _buildLoadingOverlay(),
+        ],
+      ),
+      bottomNavigationBar: _buildSaveBar(),
+    );
+  }
+
+  // ─── Header ──────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(BuildContext context) {
+    final initials = widget.userName.trim().isNotEmpty
+        ? widget.userName.trim()[0].toUpperCase()
+        : 'U';
+
+    return SliverAppBar(
+      expandedHeight: 200,
+      pinned: true,
+      backgroundColor: _kPrimaryDark,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: const Text(
+        'Edit Profile',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
+      ),
+      centerTitle: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_kPrimaryDark, _kPrimary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 44),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.15),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2.5),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.phone_rounded,
+                        size: 12, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.userPhone,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 18),
           ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: TextStyle(
-              color: c,
-              fontWeight: FontWeight.w900,
-              fontSize: 16.5,
-              letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
+  // ─── Sections ────────────────────────────────────────────────────────────────
+
+  List<Widget> _buildSections() {
+    return [
+      const SizedBox(height: 16),
+      _infoCard(),
+      const SizedBox(height: 12),
+      _categoryCard(),
+      const SizedBox(height: 12),
+      _aboutCard(),
+      if (_existingReferralId == null || _existingReferralId == "0") ...[
+        const SizedBox(height: 12),
+        _referralCard(),
+      ],
+      if (_selectedCatYesService == 1 && _selectedCatYesShop == 0) ...[
+        const SizedBox(height: 12),
+        _documentCard(
+          icon: Icons.credit_card_rounded,
+          iconColor: const Color(0xFF10B981),
+          title: 'NID Document',
+          subtitle: 'Required for service providers',
+          files: _nidFiles,
+          existingUrls: _existingNidUrls,
+          onTap: () => _pickFiles(true),
+          fieldKey: 'nid',
+        ),
+      ] else if (_selectedCatYesService == 0 && _selectedCatYesShop == 1) ...[
+        const SizedBox(height: 12),
+        _documentCard(
+          icon: Icons.receipt_long_rounded,
+          iconColor: const Color(0xFF10B981),
+          title: 'TIN Document',
+          subtitle: 'Required for shop owners',
+          files: _tinFiles,
+          existingUrls: _existingTinUrls,
+          onTap: () => _pickFiles(false),
+          fieldKey: 'tin',
+        ),
+      ],
+      const SizedBox(height: 12),
+      _photoCard(),
+    ];
+  }
+
+  // ─── Info Card ───────────────────────────────────────────────────────────────
+
+  Widget _infoCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(Icons.person_outline_rounded, 'Basic Information', _kPrimary),
+          const SizedBox(height: 16),
+          _field(
+            label: 'Full Name',
+            controller: _nameController,
+            prefixIcon: Icons.badge_outlined,
+          ),
+          const SizedBox(height: 14),
+          _field(
+            label: 'Phone Number',
+            controller: _phoneController,
+            prefixIcon: Icons.phone_outlined,
+            readOnly: true,
+            suffix: _lockedTag(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Category Card ───────────────────────────────────────────────────────────
+
+  Widget _categoryCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(Icons.category_outlined, 'Category', const Color(0xFF7C3AED)),
+          const SizedBox(height: 14),
+          _categoryBadge(),
+          const SizedBox(height: 14),
+          AbsorbPointer(
+            absorbing: !_canChangeCategory,
+            child: AnimatedOpacity(
+              opacity: _canChangeCategory ? 1.0 : 0.55,
+              duration: const Duration(milliseconds: 200),
+              child: _categoryAutocomplete(),
             ),
           ),
         ],
@@ -298,27 +509,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _infoBadge(
-      {required String text, required Color color, IconData? icon}) {
+  Widget _categoryBadge() {
+    final canChange = _canChangeCategory;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: canChange
+            ? _kSuccess.withValues(alpha: 0.08)
+            : _kLocked.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: canChange
+              ? _kSuccess.withValues(alpha: 0.3)
+              : _kLocked.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-          ],
+          Icon(
+            canChange ? Icons.lock_open_rounded : Icons.lock_rounded,
+            size: 14,
+            color: canChange ? _kSuccess : _kLocked,
+          ),
+          const SizedBox(width: 6),
           Text(
-            text,
+            canChange
+                ? 'One-time change available'
+                : 'Category is locked',
             style: TextStyle(
-              color: color.withValues(alpha: 0.95),
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: canChange ? _kSuccess : _kLocked,
             ),
           ),
         ],
@@ -326,500 +548,682 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  InputDecoration _fieldDecoration(String label,
-      {IconData? icon, bool readOnly = false}) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: icon != null ? Icon(icon) : null,
-      filled: true,
-      fillColor: readOnly ? const Color(0xFFF2F3F7) : const Color(0xFFF7F8FC),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.black12.withValues(alpha: 0.06)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.black12.withValues(alpha: 0.06)),
-      ),
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
-        borderSide: BorderSide(color: Color(0xFF86A8E7), width: 1.3),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    int maxLines = 1,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      inputFormatters: [
-        WordLimitFormatter(150),
-      ],
-      decoration: _fieldDecoration(label, icon: _mapIcon(label)),
-    );
-  }
-
-  IconData? _mapIcon(String label) {
-    switch (label.toLowerCase()) {
-      case 'name':
-        return Icons.person;
-      case 'description':
-        return Icons.notes_rounded;
-      default:
-        return null;
-    }
-  }
-
-  Widget _buildFilePreview(List<XFile> files) {
-    // same function name & purpose; nicer layout (visual only)
-    if (files.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: files.map((file) {
-        return Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                  color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
-            ],
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE3F2FD), Color(0xFFE0F7FA)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: Colors.black12.withValues(alpha: 0.06)),
+  Widget _categoryAutocomplete() {
+    return Autocomplete<String>(
+      optionsBuilder: (TextEditingValue tv) {
+        if (!_canChangeCategory) return const Iterable<String>.empty();
+        final input    = tv.text.toLowerCase();
+        final allNames = _categories.map((c) => c['cat_name'] as String);
+        if (input.isEmpty) return allNames;
+        final starts   = allNames.where((n) => n.toLowerCase().startsWith(input));
+        final contains = allNames.where(
+            (n) => n.toLowerCase().contains(input) && !n.toLowerCase().startsWith(input));
+        return [...starts, ...contains];
+      },
+      onSelected: (String selection) {
+        final cat = _categories.firstWhere(
+          (c) => c['cat_name'] == selection,
+          orElse: () => {'cat_id': '0', 'yes_service': 0, 'yes_shop': 0},
+        );
+        setState(() {
+          _selectedCategory       = cat['cat_id'].toString();
+          _displayCategoryName    = selection;
+          _categoryController.text = selection;
+          _selectedCatYesService  = cat['yes_service'] ?? 0;
+          _selectedCatYesShop     = cat['yes_shop'] ?? 0;
+        });
+      },
+      fieldViewBuilder: (ctx, fieldController, focusNode, onSubmit) {
+        if (!focusNode.hasFocus) fieldController.text = _displayCategoryName;
+        return TextFormField(
+          controller: fieldController,
+          focusNode: focusNode,
+          textInputAction: TextInputAction.search,
+          onFieldSubmitted: (_) => onSubmit(),
+          style: const TextStyle(color: _kTextHead, fontSize: 15),
+          decoration: _inputDecoration(
+            label: 'Search category...',
+            prefixIcon: Icons.search_rounded,
           ),
-          child: ClipRRect(
+        );
+      },
+      optionsViewBuilder: (ctx, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 12,
+            shadowColor: Colors.black.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(14),
-            child: Image.file(
-              File(file.path),
-              fit: BoxFit.cover,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.38,
+                maxWidth: MediaQuery.of(ctx).size.width - 32,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: options.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: _kBorder),
+                  itemBuilder: (_, i) {
+                    final opt = options.elementAt(i);
+                    return InkWell(
+                      onTap: () => onSelected(opt),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.category_outlined,
+                                size: 16, color: _kTextSub),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                opt,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: _kTextHead,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 
-  Widget _uploadButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    Color start = const Color(0xFF86A8E7),
-    Color end = const Color(0xFF91EAE4),
-  }) {
-    return SizedBox(
-      height: 44,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          minimumSize: const Size(140, 44),
-          backgroundColor: Colors.transparent,
-        ).merge(
-          ButtonStyle(
-            backgroundColor:
-                MaterialStateProperty.resolveWith((_) => Colors.transparent),
-            shadowColor: MaterialStateProperty.all(Colors.transparent),
-            overlayColor: MaterialStateProperty.all(Colors.white24),
-          ),
-        ),
-      ),
-    ).buildGradientButton(start, end);
-  }
+  // ─── About Card ──────────────────────────────────────────────────────────────
 
-  Widget _submitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: updateProfile,
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-        child: const Text('Update Profile'),
-      ).buildGradientButton(const Color(0xFF7F7FD5), const Color(0xFF86A8E7)),
-    );
-  }
-
-  // ------------------- BUILD -------------------
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        title: const Text('Update Profile',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        foregroundColor: Colors.black87,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFE8F1FF), Color(0xFFF8FBFF)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-      ),
-      body: Stack(
+  Widget _aboutCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top card with general info
-                      _glassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _sectionHeader(Icons.person_rounded, 'Basic Info'),
-                            const SizedBox(height: 8),
-                            _buildTextField(
-                                label: 'Name', controller: _nameController),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: _phoneController,
-                              readOnly: true,
-                              decoration: _fieldDecoration(
-                                  'Phone (not editable)',
-                                  icon: Icons.phone,
-                                  readOnly: true),
-                            ),
-                            const SizedBox(height: 16),
-                            // Category state badge
-                            Row(
-                              children: [
-                                _infoBadge(
-                                  text: _canChangeCategory
-                                      ? 'You can change your category once.'
-                                      : 'You cannot change your category.',
-                                  color: _canChangeCategory
-                                      ? Colors.teal
-                                      : Colors.redAccent,
-                                  icon: _canChangeCategory
-                                      ? Icons.lock_open
-                                      : Icons.lock,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            // Category Autocomplete
-                            _sectionHeader(Icons.category, 'Category'),
-                            AbsorbPointer(
-                              absorbing: !_canChangeCategory,
-                              child: Opacity(
-                                opacity: _canChangeCategory ? 1.0 : 0.6,
-                                child: Autocomplete<String>(
-                                  optionsBuilder:
-                                      (TextEditingValue textEditingValue) {
-                                    if (!_canChangeCategory) {
-                                      return const Iterable<String>.empty();
-                                    }
-                                    final input =
-                                        textEditingValue.text.toLowerCase();
-                                    final allNames = _categories
-                                        .map((c) => c['cat_name'] as String);
-                                    if (input.isEmpty) return allNames;
-                                    final starts = allNames.where((name) =>
-                                        name.toLowerCase().startsWith(input));
-                                    final contains = allNames.where((name) =>
-                                        name.toLowerCase().contains(input) &&
-                                        !name.toLowerCase().startsWith(input));
-                                    return [...starts, ...contains];
-                                  },
-                                  onSelected: (String selection) {
-                                    final selectedCat = _categories.firstWhere(
-                                      (c) => c['cat_name'] == selection,
-                                      orElse: () => {
-                                        'cat_id': '0',
-                                        'yes_service': 0,
-                                        'yes_shop': 0
-                                      },
-                                    );
-                                    setState(() {
-                                      _selectedCategory =
-                                          selectedCat['cat_id'].toString();
-                                      _categoryController.text = selection;
-                                      _selectedCatYesService =
-                                          selectedCat['yes_service'] ?? 0;
-                                      _selectedCatYesShop =
-                                          selectedCat['yes_shop'] ?? 0;
-                                    });
-                                  },
-                                  fieldViewBuilder: (
-                                    BuildContext context,
-                                    TextEditingController fieldController,
-                                    FocusNode focusNode,
-                                    VoidCallback onFieldSubmitted,
-                                  ) {
-                                    fieldController.text = _categories
-                                            .firstWhere(
-                                                (c) =>
-                                                    c['cat_id'].toString() ==
-                                                    _selectedCategory,
-                                                orElse: () => {
-                                                      'cat_name': ''
-                                                    })['cat_name']
-                                            .toString() ??
-                                        '';
-                                    return TextFormField(
-                                      controller: fieldController,
-                                      focusNode: focusNode,
-                                      textInputAction: TextInputAction.search,
-                                      onFieldSubmitted: (_) =>
-                                          onFieldSubmitted(),
-                                      decoration: _fieldDecoration(
-                                          'Select Category',
-                                          icon: Icons.search),
-                                    );
-                                  },
-                                  optionsViewBuilder: (
-                                    BuildContext context,
-                                    AutocompleteOnSelected<String> onSelected,
-                                    Iterable<String> options,
-                                  ) {
-                                    return Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Material(
-                                        elevation: 8,
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            maxHeight: MediaQuery.of(context)
-                                                    .size
-                                                    .height *
-                                                0.4,
-                                            maxWidth: MediaQuery.of(context)
-                                                    .size
-                                                    .width -
-                                                32,
-                                          ),
-                                          child: ListView.separated(
-                                            padding: EdgeInsets.zero,
-                                            itemCount: options.length,
-                                            separatorBuilder: (_, __) =>
-                                                const Divider(height: 1),
-                                            itemBuilder: (ctx, i) {
-                                              final option =
-                                                  options.elementAt(i);
-                                              return ListTile(
-                                                dense: true,
-                                                title: Text(
-                                                  option,
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600),
-                                                ),
-                                                onTap: () => onSelected(option),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _sectionHeader(Icons.notes_rounded, 'Description'),
-                            _buildTextField(
-                              label: 'Description',
-                              controller: _descriptionController,
-                              maxLines: 3,
-                            ),
-                          ],
-                        ),
-                      ),
+          _cardHeader(Icons.edit_note_rounded, 'About', const Color(0xFF0EA5E9)),
+          const SizedBox(height: 16),
+          _field(
+            label: 'Describe yourself or your business...',
+            controller: _descriptionController,
+            maxLines: 4,
+          ),
+        ],
+      ),
+    );
+  }
 
-                      const SizedBox(height: 14),
+  // ─── Referral Card ───────────────────────────────────────────────────────────
 
-                      // Referral
-                      if (_existingReferralId == null ||
-                          _existingReferralId == "0") ...[
-                        _glassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _sectionHeader(
-                                  Icons.card_giftcard_rounded, 'Referral'),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _referralController,
-                                decoration: _fieldDecoration(
-                                  "Enter Referral ID (optional)",
-                                  icon: Icons.confirmation_number_outlined,
-                                ).copyWith(errorText: _referralError),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-
-                      // Document Uploads (NID/TIN)
-                      if (_selectedCatYesService == 1 &&
-                          _selectedCatYesShop == 0) ...[
-                        _glassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _sectionHeader(
-                                  Icons.badge_rounded, 'NID Documents'),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  _uploadButton(
-                                    icon: Icons.upload_file,
-                                    label: 'Pick NID Files',
-                                    onPressed: () => _pickFiles(true),
-                                    start: const Color(0xFF00B09B),
-                                    end: const Color(0xFF96C93D),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              _buildFilePreview(_nidFiles),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ] else if (_selectedCatYesService == 0 &&
-                          _selectedCatYesShop == 1) ...[
-                        _glassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _sectionHeader(
-                                  Icons.receipt_long_rounded, 'TIN Documents'),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  _uploadButton(
-                                    icon: Icons.upload_file,
-                                    label: 'Pick TIN Files',
-                                    onPressed: () => _pickFiles(false),
-                                    start: const Color(0xFF00B09B),
-                                    end: const Color(0xFF96C93D),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              _buildFilePreview(_tinFiles),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-
-                      // Images Upload
-                      _glassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _sectionHeader(
-                                Icons.photo_library_rounded, 'Profile Images'),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                _uploadButton(
-                                  icon: Icons.photo_library_rounded,
-                                  label: 'Upload Images',
-                                  onPressed: _pickImages,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildFilePreview(_images),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Submit
-                      _submitButton(),
-                    ],
+  Widget _referralCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _cardHeader(
+                  Icons.card_giftcard_rounded, 'Referral Code', const Color(0xFFF59E0B)),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Optional',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFB45309),
                   ),
                 ),
-
-          // Overlays
-          if (_isCompressing)
-            Container(
-              color: Colors.black26,
-              child: const Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Enter the referral code shared by a data collector',
+            style: TextStyle(
+              fontSize: 12,
+              color: _kTextSub.withValues(alpha: 0.8),
             ),
-          if (_isUploading)
-            Container(
-              color: Colors.black54,
-              child: const Center(child: CircularProgressIndicator()),
-            ),
+          ),
+          const SizedBox(height: 14),
+          _field(
+            label: 'Referral ID',
+            controller: _referralController,
+            prefixIcon: Icons.confirmation_number_outlined,
+            errorText: _referralError,
+          ),
         ],
       ),
     );
   }
 
-  // Pretty card container (visual only)
-  Widget _glassCard({required Widget child}) {
+  // ─── Document Card ───────────────────────────────────────────────────────────
+
+  Widget _documentCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required List<XFile> files,
+    required List<String> existingUrls,
+    required VoidCallback onTap,
+    required String fieldKey,
+  }) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(icon, title, iconColor),
+          const SizedBox(height: 4),
+          Text(subtitle,
+              style: const TextStyle(fontSize: 12, color: _kTextSub)),
+          const SizedBox(height: 14),
+          _uploadZone(files: files, existingUrls: existingUrls, onTap: onTap),
+        ],
+      ),
+    );
+  }
+
+  // ─── Photo Card ──────────────────────────────────────────────────────────────
+
+  Widget _photoCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader(Icons.photo_camera_outlined, 'Profile Photo',
+              const Color(0xFFEC4899)),
+          const SizedBox(height: 4),
+          const Text('Upload a clear photo of yourself or your business',
+              style: TextStyle(fontSize: 12, color: _kTextSub)),
+          const SizedBox(height: 14),
+          _uploadZone(
+            files: _images,
+            existingUrls: _existingPhotoUrls,
+            onTap: _pickImages,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Upload Zone ─────────────────────────────────────────────────────────────
+
+  Widget _uploadZone({
+    required List<XFile> files,
+    required List<String> existingUrls,
+    required VoidCallback onTap,
+  }) {
+    // Priority 1: user just picked a new local file
+    if (files.isNotEmpty) {
+      return _localFilePreview(file: files.first, onTap: onTap);
+    }
+
+    // Priority 2: photos already on the server
+    if (existingUrls.isNotEmpty) {
+      return _serverPhotosPreview(urls: existingUrls, onTap: onTap);
+    }
+
+    // Priority 3: empty — show upload zone
+    return _emptyUploadZone(onTap: onTap);
+  }
+
+  Widget _emptyUploadZone({required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: CustomPaint(
+        painter: _DashedBorderPainter(),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _kPrimary.withValues(alpha: 0.07),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cloud_upload_outlined,
+                    size: 28, color: _kPrimary),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Tap to upload',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _kPrimary),
+              ),
+              const SizedBox(height: 2),
+              const Text('JPG or PNG supported',
+                  style: TextStyle(fontSize: 12, color: _kTextSub)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _localFilePreview({required XFile file, required VoidCallback onTap}) {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            File(file.path),
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: _kSuccess, size: 15),
+                  const SizedBox(width: 5),
+                  const Text('New file ready',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: _kSuccess,
+                          fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                file.path.split('/').last,
+                style: const TextStyle(fontSize: 12, color: _kTextSub),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              _changeButton(onTap: onTap),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _serverPhotosPreview(
+      {required List<String> urls, required VoidCallback onTap}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Status row
+        Row(
+          children: [
+            const Icon(Icons.cloud_done_rounded, color: _kSuccess, size: 15),
+            const SizedBox(width: 5),
+            Text(
+              '${urls.length} file${urls.length > 1 ? 's' : ''} already uploaded',
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kSuccess),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Thumbnail row
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...urls.map((url) => _networkThumb(url)),
+            // "+" tile to add / replace
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: _kPrimary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: _kPrimary.withValues(alpha: 0.25), width: 1.2),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_outlined,
+                        color: _kPrimary, size: 20),
+                    SizedBox(height: 3),
+                    Text('Replace',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: _kPrimary,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _networkThumb(String url) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        loadingBuilder: (_, child, progress) => progress == null
+            ? child
+            : Container(
+                width: 72,
+                height: 72,
+                color: _kBorder,
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _kPrimary),
+                  ),
+                ),
+              ),
+        errorBuilder: (_, __, ___) => Container(
+          width: 72,
+          height: 72,
+          color: _kBorder,
+          child: const Icon(Icons.broken_image_outlined,
+              color: _kTextSub, size: 28),
+        ),
+      ),
+    );
+  }
+
+  Widget _changeButton({required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: _kPrimary),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text(
+          'Change file',
+          style: TextStyle(
+              fontSize: 12, color: _kPrimary, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
+  // ─── Save Bar ────────────────────────────────────────────────────────────────
+
+  Widget _buildSaveBar() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(
+        color: _kCard,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton(
+          onPressed: _isUploading ? null : updateProfile,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _kPrimary,
+            disabledBackgroundColor: _kPrimary.withValues(alpha: 0.5),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          child: _isUploading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5),
+                )
+              : const Text(
+                  'Save Changes',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Loading Overlay ─────────────────────────────────────────────────────────
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 30),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: _kPrimary, strokeWidth: 3),
+              const SizedBox(height: 16),
+              Text(
+                _isCompressing ? 'Compressing image...' : 'Uploading...',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, color: _kTextHead),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Shared UI Helpers ───────────────────────────────────────────────────────
+
+  Widget _card({required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
           BoxShadow(
-              color: Colors.black12, blurRadius: 12, offset: Offset(0, 6)),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
-        border: Border.all(color: Colors.black12.withValues(alpha: 0.06)),
       ),
       child: child,
     );
   }
-}
 
-// ------------ tiny extension to paint gradient on ElevatedButton ------------
-extension _GradientButton on Widget {
-  Widget buildGradientButton(Color start, Color end) {
-    return Ink(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [start, end]),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-              color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Container(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
-        child: this,
+  Widget _cardHeader(IconData icon, String title, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: _kTextHead,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required String label,
+    required TextEditingController controller,
+    IconData? prefixIcon,
+    bool readOnly = false,
+    int maxLines = 1,
+    Widget? suffix,
+    String? errorText,
+  }) {
+    return TextField(
+      controller: controller,
+      readOnly: readOnly,
+      maxLines: maxLines,
+      inputFormatters: readOnly ? [] : [WordLimitFormatter(150)],
+      style: const TextStyle(color: _kTextHead, fontSize: 15),
+      decoration: _inputDecoration(
+        label: label,
+        prefixIcon: prefixIcon,
+        readOnly: readOnly,
+        suffix: suffix,
+        errorText: errorText,
       ),
     );
   }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    IconData? prefixIcon,
+    bool readOnly = false,
+    Widget? suffix,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: _kTextSub, fontSize: 14),
+      prefixIcon: prefixIcon != null
+          ? Icon(prefixIcon, color: _kTextSub, size: 20)
+          : null,
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: readOnly
+          ? const Color(0xFFF8FAFC)
+          : const Color(0xFFFAFBFF),
+      errorText: errorText,
+      errorStyle: const TextStyle(fontSize: 12),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _kBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _kBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _kPrimary, width: 1.5),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _kBorder),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _lockedTag() {
+    return Container(
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: _kLocked.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'Locked',
+        style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w600, color: _kLocked),
+      ),
+    );
+  }
+}
+
+// ─── Dashed Border Painter ────────────────────────────────────────────────────
+
+class _DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const radius = 12.0;
+    const dashW  = 6.0;
+    const dashS  = 5.0;
+
+    final paint = Paint()
+      ..color = const Color(0xFFCBD5E1)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(radius),
+      ));
+
+    final dash = Path();
+    for (final metric in path.computeMetrics()) {
+      double d = 0;
+      while (d < metric.length) {
+        dash.addPath(metric.extractPath(d, d + dashW), Offset.zero);
+        d += dashW + dashS;
+      }
+    }
+    canvas.drawPath(dash, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter _) => false;
 }

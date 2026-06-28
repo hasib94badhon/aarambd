@@ -55,6 +55,7 @@ final FocusNode _focusNode = FocusNode();
   String userName = "User Name";
   String profile_pic = "";
   String userCategory = "Category";
+  String userCategoryId = "56";
   String userDescription = "";
   String userAddress = "User Address";
   int userview = 0;
@@ -228,6 +229,7 @@ final FocusNode _focusNode = FocusNode();
           user_id = data['user_id'];
           userName = data['name'] ?? "User Name";
           userCategory = data['cat_name'] ?? "Category";
+          userCategoryId = (data['cat_id'] ?? 56).toString();
           userDescription = data['description'] ?? "User Description";
           userAddress = data['location'] ?? "No location found";
           profile_pic = data['photo'] ?? "No image";
@@ -889,6 +891,7 @@ final FocusNode _focusNode = FocusNode();
                                             userName: userName,
                                             userPhone: widget.userPhone,
                                             userCategory: userCategory,
+                                            userCategoryId: userCategoryId,
                                             userDescription: userDescription,
                                             userAddress: userAddress,
                                           ),

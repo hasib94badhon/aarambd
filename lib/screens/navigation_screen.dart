@@ -15,6 +15,7 @@ import 'package:aaram_bd/localization/app_localizations.dart';
 import 'package:aaram_bd/localization/language_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/user_current_location.dart';
 
 final String host = Config.host;
 
@@ -150,6 +151,8 @@ class _NavigationScreenState extends State<NavigationScreen>
     initializePages();
     fetchPageData(pageIndex);
     getUnreadCount();
+    // Save this user's GPS to the backend so they appear in other users' "Nearby" radar.
+    LocationService().updateUserLocationFromStorage();
   }
 
   @override

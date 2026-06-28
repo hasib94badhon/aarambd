@@ -465,55 +465,71 @@ class _ShopsCartState extends State<ShopsCart> {
                       .contains(_searchQuery))
                   .toList();
 
-          return RefreshIndicator(
-            color: const Color(0xFF1A56DB),
-            onRefresh: _refresh,
-            child: CustomScrollView(
-              controller: _scrollCtrl,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _buildHeader(categories.length, filtered.length),
-                ),
-                categories.isEmpty
-                    ? SliverFillRemaining(child: _buildEmptyState())
-                    : filtered.isEmpty
-                        ? SliverFillRemaining(child: _buildSearchEmpty())
-                        : SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                                14, 0, 14, 20 + MediaQuery.of(context).padding.bottom),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (ctx, i) {
-                                  final cat = filtered[i];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _ShopCategoryCard(
-                                      imageUrl: cat.photo?.toString() ?? '',
-                                      name: cat.categoryName,
-                                      count: cat.categoryCount,
-                                      onTap: () {
-                                        updateCategoryUsage(cat.cat_id, context);
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ShopsFavorite(
-                                              userPhone: widget.userPhone,
-                                              cat_id: cat.cat_id,
-                                              categoryName: cat.categoryName,
-                                            ),
+          return Column(
+            children: [
+              // ── Pinned search bar ───────────────────────────────────────
+              _buildSearchBar(),
+              // ── Scrollable content ──────────────────────────────────────
+              Expanded(
+                child: RefreshIndicator(
+                  color: const Color(0xFF1A56DB),
+                  onRefresh: _refresh,
+                  child: CustomScrollView(
+                    controller: _scrollCtrl,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _buildHeader(categories.length, filtered.length),
+                      ),
+                      categories.isEmpty
+                          ? SliverFillRemaining(child: _buildEmptyState())
+                          : filtered.isEmpty
+                              ? SliverFillRemaining(child: _buildSearchEmpty())
+                              : SliverPadding(
+                                  padding: EdgeInsets.fromLTRB(
+                                      14,
+                                      0,
+                                      14,
+                                      20 + MediaQuery.of(context).padding.bottom),
+                                  sliver: SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (ctx, i) {
+                                        final cat = filtered[i];
+                                        return Padding(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 10),
+                                          child: _ShopCategoryCard(
+                                            imageUrl:
+                                                cat.photo?.toString() ?? '',
+                                            name: cat.categoryName,
+                                            count: cat.categoryCount,
+                                            onTap: () {
+                                              updateCategoryUsage(
+                                                  cat.cat_id, context);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => ShopsFavorite(
+                                                    userPhone: widget.userPhone,
+                                                    cat_id: cat.cat_id,
+                                                    categoryName:
+                                                        cat.categoryName,
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           ),
                                         );
                                       },
+                                      childCount: filtered.length,
                                     ),
-                                  );
-                                },
-                                childCount: filtered.length,
-                              ),
-                            ),
-                          ),
-              ],
-            ),
+                                  ),
+                                ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -525,121 +541,120 @@ class _ShopsCartState extends State<ShopsCart> {
   Widget _buildHeader(int total, int filtered) {
     final isFiltering = _searchQuery.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+      child: Row(
         children: [
-          Row(
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1040B0), Color(0xFF1A56DB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.shopping_bag_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1040B0), Color(0xFF1A56DB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(
-                  Icons.shopping_bag_rounded,
-                  color: Colors.white,
-                  size: 22,
+              const Text(
+                'Shop Categories',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                  letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Shop Categories',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
-                      letterSpacing: -0.3,
-                    ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  isFiltering
+                      ? '$filtered of $total matched'
+                      : '$total categories available',
+                  key: ValueKey(isFiltering ? filtered : -1),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isFiltering
+                        ? const Color(0xFF1A56DB)
+                        : const Color(0xFF9CA3AF),
+                    fontWeight: FontWeight.w500,
                   ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text(
-                      isFiltering
-                          ? '$filtered of $total matched'
-                          : '$total categories available',
-                      key: ValueKey(isFiltering ? filtered : -1),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isFiltering
-                            ? const Color(0xFF1A56DB)
-                            : const Color(0xFF9CA3AF),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
-
-          const SizedBox(height: 12),
-
-          // ── Inline search bar ──────────────────────────────────────────
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isFiltering
-                    ? const Color(0xFF1A56DB).withValues(alpha: 0.40)
-                    : Colors.black.withValues(alpha: 0.08),
-                width: isFiltering ? 1.5 : 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.07),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search shop categories…',
-                hintStyle: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.32),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 14, right: 8),
-                  child: Icon(Icons.search_rounded,
-                      color: Color(0xFF1A56DB), size: 21),
-                ),
-                prefixIconConstraints:
-                    const BoxConstraints(minWidth: 48, minHeight: 48),
-                suffixIcon: isFiltering
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        color: Colors.black38,
-                        splashRadius: 18,
-                        onPressed: _searchController.clear,
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final isFiltering = _searchQuery.isNotEmpty;
+    return Container(
+      color: const Color(0xFFF3F7FF),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isFiltering
+                ? const Color(0xFF1A56DB).withValues(alpha: 0.40)
+                : Colors.black.withValues(alpha: 0.08),
+            width: isFiltering ? 1.5 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Search shop categories…',
+            hintStyle: TextStyle(
+              color: Colors.black.withValues(alpha: 0.32),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Padding(
+              padding: EdgeInsets.only(left: 14, right: 8),
+              child: Icon(Icons.search_rounded,
+                  color: Color(0xFF1A56DB), size: 21),
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 48, minHeight: 48),
+            suffixIcon: isFiltering
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: Colors.black38,
+                    splashRadius: 18,
+                    onPressed: _searchController.clear,
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+          ),
+        ),
       ),
     );
   }

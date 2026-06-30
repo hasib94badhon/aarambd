@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/main.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
+import 'package:aaram_bd/services/app_location.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:intl/intl.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,6 +31,9 @@ class UserDetail {
   final String user_viewed;
   final String days_since_creation;
   final String? distance;
+  final double? distanceKm;
+  final double? lat;
+  final double? lon;
   final String? call_status;
   final String? sub_type;
   String lastSeen = '';
@@ -50,6 +57,9 @@ class UserDetail {
     required this.lastSeen,
     required this.lastCalled,
     required this.sub_type,
+    this.distanceKm,
+    this.lat,
+    this.lon,
   });
 
   factory UserDetail.fromJson(Map<String, dynamic> json) {
@@ -67,6 +77,9 @@ class UserDetail {
       user_viewed: json['user_viewed'],
       days_since_creation: json['days_since_creation'],
       distance: json['distance'],
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      lat: (json['lat'] as num?)?.toDouble(),
+      lon: (json['lon'] as num?)?.toDouble(),
       call_status: json['call_status'],
       lastSeen: json['last_seen'] ?? '',
       lastCalled: json['last_called'] ?? '',
@@ -113,29 +126,29 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   Timer? _debounce;
   bool _searchFocused = false;
 
-  // Pagination — unchanged
-  int _servicePage = 1;
+  // Pagination
+  int _page = 1;
   final int _limit = 10;
-  int _shopPage = 1;
-  bool _serviceHasMore = true;
-  bool _shopHasMore = true;
+  bool _hasMore = true;
   bool _isLoadingMore = false;
 
   late final ScrollController _scrollController = ScrollController();
 
   List<UserDetail> combinedUsers = [];
   bool locationAvailable = true;
-  String sortBy = 'most_called';
+  String sortBy = 'nearby';
   bool isLoading = false;
+  bool _locationReady = false;
+  bool _locationLoading = false;
 
   static const Color _brand = Color(0xFF1A56DB);
   static const Color _bg = Color(0xFFF3F7FF);
 
   static const _sortOptions = [
+    {'value': 'nearby',      'label': 'Nearby',      'icon': Icons.near_me_rounded},
     {'value': 'most_called', 'label': 'Most Called', 'icon': Icons.phone_rounded},
     {'value': 'most_viewed', 'label': 'Most Viewed', 'icon': Icons.visibility_rounded},
     {'value': 'recent',      'label': 'Recent',      'icon': Icons.schedule_rounded},
-    {'value': 'nearby',      'label': 'Nearby',      'icon': Icons.near_me_rounded},
   ];
 
   List<UserDetail> get _visibleUsers {
@@ -155,7 +168,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     _searchFocus.addListener(() {
       if (mounted) setState(() => _searchFocused = _searchFocus.hasFocus);
     });
-    fetchData();
+    _bootstrap();
   }
 
   @override
@@ -181,7 +194,16 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     fetchData();
   }
 
-  // ── Data fetching — unchanged ────────────────────────────────────────────
+  // ── Data fetching ────────────────────────────────────────────────────────
+
+  Future<void> _bootstrap() async {
+    setState(() => _locationLoading = true);
+    final ok = await AppLocation().init();
+    if (mounted) {
+      setState(() { _locationReady = ok; _locationLoading = false; });
+      fetchData();
+    }
+  }
 
   void _onScroll() {
     if (_isLoadingMore || !mounted) return;
@@ -193,38 +215,20 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   }
 
   void _loadMoreIfNeeded() async {
-    if (_isLoadingMore) return;
-    if (!(_serviceHasMore || _shopHasMore)) return;
+    if (_isLoadingMore || !_hasMore) return;
 
     setState(() => _isLoadingMore = true);
 
-    if (_serviceHasMore) {
-      final res = await fetchUserDetails(
-          widget.cat_id, 'service', sortBy,
-          page: _servicePage + 1);
-      if (res.users.isNotEmpty) {
-        setState(() {
-          combinedUsers.addAll(res.users);
-          _servicePage += 1;
-          _serviceHasMore = res.hasMore;
-        });
-      } else {
-        setState(() => _serviceHasMore = false);
-      }
-    }
-
-    if (_shopHasMore) {
-      final res = await fetchUserDetails(widget.cat_id, 'shop', sortBy,
-          page: _shopPage + 1);
-      if (res.users.isNotEmpty) {
-        setState(() {
-          combinedUsers.addAll(res.users);
-          _shopPage += 1;
-          _shopHasMore = res.hasMore;
-        });
-      } else {
-        setState(() => _shopHasMore = false);
-      }
+    final res = await fetchUserDetails(widget.cat_id, 'shop', sortBy,
+        page: _page + 1);
+    if (res.users.isNotEmpty) {
+      setState(() {
+        combinedUsers.addAll(res.users);
+        _page += 1;
+        _hasMore = res.hasMore;
+      });
+    } else {
+      setState(() => _hasMore = false);
     }
 
     setState(() => _isLoadingMore = false);
@@ -233,28 +237,21 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   void fetchData() async {
     setState(() => isLoading = true);
 
-    final serviceRes =
-        await fetchUserDetails(widget.cat_id, 'service', sortBy, page: 1);
-    final shopRes =
+    final res =
         await fetchUserDetails(widget.cat_id, 'shop', sortBy, page: 1);
 
     setState(() {
-      combinedUsers = [...serviceRes.users, ...shopRes.users];
-      locationAvailable =
-          serviceRes.locationAvailable || shopRes.locationAvailable;
-      _serviceHasMore = serviceRes.hasMore;
-      _shopHasMore = shopRes.hasMore;
-      _servicePage = serviceRes.users.isNotEmpty ? 1 : 0;
-      _shopPage = shopRes.users.isNotEmpty ? 1 : 0;
+      combinedUsers = res.users;
+      locationAvailable = res.locationAvailable;
+      _hasMore = res.hasMore;
+      _page = res.users.isNotEmpty ? 1 : 0;
       isLoading = false;
     });
   }
 
   void fetchInitialData() {
-    _servicePage = 1;
-    _shopPage = 1;
-    _serviceHasMore = true;
-    _shopHasMore = true;
+    _page = 1;
+    _hasMore = true;
     combinedUsers = [];
     fetchData();
   }
@@ -267,22 +264,12 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     final userId = await Config.getLoggedInUser();
 
     if (sortBy == 'nearby') {
-      final locResp =
-          await Config.apiGet('/get_user_location?user_id=$userId', context);
-      if (locResp != null && locResp.statusCode == 200) {
-        final locData = jsonDecode(locResp.body);
-        if (locData.containsKey('location_string')) {
-          userLocation = locData['location_string'];
-        } else {
-          locAvailable = false;
-        }
-      } else {
-        locAvailable = false;
+      final lat = AppLocation().lat;
+      final lon = AppLocation().lon;
+      if (lat == null || lon == null) {
+        return UserFetchResult([], locationAvailable: false, hasMore: false);
       }
-      if (!locAvailable) {
-        return UserFetchResult([],
-            locationAvailable: false, hasMore: false);
-      }
+      userLocation = '$lat,$lon';
     }
 
     final url =
@@ -334,7 +321,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
         appBar: _buildAppBar(),
         body: Column(
           children: [
-            _buildSearchField(),
+            if (sortBy != 'nearby') _buildSearchField(),
             _buildSortBar(),
             Expanded(child: _buildBody()),
           ],
@@ -380,6 +367,18 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
             ),
         ],
       ),
+      actions: [
+        if (_locationReady && sortBy == 'nearby')
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              _PulseDot(color: const Color(0xFF22C55E)),
+              const SizedBox(width: 5),
+              const Text('Live', style: TextStyle(
+                  fontSize: 11, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+            ]),
+          ),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 1, color: const Color(0xFFF0F3FA)),
@@ -564,6 +563,32 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   // ── Body ──────────────────────────────────────────────────────────────────
 
   Widget _buildBody() {
+    if (sortBy == 'nearby') {
+      if (_locationLoading) {
+        return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2),
+          const SizedBox(height: 14),
+          const Text('Getting your location…',
+              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+        ]));
+      }
+      if (!_locationReady) return _buildLocationError();
+      if (isLoading) return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2));
+      return _MapView(
+        services: _visibleUsers,
+        userLat: AppLocation().lat!,
+        userLon: AppLocation().lon!,
+        accent: _brand,
+        onConnect: _navigateToProfile,
+        onRefresh: () async {
+          final ok = await AppLocation().init();
+          if (mounted) setState(() => _locationReady = ok);
+          fetchInitialData();
+        },
+      );
+    }
+
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF1A56DB)),
@@ -622,8 +647,8 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
   Widget _buildShopCard(UserDetail user) {
     final bool isActive = (user.call_status ?? '').toLowerCase() == 'active';
-    final Color accent =
-        _wasInteracted(user) ? const Color(0xFFF97316) : const Color(0xFF1A56DB);
+    final bool contacted = _wasInteracted(user);
+    const Color accent = Color(0xFF1A56DB);
 
     void navigate() {
       handleAction(user.view_id, 'view', 0);
@@ -766,14 +791,24 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
                   Container(height: 1, color: const Color(0xFFF0F3FA)),
                   const SizedBox(height: 10),
 
-                  // ── Bottom row: stat chip + timestamps + Visit button ───
+                  // ── Bottom row: stat chip + visited chip + Visit button ─
                   Row(
                     children: [
                       _buildStatChip(user, accent),
-                      if (user.lastSeen.isNotEmpty ||
-                          user.lastCalled.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        _buildTimestamps(user),
+                      if (contacted) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A56DB),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.check_circle_outline_rounded, size: 11, color: Colors.white),
+                            SizedBox(width: 3),
+                            Text('Visited', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ]),
+                        ),
                       ],
                       const Spacer(),
                       GestureDetector(
@@ -838,7 +873,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
           width: 68,
           height: 68,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(14),
             border:
                 Border.all(color: accent.withValues(alpha: 0.28), width: 2.5),
             boxShadow: [
@@ -849,7 +884,8 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
               ),
             ],
           ),
-          child: ClipOval(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
             child: user.photo.isNotEmpty
                 ? Image.network(
                     user.photo,
@@ -932,7 +968,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
           ),
           const SizedBox(width: 4),
           Text(
-            isActive ? 'Active' : 'Offline',
+            isActive ? 'Open' : 'Closed',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -1006,42 +1042,6 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
   // ── Timestamps ────────────────────────────────────────────────────────────
 
-  Widget _buildTimestamps(UserDetail user) {
-    final seenStr = Config.getTimeDifference(user.lastSeen, fallback: '');
-    final calledStr = Config.getTimeDifference(user.lastCalled, fallback: '');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (seenStr.isNotEmpty)
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.visibility_outlined,
-                size: 10, color: Color(0xFFADB5C7)),
-            const SizedBox(width: 3),
-            Text(seenStr,
-                style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFFADB5C7),
-                    fontWeight: FontWeight.w500)),
-          ]),
-        if (calledStr.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.phone_outlined,
-                size: 10, color: Color(0xFFADB5C7)),
-            const SizedBox(width: 3),
-            Text(calledStr,
-                style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFFADB5C7),
-                    fontWeight: FontWeight.w500)),
-          ]),
-        ],
-      ],
-    );
-  }
-
   // ── Empty state ───────────────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
@@ -1104,6 +1104,962 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
           Icons.storefront_rounded,
           color: Color(0xFF1A56DB),
           size: 28,
+        ),
+      ),
+    );
+  }
+
+  // ── Location error ────────────────────────────────────────────────────────
+
+  Widget _buildLocationError() {
+    return Center(child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.location_off_rounded, size: 52,
+            color: _brand.withValues(alpha: 0.4)),
+        const SizedBox(height: 16),
+        const Text('Location Access Needed',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                color: Color(0xFF111827))),
+        const SizedBox(height: 8),
+        const Text('Allow location access to use the map view.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
+        const SizedBox(height: 20),
+        ElevatedButton.icon(
+          onPressed: _bootstrap,
+          icon: const Icon(Icons.my_location_rounded, size: 16),
+          label: const Text('Try Again'),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _brand, foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12))),
+        ),
+      ]),
+    ));
+  }
+
+  // ── Navigate to shop profile ──────────────────────────────────────────────
+
+  void _navigateToProfile(UserDetail user) {
+    handleAction(user.view_id, 'view', 0);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => AdvertScreen(
+      userId: user.service_id.toString(),
+      isService: user.is_service,
+      advertData: AdvertData(
+        userId: user.service_id.toString(),
+        isService: user.is_service,
+        additionalData: user.service_id != 0
+            ? {'service_id': user.service_id}
+            : user.shop_id != 0
+                ? {'shop_id': user.shop_id}
+                : {'user_only': user.view_id.toString()},
+      ),
+    )));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Real map view  (flutter_map + OpenStreetMap)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MapView extends StatefulWidget {
+  final List<UserDetail> services;
+  final double userLat;
+  final double userLon;
+  final Color accent;
+  final void Function(UserDetail) onConnect;
+  final Future<void> Function() onRefresh;
+
+  const _MapView({
+    required this.services,
+    required this.userLat,
+    required this.userLon,
+    required this.accent,
+    required this.onConnect,
+    required this.onRefresh,
+  });
+
+  @override
+  State<_MapView> createState() => _MapViewState();
+}
+
+class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin {
+  UserDetail? _selected;
+  final MapController _mapController = MapController();
+  late AnimationController _pulseCtrl;
+
+  bool _searchOpen = false;
+  String _mapQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1600))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _mapController.dispose();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _closeSearch() {
+    _searchCtrl.clear();
+    _searchFocus.unfocus();
+    setState(() { _searchOpen = false; _mapQuery = ''; });
+  }
+
+  static Color _rimColor(double? distKm) {
+    if (distKm == null) return const Color(0xFF3B82F6);
+    if (distKm < 2)    return const Color(0xFFEF4444);
+    if (distKm < 5)    return const Color(0xFFF97316);
+    if (distKm < 15)   return const Color(0xFF3B82F6);
+    return const Color(0xFF8B5CF6);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mappable = widget.services
+        .where((s) => s.lat != null && s.lon != null)
+        .toList();
+    final noGps  = widget.services.length - mappable.length;
+    final userLL = LatLng(widget.userLat, widget.userLon);
+
+    final searchResults = _mapQuery.trim().isEmpty
+        ? <UserDetail>[]
+        : mappable
+            .where((s) => s.business_name
+                .toLowerCase()
+                .contains(_mapQuery.toLowerCase()))
+            .toList();
+    final visibleMappable = _mapQuery.trim().isEmpty ? mappable : searchResults;
+
+    return Column(children: [
+      // ── Map with floating search ────────────────────────────────────────
+      Expanded(
+        child: Stack(children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: userLL,
+              initialZoom: 13.0,
+              minZoom: 4.0,
+              maxZoom: 19.0,
+              onTap: (_, __) {
+                if (_searchOpen) _closeSearch();
+                setState(() => _selected = null);
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.aarambd.android',
+              ),
+              MarkerLayer(
+                markers: [
+                  // Shop pins (filtered by search query)
+                  ...visibleMappable.map((s) {
+                    final rim = _rimColor(s.distanceKm);
+                    final sel = _selected == s;
+                    return Marker(
+                      point: LatLng(s.lat!, s.lon!),
+                      width: 56,
+                      height: 72,
+                      alignment: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() => _selected = sel ? null : s);
+                          if (!sel) {
+                            _mapController.move(LatLng(s.lat!, s.lon!), 15.0);
+                          }
+                          if (_searchOpen) _closeSearch();
+                        },
+                        child: _ShopPinWidget(
+                            service: s, rimColor: rim, selected: sel),
+                      ),
+                    );
+                  }),
+
+                  // User location pulsing dot
+                  Marker(
+                    point: userLL,
+                    width: 52,
+                    height: 52,
+                    child: AnimatedBuilder(
+                      animation: _pulseCtrl,
+                      builder: (_, __) =>
+                          _UserDot(accent: widget.accent, pulse: _pulseCtrl.value),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // ── Floating search bar ─────────────────────────────────────────
+          Positioned(
+            top: 14, left: 14, right: 14,
+            child: Material(
+              color: Colors.transparent,
+              elevation: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: !_searchOpen
+                    ? () {
+                        setState(() => _searchOpen = true);
+                        Future.delayed(const Duration(milliseconds: 80),
+                            () => _searchFocus.requestFocus());
+                      }
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: _searchOpen ? 0.18 : 0.13),
+                        blurRadius: _searchOpen ? 28 : 18,
+                        spreadRadius: _searchOpen ? 2 : 0,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: _searchOpen
+                          ? widget.accent.withValues(alpha: 0.50)
+                          : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(children: [
+                    const SizedBox(width: 16),
+                    Icon(Icons.search_rounded, size: 22,
+                        color: _searchOpen ? widget.accent : const Color(0xFF9CA3AF)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _searchOpen
+                          ? TextField(
+                              controller: _searchCtrl,
+                              focusNode: _searchFocus,
+                              onChanged: (v) => setState(() => _mapQuery = v),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF111827),
+                                  fontWeight: FontWeight.w500),
+                              decoration: const InputDecoration(
+                                hintText: 'Search shops on map…',
+                                hintStyle: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w400),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            )
+                          : const Text('Search shops on map…',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFFB0B8C9),
+                                  fontWeight: FontWeight.w400)),
+                    ),
+                    if (_searchOpen && _mapQuery.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            size: 18, color: Color(0xFF9CA3AF)),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _mapQuery = '');
+                        },
+                      )
+                    else if (_searchOpen)
+                      TextButton(
+                        onPressed: _closeSearch,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text('Cancel',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: widget.accent,
+                                fontWeight: FontWeight.w700)),
+                      )
+                    else
+                      Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: widget.accent.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.place_rounded, size: 13, color: widget.accent),
+                          const SizedBox(width: 4),
+                          Text('${mappable.length}',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: widget.accent,
+                                  fontWeight: FontWeight.w800)),
+                        ]),
+                      ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+
+          // ── GPS / Refresh pill ──────────────────────────────────────────
+          if (!_searchOpen)
+            Positioned(
+              top: 80, left: 14,
+              child: GestureDetector(
+                onTap: widget.onRefresh,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8, offset: const Offset(0, 2))],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 7, height: 7,
+                        decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text(
+                      noGps > 0
+                          ? 'GPS active  •  $noGps no-GPS'
+                          : 'GPS active',
+                      style: const TextStyle(fontSize: 11,
+                          color: Color(0xFF4B5563), fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.refresh_rounded, size: 13, color: widget.accent),
+                    const SizedBox(width: 3),
+                    Text('Refresh', style: TextStyle(
+                        fontSize: 11, color: widget.accent,
+                        fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+
+          // ── Search results dropdown ────────────────────────────────────
+          if (_searchOpen && _mapQuery.trim().isNotEmpty)
+            Positioned(
+              top: 78, left: 14, right: 14,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 18, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: searchResults.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 18),
+                          child: Center(
+                            child: Text('No shops found',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w500)),
+                          ))
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: searchResults.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, indent: 42),
+                          itemBuilder: (_, i) {
+                            final s   = searchResults[i];
+                            final rim = _rimColor(s.distanceKm);
+                            final dist = s.distanceKm;
+                            final distStr = dist == null
+                                ? null
+                                : dist < 1
+                                    ? '${(dist * 1000).round()}m'
+                                    : '${dist.toStringAsFixed(1)}km';
+                            return InkWell(
+                              borderRadius: i == 0
+                                  ? const BorderRadius.vertical(
+                                      top: Radius.circular(14))
+                                  : i == searchResults.length - 1
+                                      ? const BorderRadius.vertical(
+                                          bottom: Radius.circular(14))
+                                      : BorderRadius.zero,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _selected = s);
+                                _mapController.move(
+                                    LatLng(s.lat!, s.lon!), 15.0);
+                                _closeSearch();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                child: Row(children: [
+                                  Container(
+                                    width: 10, height: 10,
+                                    decoration: BoxDecoration(
+                                        color: rim, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(s.business_name,
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF111827)),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis),
+                                        if (s.address.isNotEmpty &&
+                                            s.address != 'No Address')
+                                          Text(s.address,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF9CA3AF)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis),
+                                      ],
+                                    ),
+                                  ),
+                                  if (distStr != null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(distStr,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: rim)),
+                                  ],
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward_ios_rounded,
+                                      size: 11,
+                                      color: Colors.grey.shade300),
+                                ]),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ),
+
+          // Center-on-me FAB
+          Positioned(
+            bottom: 16, right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'shopMapLocateMe',
+              onPressed: () => _mapController.move(userLL, 14.0),
+              backgroundColor: widget.accent,
+              elevation: 6,
+              child: const Icon(Icons.my_location_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+
+          // OSM attribution
+          Positioned(
+            bottom: 4, left: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('© OpenStreetMap contributors',
+                  style: TextStyle(fontSize: 7.5, color: Color(0xFF374151))),
+            ),
+          ),
+        ]),
+      ),
+
+      // ── Bottom profile panel ───────────────────────────────────────────
+      _ProfilePanel(
+        service:   _selected,
+        accent:    widget.accent,
+        onConnect: () => widget.onConnect(_selected!),
+        onDismiss: () => setState(() => _selected = null),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Shop map pin widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ShopPinWidget extends StatelessWidget {
+  final UserDetail service;
+  final Color      rimColor;
+  final bool       selected;
+
+  const _ShopPinWidget({
+    required this.service,
+    required this.rimColor,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = (service.call_status ?? '').toLowerCase() == 'active';
+    final dist     = service.distanceKm;
+    final distStr  = dist == null
+        ? null
+        : dist < 1
+            ? '${(dist * 1000).round()}m'
+            : '${dist.toStringAsFixed(1)}km';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Distance chip
+        if (distStr != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected ? rimColor : rimColor.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: selected
+                  ? [BoxShadow(color: rimColor.withValues(alpha: 0.45),
+                        blurRadius: 6, offset: const Offset(0, 2))]
+                  : [],
+            ),
+            child: Text(distStr, style: const TextStyle(
+                fontSize: 8, fontWeight: FontWeight.w800,
+                color: Colors.white, letterSpacing: 0.2)),
+          ),
+
+        // Circle photo + active dot
+        Stack(clipBehavior: Clip.none, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: selected ? rimColor : rimColor.withValues(alpha: 0.70),
+                  width: selected ? 3.0 : 2.0),
+              boxShadow: [
+                BoxShadow(
+                  color: rimColor.withValues(alpha: selected ? 0.55 : 0.20),
+                  blurRadius: selected ? 14 : 6,
+                  spreadRadius: selected ? 3 : 0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Stack(fit: StackFit.expand, children: [
+                service.photo.isNotEmpty
+                    ? Image.network(service.photo, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallback())
+                    : _fallback(),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(-0.5, -0.6),
+                      radius: 0.75,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.32),
+                        Colors.transparent
+                      ],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+          if (isActive)
+            Positioned(
+              top: 0, right: 0,
+              child: Container(
+                width: 11, height: 11,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [BoxShadow(
+                      color: Colors.green.withValues(alpha: 0.45),
+                      blurRadius: 4)],
+                ),
+              ),
+            ),
+        ]),
+
+        // Pin tail
+        CustomPaint(size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
+      ],
+    );
+  }
+
+  Widget _fallback() => Container(
+    color: rimColor.withValues(alpha: 0.15),
+    child: Center(child: Icon(Icons.storefront_rounded,
+        color: rimColor, size: 18)),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Triangular pin tail
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PinTailPainter extends CustomPainter {
+  final Color color;
+  const _PinTailPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_PinTailPainter old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pulsing user-location dot
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UserDot extends StatelessWidget {
+  final Color  accent;
+  final double pulse;
+  const _UserDot({required this.accent, required this.pulse});
+
+  @override
+  Widget build(BuildContext context) {
+    final ringSize = 26.0 + pulse * 20.0;
+    return Stack(alignment: Alignment.center, children: [
+      Opacity(
+        opacity: (1 - pulse).clamp(0.0, 1.0),
+        child: Container(
+          width: ringSize, height: ringSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: accent.withValues(alpha: 0.45), width: 1.5),
+          ),
+        ),
+      ),
+      Container(
+        width: 22, height: 22,
+        decoration: BoxDecoration(
+          color: accent,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [BoxShadow(
+              color: accent.withValues(alpha: 0.45),
+              blurRadius: 10, spreadRadius: 1)],
+        ),
+        child: Center(
+          child: Container(
+            width: 7, height: 7,
+            decoration: const BoxDecoration(
+                color: Colors.white, shape: BoxShape.circle),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Bottom profile panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProfilePanel extends StatelessWidget {
+  final UserDetail?  service;
+  final Color        accent;
+  final VoidCallback onConnect;
+  final VoidCallback onDismiss;
+
+  const _ProfilePanel({
+    required this.service,
+    required this.accent,
+    required this.onConnect,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      height: service == null ? 60 : 170,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: service == null
+                ? const Color(0xFFE5E7EB)
+                : accent.withValues(alpha: 0.30),
+            width: service == null ? 1 : 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: (service != null ? accent : Colors.black)
+                  .withValues(alpha: service != null ? 0.10 : 0.04),
+              blurRadius: service != null ? 20 : 6,
+              offset: const Offset(0, -4)),
+        ],
+      ),
+      child: service == null ? _hint() : _card(service!),
+    );
+  }
+
+  Widget _hint() {
+    return Center(
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.touch_app_rounded, size: 17, color: Colors.grey.shade400),
+        const SizedBox(width: 8),
+        Text('Tap a pin to view shop details',
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
+
+  Widget _card(UserDetail s) {
+    final isActive = (s.call_status ?? '').toLowerCase() == 'active';
+    final views    = int.tryParse(s.user_viewed) ?? 0;
+    final calls    = int.tryParse(s.user_called) ?? 0;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: onConnect,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(children: [
+                // Avatar
+                Stack(children: [
+                  Container(
+                    width: 56, height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: accent.withValues(alpha: 0.35), width: 2),
+                      boxShadow: [BoxShadow(
+                          color: accent.withValues(alpha: 0.18), blurRadius: 8)],
+                    ),
+                    child: ClipOval(
+                      child: s.photo.isNotEmpty
+                          ? Image.network(s.photo, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _avatarFallback(s))
+                          : _avatarFallback(s),
+                    ),
+                  ),
+                  if (isActive)
+                    Positioned(bottom: 1, right: 1,
+                      child: Container(width: 13, height: 13,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFF22C55E),
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 1.5)))),
+                ]),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(children: [
+                      Expanded(child: Text(s.business_name,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A)))),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: isActive
+                                ? Colors.green.shade50
+                                : const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(isActive ? 'Active' : 'Offline',
+                            style: TextStyle(
+                                fontSize: 9, fontWeight: FontWeight.w700,
+                                color: isActive
+                                    ? Colors.green.shade700
+                                    : Colors.grey.shade500)),
+                      ),
+                    ]),
+                    const SizedBox(height: 3),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(5)),
+                        child: Text(s.category,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: accent,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      if (s.distance != null) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.near_me_rounded,
+                            size: 10, color: Colors.grey.shade400),
+                        const SizedBox(width: 2),
+                        Text(s.distance!,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ]),
+                    const SizedBox(height: 4),
+                    if (s.address.isNotEmpty && s.address != 'No Address')
+                      Row(children: [
+                        Icon(Icons.location_on_rounded,
+                            size: 10, color: Colors.grey.shade400),
+                        const SizedBox(width: 2),
+                        Expanded(child: Text(s.address,
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 10, color: Colors.grey.shade500))),
+                      ]),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Icon(Icons.visibility_outlined,
+                          size: 10, color: Colors.grey.shade400),
+                      const SizedBox(width: 3),
+                      Text(Config.formatLargeNumber(views),
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 10),
+                      Icon(Icons.phone_outlined,
+                          size: 10, color: Colors.grey.shade400),
+                      const SizedBox(width: 3),
+                      Text(Config.formatLargeNumber(calls),
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      Text('Tap to visit shop →',
+                          style: TextStyle(
+                              fontSize: 9.5,
+                              color: accent.withValues(alpha: 0.60),
+                              fontWeight: FontWeight.w700)),
+                    ]),
+                  ],
+                )),
+              ]),
+            ),
+          ),
+        ),
+        // Dismiss strip
+        GestureDetector(
+          onTap: onDismiss,
+          child: Container(
+            width: 40,
+            color: const Color(0xFFF9FAFB),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.close_rounded, size: 18, color: Colors.grey.shade400),
+              const SizedBox(height: 4),
+              Text('close',
+                  style: TextStyle(
+                      fontSize: 8,
+                      color: Colors.grey.shade400,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _avatarFallback(UserDetail s) {
+    return Container(
+      color: accent.withValues(alpha: 0.10),
+      child: Center(child: Icon(Icons.storefront_rounded,
+          color: accent, size: 22)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pulsing GPS dot in AppBar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PulseDot extends StatefulWidget {
+  final Color color;
+  const _PulseDot({required this.color});
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100))
+      ..repeat(reverse: true);
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Container(
+        width: 8, height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color,
+          boxShadow: [
+            BoxShadow(
+                color: widget.color.withValues(alpha: 0.5 * _ctrl.value),
+                blurRadius: 6, spreadRadius: 2)
+          ],
         ),
       ),
     );

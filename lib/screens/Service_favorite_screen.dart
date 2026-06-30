@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/main.dart';
@@ -9,7 +8,8 @@ import 'package:aaram_bd/services/app_location.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui' as ui;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 
 import 'package:intl/intl.dart';
 
@@ -124,11 +124,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   Timer? _debounce;
   bool _searchFocused = false;
 
-  int  _servicePage    = 1;
+  int  _page           = 1;
   final int _limit     = 10;
-  int  _shopPage       = 1;
-  bool _serviceHasMore = true;
-  bool _shopHasMore    = true;
+  bool _hasMore        = true;
   bool _isLoadingMore  = false;
   late final ScrollController _scrollController = ScrollController();
 
@@ -204,43 +202,33 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   }
 
   void _loadMoreIfNeeded() async {
-    if (_isLoadingMore) return;
-    if (!(_serviceHasMore || _shopHasMore)) return;
+    if (_isLoadingMore || !_hasMore) return;
     setState(() => _isLoadingMore = true);
-    if (_serviceHasMore) {
-      final res = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: _servicePage + 1);
-      if (res.users.isNotEmpty) {
-        setState(() { combinedUsers.addAll(res.users); _servicePage++; _serviceHasMore = res.hasMore; });
-      } else { setState(() => _serviceHasMore = false); }
-    }
-    if (_shopHasMore) {
-      final res = await fetchUserDetails(widget.cat_id, 'shop', sortBy, page: _shopPage + 1);
-      if (res.users.isNotEmpty) {
-        setState(() { combinedUsers.addAll(res.users); _shopPage++; _shopHasMore = res.hasMore; });
-      } else { setState(() => _shopHasMore = false); }
+    final res = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: _page + 1);
+    if (res.users.isNotEmpty) {
+      setState(() { combinedUsers.addAll(res.users); _page++; _hasMore = res.hasMore; });
+    } else {
+      setState(() => _hasMore = false);
     }
     setState(() => _isLoadingMore = false);
   }
 
   void fetchData() async {
     setState(() => isLoading = true);
-    final sRes  = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: 1);
-    final shRes = await fetchUserDetails(widget.cat_id, 'shop',    sortBy, page: 1);
+    final res = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: 1);
     if (!mounted) return;
     setState(() {
-      combinedUsers     = [...sRes.users, ...shRes.users];
-      locationAvailable = sRes.locationAvailable || shRes.locationAvailable;
-      _serviceHasMore   = sRes.hasMore;
-      _shopHasMore      = shRes.hasMore;
-      _servicePage      = sRes.users.isNotEmpty  ? 1 : 0;
-      _shopPage         = shRes.users.isNotEmpty ? 1 : 0;
+      combinedUsers     = res.users;
+      locationAvailable = res.locationAvailable;
+      _hasMore          = res.hasMore;
+      _page             = res.users.isNotEmpty ? 1 : 0;
       isLoading         = false;
     });
   }
 
   void fetchInitialData() {
-    _servicePage = 1; _shopPage = 1;
-    _serviceHasMore = true; _shopHasMore = true;
+    _page = 1;
+    _hasMore = true;
     combinedUsers = [];
     fetchData();
   }
@@ -551,7 +539,8 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
 
   Widget _buildProviderCard(UserDetail user) {
     final bool isAvailable = (user.call_status ?? '').toLowerCase() == 'active';
-    final Color accent = _wasInteracted(user) ? const Color(0xFFD97706) : _accent;
+    final bool contacted = _wasInteracted(user);
+    const Color accent = Color(0xFF1D4ED8);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -604,6 +593,21 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
                 const SizedBox(height: 10),
                 Row(children: [
                   _statChip(user, accent),
+                  if (contacted) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1D4ED8),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.check_circle_outline_rounded, size: 11, color: Colors.white),
+                        SizedBox(width: 3),
+                        Text('Contacted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ]),
+                    ),
+                  ],
                   const Spacer(),
                   GestureDetector(
                     onTap: () => _navigateToProfile(user),
@@ -739,7 +743,7 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Cartesian map view
+//  Real map view  (flutter_map + OpenStreetMap)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MapView extends StatefulWidget {
@@ -765,7 +769,13 @@ class _MapView extends StatefulWidget {
 
 class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin {
   UserDetail? _selected;
+  final MapController _mapController = MapController();
   late AnimationController _pulseCtrl;
+
+  bool _searchOpen = false;
+  String _mapQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   @override
   void initState() {
@@ -774,195 +784,403 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
   }
 
   @override
-  void dispose() { _pulseCtrl.dispose(); super.dispose(); }
-
-  // ── Geo ───────────────────────────────────────────────────────────────────
-
-  static double _bearing(double lat1, double lon1, double lat2, double lon2) {
-    const rad   = math.pi / 180;
-    final dLon  = (lon2 - lon1) * rad;
-    final lat1R = lat1 * rad;
-    final lat2R = lat2 * rad;
-    final y = math.sin(dLon) * math.cos(lat2R);
-    final x = math.cos(lat1R) * math.sin(lat2R) - math.sin(lat1R) * math.cos(lat2R) * math.cos(dLon);
-    return math.atan2(y, x); // 0=N, π/2=E
+  void dispose() {
+    _pulseCtrl.dispose();
+    _mapController.dispose();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
-  static double _logR(double distM, double maxDistM) {
-    if (distM <= 0 || maxDistM <= 0) return 0.05;
-    return (math.log(1 + distM) / math.log(1 + maxDistM)).clamp(0.05, 0.93);
+  void _closeSearch() {
+    _searchCtrl.clear();
+    _searchFocus.unfocus();
+    setState(() { _searchOpen = false; _mapQuery = ''; });
   }
 
-  /// Marble color: warm red for close → blue for medium → purple for distant.
-  static Color _marbleRim(double normR) {
-    if (normR < 0.25) return const Color(0xFFEF4444);
-    if (normR < 0.50) return const Color(0xFFF97316);
-    if (normR < 0.75) return const Color(0xFF3B82F6);
+  static Color _rimColor(double? distKm) {
+    if (distKm == null) return const Color(0xFF3B82F6);
+    if (distKm < 2)    return const Color(0xFFEF4444);
+    if (distKm < 5)    return const Color(0xFFF97316);
+    if (distKm < 15)   return const Color(0xFF3B82F6);
     return const Color(0xFF8B5CF6);
   }
-
-  static double _dotSize(double normR) => (54 - 34 * normR).clamp(18.0, 54.0);
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final mappable = widget.services
-        .where((s) => s.lat != null && s.lon != null && s.distanceKm != null)
+        .where((s) => s.lat != null && s.lon != null)
         .toList();
-    final noGps = widget.services.length - mappable.length;
+    final noGps  = widget.services.length - mappable.length;
+    final userLL = LatLng(widget.userLat, widget.userLon);
 
-    final maxDistM = mappable.isEmpty ? 1.0 :
-        mappable.fold(0.0, (m, s) => math.max(m, s.distanceKm! * 1000));
+    // Filter markers when search is active
+    final searchResults = _mapQuery.trim().isEmpty
+        ? <UserDetail>[]
+        : mappable
+            .where((s) => s.business_name
+                .toLowerCase()
+                .contains(_mapQuery.toLowerCase()))
+            .toList();
+    final visibleMappable = _mapQuery.trim().isEmpty ? mappable : searchResults;
 
     return Column(children: [
-      // ── Status strip ──────────────────────────────────────────────────────
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        child: Row(children: [
-          Container(width: 7, height: 7,
-              decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-          const Text('GPS active', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: widget.onRefresh,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.refresh_rounded, size: 13, color: widget.accent),
-              const SizedBox(width: 3),
-              Text('Refresh', style: TextStyle(fontSize: 11, color: widget.accent, fontWeight: FontWeight.w700)),
-            ]),
+      // ── Map with floating search ────────────────────────────────────────
+      Expanded(
+        child: Stack(children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: userLL,
+              initialZoom: 13.0,
+              minZoom: 4.0,
+              maxZoom: 19.0,
+              onTap: (_, __) {
+                if (_searchOpen) _closeSearch();
+                setState(() => _selected = null);
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.aarambd.android',
+              ),
+              MarkerLayer(
+                markers: [
+                  // Service provider pins (filtered by search query)
+                  ...visibleMappable.map((s) {
+                    final rim = _rimColor(s.distanceKm);
+                    final sel = _selected == s;
+                    return Marker(
+                      point: LatLng(s.lat!, s.lon!),
+                      width: 56,
+                      height: 72,
+                      alignment: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() => _selected = sel ? null : s);
+                          if (!sel) _mapController.move(LatLng(s.lat!, s.lon!), 15.0);
+                          if (_searchOpen) _closeSearch();
+                        },
+                        child: _ServicePinWidget(service: s, rimColor: rim, selected: sel),
+                      ),
+                    );
+                  }),
+
+                  // User location pulsing dot
+                  Marker(
+                    point: userLL,
+                    width: 52,
+                    height: 52,
+                    child: AnimatedBuilder(
+                      animation: _pulseCtrl,
+                      builder: (_, __) =>
+                          _UserDot(accent: widget.accent, pulse: _pulseCtrl.value),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const Spacer(),
-          if (mappable.isNotEmpty)
-            Text('${mappable.length} on map', style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
-          if (noGps > 0)
-            Text('  $noGps no-GPS', style: const TextStyle(fontSize: 10, color: Color(0xFFD1D5DB))),
+
+          // ── Floating search bar ─────────────────────────────────────────
+          Positioned(
+            top: 14, left: 14, right: 14,
+            child: Material(
+              color: Colors.transparent,
+              elevation: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: !_searchOpen
+                    ? () {
+                        setState(() => _searchOpen = true);
+                        Future.delayed(const Duration(milliseconds: 80),
+                            () => _searchFocus.requestFocus());
+                      }
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: _searchOpen ? 0.18 : 0.13),
+                        blurRadius: _searchOpen ? 28 : 18,
+                        spreadRadius: _searchOpen ? 2 : 0,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: _searchOpen
+                          ? widget.accent.withValues(alpha: 0.50)
+                          : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(children: [
+                    const SizedBox(width: 16),
+                    Icon(Icons.search_rounded, size: 22,
+                        color: _searchOpen ? widget.accent : const Color(0xFF9CA3AF)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _searchOpen
+                          ? TextField(
+                              controller: _searchCtrl,
+                              focusNode: _searchFocus,
+                              onChanged: (v) => setState(() => _mapQuery = v),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF111827),
+                                  fontWeight: FontWeight.w500),
+                              decoration: const InputDecoration(
+                                hintText: 'Search specialists on map…',
+                                hintStyle: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w400),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            )
+                          : const Text('Search specialists on map…',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFFB0B8C9),
+                                  fontWeight: FontWeight.w400)),
+                    ),
+                    if (_searchOpen && _mapQuery.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            size: 18, color: Color(0xFF9CA3AF)),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _mapQuery = '');
+                        },
+                      )
+                    else if (_searchOpen)
+                      TextButton(
+                        onPressed: _closeSearch,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text('Cancel',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: widget.accent,
+                                fontWeight: FontWeight.w700)),
+                      )
+                    else
+                      Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: widget.accent.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.place_rounded, size: 13, color: widget.accent),
+                          const SizedBox(width: 4),
+                          Text('${mappable.length}',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: widget.accent,
+                                  fontWeight: FontWeight.w800)),
+                        ]),
+                      ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+
+          // ── GPS / Refresh pill ──────────────────────────────────────────
+          if (!_searchOpen)
+            Positioned(
+              top: 80, left: 14,
+              child: GestureDetector(
+                onTap: widget.onRefresh,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8, offset: const Offset(0, 2))],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 7, height: 7,
+                        decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text(
+                      noGps > 0
+                          ? 'GPS active  •  $noGps no-GPS'
+                          : 'GPS active',
+                      style: const TextStyle(fontSize: 11,
+                          color: Color(0xFF4B5563), fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.refresh_rounded, size: 13, color: widget.accent),
+                    const SizedBox(width: 3),
+                    Text('Refresh', style: TextStyle(
+                        fontSize: 11, color: widget.accent,
+                        fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+
+          // ── Search results dropdown ─────────────────────────────────────
+          if (_searchOpen && _mapQuery.trim().isNotEmpty)
+            Positioned(
+              top: 78, left: 14, right: 14,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 18, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: searchResults.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 18),
+                          child: Center(
+                            child: Text('No specialists found',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w500)),
+                          ))
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: searchResults.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, indent: 42),
+                          itemBuilder: (_, i) {
+                            final s   = searchResults[i];
+                            final rim = _rimColor(s.distanceKm);
+                            final dist = s.distanceKm;
+                            final distStr = dist == null
+                                ? null
+                                : dist < 1
+                                    ? '${(dist * 1000).round()}m'
+                                    : '${dist.toStringAsFixed(1)}km';
+                            return InkWell(
+                              borderRadius: i == 0
+                                  ? const BorderRadius.vertical(
+                                      top: Radius.circular(14))
+                                  : i == searchResults.length - 1
+                                      ? const BorderRadius.vertical(
+                                          bottom: Radius.circular(14))
+                                      : BorderRadius.zero,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _selected = s);
+                                _mapController.move(
+                                    LatLng(s.lat!, s.lon!), 15.0);
+                                _closeSearch();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                child: Row(children: [
+                                  Container(
+                                    width: 10, height: 10,
+                                    decoration: BoxDecoration(
+                                        color: rim, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(s.business_name,
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF111827)),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis),
+                                        if (s.address.isNotEmpty &&
+                                            s.address != 'No Address')
+                                          Text(s.address,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF9CA3AF)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis),
+                                      ],
+                                    ),
+                                  ),
+                                  if (distStr != null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(distStr,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: rim)),
+                                  ],
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward_ios_rounded,
+                                      size: 11,
+                                      color: Colors.grey.shade300),
+                                ]),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ),
+
+          // Center-on-me FAB
+          Positioned(
+            bottom: 16, right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'mapLocateMe',
+              onPressed: () => _mapController.move(userLL, 14.0),
+              backgroundColor: widget.accent,
+              elevation: 6,
+              child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 18),
+            ),
+          ),
+
+          // OSM attribution — required by tile usage policy
+          Positioned(
+            bottom: 4, left: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('© OpenStreetMap contributors',
+                  style: TextStyle(fontSize: 7.5, color: Color(0xFF374151))),
+            ),
+          ),
         ]),
       ),
 
-      // ── Map canvas ────────────────────────────────────────────────────────
-      Expanded(
-        child: LayoutBuilder(builder: (_, box) {
-          final w  = box.maxWidth;
-          final h  = box.maxHeight;
-          final cx = w / 2;
-          final cy = h / 2;
-          final maxR = math.min(w, h) / 2 * 0.86;
-
-          // No GPS data at all
-          if (mappable.isEmpty) {
-            return Stack(children: [
-              CustomPaint(size: Size(w, h), painter: _MapGridPainter(cx: cx, cy: cy, accent: widget.accent)),
-              _youDot(cx, cy, maxR),
-              Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const SizedBox(height: 60),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 32),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: widget.accent.withValues(alpha: 0.12), blurRadius: 16)],
-                  ),
-                  child: Column(children: [
-                    Icon(Icons.location_searching_rounded, size: 36, color: widget.accent.withValues(alpha: 0.5)),
-                    const SizedBox(height: 12),
-                    const Text('No GPS location on map',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF374151))),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.services.isEmpty
-                          ? 'No specialists found nearby. Try a wider search.'
-                          : '${widget.services.length} specialist${widget.services.length != 1 ? 's' : ''} found but none have shared GPS coordinates yet.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280), height: 1.5),
-                    ),
-                  ]),
-                ),
-              ])),
-            ]);
-          }
-
-          return InteractiveViewer(
-            boundaryMargin: EdgeInsets.symmetric(horizontal: w * 0.5, vertical: h * 0.5),
-            minScale: 0.25,
-            maxScale: 8.0,
-            child: SizedBox(
-              width: w,
-              height: h,
-              child: Stack(children: [
-                // Grid
-                CustomPaint(size: Size(w, h), painter: _MapGridPainter(cx: cx, cy: cy, accent: widget.accent, maxDistKm: maxDistM / 1000)),
-
-                // Compass
-                Positioned(left: cx - 7,  top: 10,     child: _compassTxt('N', widget.accent)),
-                Positioned(right: 10,     top: cy - 8, child: _compassTxt('E', widget.accent)),
-                Positioned(left: cx - 6,  bottom: 10,  child: _compassTxt('S', widget.accent)),
-                Positioned(left: 10,      top: cy - 8, child: _compassTxt('W', widget.accent)),
-
-                // Marbles + distance labels
-                ...mappable.map((s) {
-                  final b     = _bearing(widget.userLat, widget.userLon, s.lat!, s.lon!);
-                  final normR = _logR(s.distanceKm! * 1000, maxDistM);
-                  final sz    = _dotSize(normR);
-                  final dx    = normR * maxR * math.sin(b);
-                  final dy    = -normR * maxR * math.cos(b);
-                  final sel   = _selected == s;
-                  final rim   = _marbleRim(normR);
-
-                  return Positioned(
-                    left: cx + dx - sz / 2,
-                    top:  cy + dy - sz / 2,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _Marble(
-                          service:  s,
-                          rimColor: rim,
-                          selected: sel,
-                          size:     sz,
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            setState(() => _selected = sel ? null : s);
-                          },
-                        ),
-                        const SizedBox(height: 3),
-                        if (s.distanceKm != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.88),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: rim.withValues(alpha: 0.35), width: 0.8),
-                            ),
-                            child: Text(
-                              s.distanceKm! < 1
-                                  ? '${(s.distanceKm! * 1000).round()}m'
-                                  : '${s.distanceKm!.toStringAsFixed(1)}km',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: rim,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
-
-                // YOU dot + pulse
-                _youDot(cx, cy, maxR),
-              ]),
-            ),
-          );
-        }),
-      ),
-
-      // ── Bottom profile panel ──────────────────────────────────────────────
+      // ── Bottom profile panel ───────────────────────────────────────────
       _ProfilePanel(
         service:   _selected,
         accent:    widget.accent,
@@ -971,312 +1189,186 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
       ),
     ]);
   }
-
-  Widget _youDot(double cx, double cy, double maxR) {
-    return AnimatedBuilder(
-      animation: _pulseCtrl,
-      builder: (_, __) => Stack(clipBehavior: Clip.none, children: [
-        // Pulse rings
-        for (int i = 0; i < 3; i++) ...[() {
-          final v = (_pulseCtrl.value + i / 3) % 1.0;
-          final r = v * maxR * 0.10;
-          return Positioned(left: cx - r, top: cy - r,
-            child: Container(width: r * 2, height: r * 2,
-              decoration: BoxDecoration(shape: BoxShape.circle,
-                border: Border.all(color: widget.accent.withValues(alpha: (1 - v) * 0.36), width: 1.4))));
-        }()],
-        // Dot
-        Positioned(left: cx - 12, top: cy - 12,
-          child: Container(width: 24, height: 24,
-            decoration: BoxDecoration(color: widget.accent, shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: widget.accent.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: 2)]),
-            child: Center(child: Container(width: 8, height: 8,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle))))),
-        // Label
-        Positioned(left: cx - 14, top: cy + 14,
-          child: Text('YOU', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900,
-              color: widget.accent, letterSpacing: 1.2))),
-      ]),
-    );
-  }
-
-  static Widget _compassTxt(String t, Color accent) {
-    return Text(t, style: TextStyle(
-        fontSize: 11, fontWeight: FontWeight.w800,
-        color: accent.withValues(alpha: 0.28), letterSpacing: 1.2));
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Grid painter (static)
+//  Map pin widget — circle photo + coloured tail + distance chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MapGridPainter extends CustomPainter {
-  final double cx, cy;
-  final Color  accent;
-  final double maxDistKm;
-  const _MapGridPainter({required this.cx, required this.cy, required this.accent, this.maxDistKm = 0});
+class _ServicePinWidget extends StatelessWidget {
+  final UserDetail service;
+  final Color      rimColor;
+  final bool       selected;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
-        Paint()..color = const Color(0xFFF8FBFF));
-
-    const step      = 38.0;
-    final gridPaint = Paint()..color = accent.withValues(alpha: 0.08)..strokeWidth = 0.7;
-    final axisPaint = Paint()..color = accent.withValues(alpha: 0.20)..strokeWidth = 1.2;
-    final tickPaint = Paint()..color = accent.withValues(alpha: 0.16)..strokeWidth = 0.8;
-
-    for (double x = cx % step; x <= size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = cy % step; y <= size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), axisPaint);
-    canvas.drawLine(Offset(0, cy), Offset(size.width, cy),  axisPaint);
-
-    for (double x = cx % step; x <= size.width; x += step) {
-      canvas.drawLine(Offset(x, cy - 4), Offset(x, cy + 4), tickPaint);
-    }
-    for (double y = cy % step; y <= size.height; y += step) {
-      canvas.drawLine(Offset(cx - 4, y), Offset(cx + 4, y), tickPaint);
-    }
-
-    final maxR = math.min(cx, cy) * 0.86;
-    for (int i = 1; i <= 4; i++) {
-      final r = (i / 4) * maxR;
-      canvas.drawCircle(Offset(cx, cy), r,
-          Paint()..color = accent.withValues(alpha: 0.055)..style = PaintingStyle.stroke..strokeWidth = 0.7);
-
-      // Ring distance label (NE quadrant on each ring)
-      if (maxDistKm > 0) {
-        final ringKm = (math.log(1 + (i / 4) * maxDistKm * 1000) / math.log(1 + maxDistKm * 1000)) * maxDistKm;
-        final label  = ringKm < 1 ? '${(ringKm * 1000).round()}m' : '${ringKm.toStringAsFixed(1)}km';
-        final tp     = TextPainter(
-          text: TextSpan(
-            text: label,
-            style: TextStyle(fontSize: 8, color: accent.withValues(alpha: 0.35), fontWeight: FontWeight.w700),
-          ),
-          textDirection: ui.TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, Offset(cx + r * 0.707 + 2, cy - r * 0.707 - 10));
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MapGridPainter old) => old.maxDistKm != maxDistKm;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Marble dot  — with glossy overlay + tooltip above when selected
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Marble extends StatelessWidget {
-  final UserDetail   service;
-  final Color        rimColor;
-  final bool         selected;
-  final double       size;
-  final VoidCallback onTap;
-
-  const _Marble({
+  const _ServicePinWidget({
     required this.service,
     required this.rimColor,
     required this.selected,
-    required this.size,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final isAvail = (service.call_status ?? '').toLowerCase() == 'active';
-    final indSz   = (size * 0.26).clamp(8.0, 13.0);
+    final dist    = service.distanceKm;
+    final distStr = dist == null
+        ? null
+        : dist < 1
+            ? '${(dist * 1000).round()}m'
+            : '${dist.toStringAsFixed(1)}km';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(clipBehavior: Clip.none, children: [
-
-        // ── Tooltip above marble (shown when selected) ──────────────────
-        if (selected)
-          Positioned(
-            bottom: size + 10,
-            left: size / 2 - 80,
-            child: _MarbleTooltip(service: service, rimColor: rimColor),
-          ),
-
-        // ── Glow shadow when selected ──────────────────────────────────
-        if (selected)
-          Positioned(
-            left: -8, top: -8, right: -8, bottom: -8,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: rimColor.withValues(alpha: 0.50), blurRadius: 20, spreadRadius: 4)],
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Distance chip at top
+        if (distStr != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected ? rimColor : rimColor.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: selected
+                  ? [BoxShadow(color: rimColor.withValues(alpha: 0.45),
+                        blurRadius: 6, offset: const Offset(0, 2))]
+                  : [],
             ),
+            child: Text(distStr, style: const TextStyle(
+                fontSize: 8, fontWeight: FontWeight.w800,
+                color: Colors.white, letterSpacing: 0.2)),
           ),
 
-        // ── Marble body ────────────────────────────────────────────────
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: size, height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-                color: selected ? rimColor : rimColor.withValues(alpha: 0.55),
-                width: selected ? 3.0 : 2.0),
-            boxShadow: [
-              // Depth shadow
-              BoxShadow(color: rimColor.withValues(alpha: selected ? 0.38 : 0.18),
-                  blurRadius: selected ? 14 : 7, offset: const Offset(2, 4)),
-              // Inner-ish highlight
-              BoxShadow(color: Colors.white.withValues(alpha: 0.6),
-                  blurRadius: 4, offset: const Offset(-2, -2), spreadRadius: -2),
-            ],
-          ),
-          child: ClipOval(
-            child: Stack(fit: StackFit.expand, children: [
-              // Photo or fallback
-              service.photo.isNotEmpty
-                  ? Image.network(service.photo, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _fallback())
-                  : _fallback(),
-
-              // Glossy radial gradient overlay (top-left shine)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(-0.55, -0.60),
-                    radius: 0.80,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.42),
-                      Colors.transparent,
-                    ],
-                  ),
+        // Circle photo + online dot
+        Stack(clipBehavior: Clip.none, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: selected ? rimColor : rimColor.withValues(alpha: 0.70),
+                  width: selected ? 3.0 : 2.0),
+              boxShadow: [
+                BoxShadow(
+                  color: rimColor.withValues(alpha: selected ? 0.55 : 0.20),
+                  blurRadius: selected ? 14 : 6,
+                  spreadRadius: selected ? 3 : 0,
+                  offset: const Offset(0, 2),
                 ),
-              ),
-
-              // Subtle rim-coloured tint at the bottom
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  height: size * 0.35,
+              ],
+            ),
+            child: ClipOval(
+              child: Stack(fit: StackFit.expand, children: [
+                service.photo.isNotEmpty
+                    ? Image.network(service.photo, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallback())
+                    : _fallback(),
+                DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, rimColor.withValues(alpha: 0.25)],
+                    gradient: RadialGradient(
+                      center: const Alignment(-0.5, -0.6),
+                      radius: 0.75,
+                      colors: [Colors.white.withValues(alpha: 0.32), Colors.transparent],
                     ),
                   ),
                 ),
-              ),
-            ]),
-          ),
-        ),
-
-        // ── Online indicator ───────────────────────────────────────────
-        if (isAvail)
-          Positioned(
-            top: 0, right: 0,
-            child: Container(
-              width: indSz, height: indSz,
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.4),
-                boxShadow: [BoxShadow(color: Colors.green.withValues(alpha: 0.5), blurRadius: 4)],
-              ),
+              ]),
             ),
           ),
-      ]),
-    );
-  }
-
-  Widget _fallback() {
-    return Container(
-      color: rimColor.withValues(alpha: 0.15),
-      child: Center(child: Text(
-          service.business_name.isNotEmpty ? service.business_name[0].toUpperCase() : '?',
-          style: TextStyle(color: rimColor, fontSize: size * 0.40, fontWeight: FontWeight.w900))),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Tooltip that floats above the selected marble
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MarbleTooltip extends StatelessWidget {
-  final UserDetail service;
-  final Color      rimColor;
-  const _MarbleTooltip({required this.service, required this.rimColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      // Card
-      Container(
-        width: 160,
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: rimColor.withValues(alpha: 0.30), width: 1.2),
-          boxShadow: [BoxShadow(color: rimColor.withValues(alpha: 0.22), blurRadius: 12, offset: const Offset(0, 3))],
-        ),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Distance
-          if (service.distance != null)
-            Row(children: [
-              Icon(Icons.near_me_rounded, size: 12, color: rimColor),
-              const SizedBox(width: 4),
-              Text(service.distance!,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: rimColor)),
-            ]),
-          // Location
-          if (service.address.isNotEmpty && service.address != 'No Address') ...[
-            const SizedBox(height: 3),
-            Row(children: [
-              Icon(Icons.location_on_rounded, size: 11, color: Colors.grey.shade400),
-              const SizedBox(width: 3),
-              Flexible(
-                child: Text(service.address,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          if (isAvail)
+            Positioned(
+              top: 0, right: 0,
+              child: Container(
+                width: 11, height: 11,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [BoxShadow(
+                      color: Colors.green.withValues(alpha: 0.45), blurRadius: 4)],
+                ),
               ),
-            ]),
-          ],
+            ),
         ]),
-      ),
 
-      // Arrow pointing down to marble
-      CustomPaint(size: const Size(14, 7), painter: _ArrowPainter(rimColor)),
-    ]);
+        // Triangular pin tail pointing down to the coordinate
+        CustomPaint(size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
+      ],
+    );
   }
+
+  Widget _fallback() => Container(
+    color: rimColor.withValues(alpha: 0.15),
+    child: Center(child: Text(
+      service.business_name.isNotEmpty ? service.business_name[0].toUpperCase() : '?',
+      style: TextStyle(color: rimColor, fontSize: 14, fontWeight: FontWeight.w900),
+    )),
+  );
 }
 
-class _ArrowPainter extends CustomPainter {
+// ─────────────────────────────────────────────────────────────────────────────
+//  Triangular pin tail
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PinTailPainter extends CustomPainter {
   final Color color;
-  const _ArrowPainter(this.color);
+  const _PinTailPainter(this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Path()
+    final path = Path()
       ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
       ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
       ..close();
-    canvas.drawPath(p, Paint()..color = Colors.white);
-    canvas.drawPath(p, Paint()
-      ..color = color.withValues(alpha: 0.30)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2);
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(_ArrowPainter old) => old.color != color;
+  bool shouldRepaint(_PinTailPainter old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pulsing user-location dot
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UserDot extends StatelessWidget {
+  final Color  accent;
+  final double pulse;
+  const _UserDot({required this.accent, required this.pulse});
+
+  @override
+  Widget build(BuildContext context) {
+    final ringSize = 26.0 + pulse * 20.0;
+    return Stack(alignment: Alignment.center, children: [
+      Opacity(
+        opacity: (1 - pulse).clamp(0.0, 1.0),
+        child: Container(
+          width: ringSize, height: ringSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
+          ),
+        ),
+      ),
+      Container(
+        width: 22, height: 22,
+        decoration: BoxDecoration(
+          color: accent,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [BoxShadow(
+              color: accent.withValues(alpha: 0.45), blurRadius: 10, spreadRadius: 1)],
+        ),
+        child: Center(
+          child: Container(
+            width: 7, height: 7,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          ),
+        ),
+      ),
+    ]);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

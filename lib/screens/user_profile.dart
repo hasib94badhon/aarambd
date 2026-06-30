@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:aaram_bd/screens/editprofile_screen.dart';
 import 'package:aaram_bd/screens/post_upload.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:readmore/readmore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:aaram_bd/main.dart';
 import 'package:aaram_bd/widgets/verified_widget.dart';
@@ -1001,6 +1002,34 @@ final FocusNode _focusNode = FocusNode();
                               iconSize: 16,
                               textSize: 13.5,
                             ),
+
+                            if (userDescription.isNotEmpty &&
+                                userDescription != "User Description") ...[
+                              const SizedBox(height: 10),
+                              ReadMoreText(
+                                userDescription,
+                                trimLines: 3,
+                                trimMode: TrimMode.Line,
+                                trimCollapsedText: ' more',
+                                trimExpandedText: ' less',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.45,
+                                  color: Color(0xFF6B7280),
+                                  fontFamily: 'Poppins',
+                                ),
+                                moreStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A56DB),
+                                ),
+                                lessStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1A56DB),
+                                ),
+                              ),
+                            ],
 
                             const SizedBox(height: 16),
 

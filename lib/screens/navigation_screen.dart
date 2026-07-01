@@ -6,13 +6,10 @@ import 'package:aaram_bd/pages/description_landing_page.dart';
 import 'package:aaram_bd/pages/notification_show.dart';
 import 'package:aaram_bd/widgets/AppDrawer.dart';
 import 'package:aaram_bd/widgets/UpdatePost.dart';
-import 'package:aaram_bd/widgets/thoughtsection.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:aaram_bd/pages/ServiceCart.dart';
 import 'package:aaram_bd/screens/user_profile.dart';
-import 'package:aaram_bd/localization/app_localizations.dart';
-import 'package:aaram_bd/localization/language_provider.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/widgets/user_current_location.dart';
@@ -103,9 +100,6 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   _NavigationScreenState({required this.userPhone});
 
-  AppLocalizations get _l10n =>
-      Provider.of<LanguageProvider>(context, listen: false).l10n;
-
   int pageIndex = 0;
   int unreadCount = 0;
   bool isDescLoading = true;
@@ -120,12 +114,12 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   // ── Bottom nav config (6 items) ────────────────────────────────────────────
   static const _navIcons = [
-    Icons.dashboard_outlined,  // 0  Feeds
-    Icons.hive_rounded,        // 1  Top
-    Icons.storefront_rounded,  // 2  Mart
-    Icons.edit_note_rounded,   // 3  Post
-    Icons.engineering_rounded, // 4  Experts
-    Icons.person_rounded,      // 5  Profile
+    Icons.cell_tower_rounded,     // 0  Live
+    Icons.public_rounded,         // 1  Social
+    Icons.photo_library_rounded,  // 2  Gallery
+    Icons.storefront_rounded,     // 3  Shops
+    Icons.handyman_rounded,       // 4  Services
+    Icons.account_circle_rounded, // 5  My Acc
   ];
 
   // nav labels are built dynamically in build() via l10n
@@ -173,28 +167,28 @@ class _NavigationScreenState extends State<NavigationScreen>
   // ── Tab root pages (raw widgets — Navigator wrapping happens in build) ──────
   void initializePages() {
     pages = [
-      // 0 — Feeds
+      // 0 — Live
       DescriptionLandingPage(
         onLoaded: () {
           if (!mounted) return;
           setState(() => isDescLoading = false);
         },
       ),
-      // 1 — Top
+      // 1 — Social (FB & YT directory)
       Homepage(),
-      // 2 — Mart: ShopsCart wrapped in a bare Scaffold (no AppBar — outer bar handles nav)
-      Scaffold(
-        backgroundColor: const Color(0xFFF8FAFF),
-        body: ShopsCart(userPhone: userPhone),
-      ),
-      // 3 — Post: UpdatePost wrapped similarly
+      // 2 — Gallery: UpdatePost wrapped in a bare Scaffold (no AppBar — outer bar handles nav)
       Scaffold(
         backgroundColor: const Color(0xFFF0F4FA),
         body: UpdatePost(posts: const [], selectedSort: 'recent'),
       ),
-      // 4 — Experts
+      // 3 — Shops
+      Scaffold(
+        backgroundColor: const Color(0xFFF8FAFF),
+        body: ShopsCart(userPhone: userPhone),
+      ),
+      // 4 — Services
       ServiceCart(key: pageKeys[4], dataa: serviceData, userPhone: userPhone),
-      // 5 — Profile
+      // 5 — My Acc
       UserProfile(key: pageKeys[5], userPhone: userPhone, userData: userData),
     ];
   }
@@ -361,7 +355,7 @@ class _NavigationScreenState extends State<NavigationScreen>
   }
 
   // ── AppBar title widget ────────────────────────────────────────────────────
-  Widget _buildAppBarTitle(AppLocalizations l10n) {
+  Widget _buildAppBarTitle() {
     return Row(
       children: [
         // ── Drawer trigger ──
@@ -631,15 +625,7 @@ class _NavigationScreenState extends State<NavigationScreen>
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final l10n = context.watch<LanguageProvider>().l10n;
-    final navLabels = [
-      l10n.navFeeds,
-      l10n.navTop,
-      l10n.navMart,
-      l10n.navPost,
-      l10n.navExperts,
-      l10n.navProfile,
-    ];
+    const navLabels = ['Live', 'Social', 'Gallery', 'Shops', 'Services', 'My Acc'];
     // PopScope intercepts hardware back / iOS swipe-back and delegates to the
     // active tab's nested navigator.  If there is nothing to pop on the nested
     // navigator (user is at the tab root) the back event is swallowed so the
@@ -670,7 +656,7 @@ class _NavigationScreenState extends State<NavigationScreen>
               child: SizedBox(height: 1, width: double.infinity),
             ),
           ),
-          title: _buildAppBarTitle(l10n),
+          title: _buildAppBarTitle(),
         ),
 
         drawer: AppDrawer(userPhone: userPhone),
@@ -681,12 +667,12 @@ class _NavigationScreenState extends State<NavigationScreen>
             IndexedStack(
               index: pageIndex,
               children: [
-                _tabNav(_tab0Key, pages[0]), // Feeds
-                _tabNav(_tab1Key, pages[1]), // Top
-                _tabNav(_tab2Key, pages[2]), // Mart
-                _tabNav(_tab3Key, pages[3]), // Post
-                _tabNav(_tab4Key, pages[4]), // Experts
-                _tabNav(_tab5Key, pages[5]), // Profile
+                _tabNav(_tab0Key, pages[0]), // Live
+                _tabNav(_tab1Key, pages[1]), // Social
+                _tabNav(_tab2Key, pages[2]), // Gallery
+                _tabNav(_tab3Key, pages[3]), // Shops
+                _tabNav(_tab4Key, pages[4]), // Services
+                _tabNav(_tab5Key, pages[5]), // My Acc
               ],
             ),
             if (pageIndex == 0 && isDescLoading)
@@ -699,7 +685,7 @@ class _NavigationScreenState extends State<NavigationScreen>
                       const CircularProgressIndicator(color: _brand),
                       const SizedBox(height: 14),
                       Text(
-                        l10n.loading,
+                        'Loading...',
                         style: const TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 14,

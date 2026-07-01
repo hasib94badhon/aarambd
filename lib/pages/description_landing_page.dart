@@ -932,6 +932,15 @@ class _SubChip extends StatelessWidget {
 //  _PostCard
 // ─────────────────────────────────────────────────────────────────────────────
 class _PostCard extends StatelessWidget {
+
+
+
+
+
+
+
+
+  
   final Map item;
   final CatTheme theme;
   const _PostCard({required this.item, required this.theme});

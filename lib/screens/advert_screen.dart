@@ -7,13 +7,17 @@ import 'dart:math' as math;
 
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/post_details.dart';
+import 'package:aaram_bd/services/app_location.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/profile_picture_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,6 +53,8 @@ class UserDetail {
   final String? nid;
   final String? tin;
   final String? totalpost;
+  final double? lat;
+  final double? lon;
 
   UserDetail({
     required this.address,
@@ -74,6 +80,8 @@ class UserDetail {
     this.nid,
     this.tin,
     this.totalpost,
+    this.lat,
+    this.lon,
   });
 
   factory UserDetail.fromJson(Map<String, dynamic> json) {
@@ -104,6 +112,8 @@ class UserDetail {
       nid: json['nid'],
       tin: json['tin'],
       totalpost: json['total_posts']?.toString(),
+      lat: (json['lat'] as num?)?.toDouble(),
+      lon: (json['lon'] as num?)?.toDouble(),
       posts: (json['posts'] as List?)
               ?.map((postJson) => PostDetail.fromJson(postJson))
               .toList() ??
@@ -490,6 +500,28 @@ class _AdvertScreenState extends State<AdvertScreen> {
     }
   }
 
+  void _openMapSheet(BuildContext context, UserDetail user) {
+    if (user.lat == null || user.lon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location unavailable for this user'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AdvertMapSheet(
+        advertUser: user,
+        viewerLat: AppLocation().lat,
+        viewerLon: AppLocation().lon,
+      ),
+    );
+  }
+
   void _showReviewSheet(UserDetail user) {
     showModalBottomSheet(
       context: context,
@@ -866,51 +898,15 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _statusPill(isActive),
-                    if ((user.user_distance ?? '').isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(99),
-                          border:
-                              Border.all(color: const Color(0xFFBBF7D0)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.near_me_rounded,
-                                size: 11, color: Color(0xFF16A34A)),
-                            const SizedBox(width: 3),
-                            Text(
-                              user.user_distance!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF16A34A),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
                 if (user.address.isNotEmpty) ...[
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.location_on_rounded,
-                          size: 12, color: Color(0xFF9CA3AF)),
-                      const SizedBox(width: 3),
+                          size: 13, color: Color(0xFF9CA3AF)),
+                      const SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           user.address,
@@ -918,12 +914,92 @@ class _AdvertScreenState extends State<AdvertScreen> {
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF6B7280),
+                            height: 1.4,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
+                  ),
+                ],
+                if ((user.user_distance ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _openMapSheet(context, user);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1A56DB), Color(0xFF2563EB)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1A56DB)
+                                  .withValues(alpha: 0.30),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on_rounded,
+                                size: 15, color: Colors.white),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'View on Map',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    Colors.white.withValues(alpha: 0.22),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.near_me_rounded,
+                                      size: 10, color: Colors.white),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    user.user_distance!,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right_rounded,
+                                size: 16, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -1246,58 +1322,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
 
 
-
-  Widget _statusPill(bool isActive) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.green.shade50 : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(99),
-        boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: Colors.greenAccent.withValues(alpha: 0.28),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                )
-              ]
-            : [],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive ? Colors.green : Colors.grey.shade400,
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: Colors.greenAccent.withValues(alpha: 0.8),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      )
-                    ]
-                  : [],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            isActive ? 'Available Now' : 'Offline',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color:
-                  isActive ? Colors.green.shade700 : Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildStatBlock({
     required IconData icon,
@@ -1668,12 +1692,12 @@ class _ReviewSheet extends StatefulWidget {
 
 // Tags: positive shown for rating ≥ 3, negative for ≤ 2
 const _kPosTags = [
-  'বিশ্বস্ত', 'দ্রুত সেবা', 'ভালো মান', 'সাশ্রয়ী',
-  'দক্ষ', 'সময়মতো', 'বন্ধুত্বপূর্ণ', 'সৎ',
+  'Trusted', 'Fast Service', 'Good Quality', 'Affordable',
+  'Skilled', 'Punctual', 'Friendly', 'Honest',
 ];
 const _kNegTags = [
-  'দেরি', 'দুর্ব্যবহার', 'অতিরিক্ত মূল্য', 'কাজ ভালো না',
-  'অবিশ্বস্ত', 'সাড়া দেয় না',
+  'Delayed', 'Rude Behavior', 'Overpriced', 'Poor Work',
+  'Unreliable', 'Unresponsive',
 ];
 
 class _ReviewSheetState extends State<_ReviewSheet> {
@@ -1775,7 +1799,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
         widget.onReviewChanged();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('রিভিউ জমা হয়েছে! ধন্যবাদ।'),
+            content: Text('Review submitted! Thank you.'),
             backgroundColor: Color(0xFF16A34A),
           ),
         );
@@ -1833,7 +1857,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
 
   // ── Star picker row ────────────────────────────────────────────────────────
   Widget _starPicker() {
-    const labels = ['', 'খুব খারাপ', 'খারাপ', 'ঠিক আছে', 'ভালো', 'অসাধারণ'];
+    const labels = ['', 'Very Poor', 'Poor', 'Fair', 'Good', 'Excellent'];
     const colors = [
       Colors.transparent,
       Color(0xFFEF4444), Color(0xFFF97316),
@@ -1998,7 +2022,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                   if (_myReviewId == null) ...[
                     // Star rating
                     const Text(
-                      'রেটিং দিন',
+                      'Rate this user',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -2011,7 +2035,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                     if (_starRating > 0) ...[
                       const SizedBox(height: 14),
                       const Text(
-                        'ট্যাগ বেছে নিন (ঐচ্ছিক)',
+                        'Select tags (optional)',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -2027,7 +2051,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                         maxLines: 2,
                         maxLength: 300,
                         decoration: InputDecoration(
-                          hintText: 'আপনার মতামত লিখুন (ঐচ্ছিক)',
+                          hintText: 'Share your experience (optional)',
                           hintStyle: const TextStyle(
                               fontSize: 13, color: Color(0xFF94A3B8)),
                           filled: true,
@@ -2073,7 +2097,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                                   width: 18, height: 18,
                                   child: CircularProgressIndicator(
                                       color: Colors.white, strokeWidth: 2))
-                              : const Text('রিভিউ জমা দিন'),
+                              : const Text('Submit Review'),
                         ),
                       ),
                     ],
@@ -2203,7 +2227,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                                               color: const Color(0xFF1A56DB),
                                               borderRadius: BorderRadius.circular(99),
                                             ),
-                                            child: const Text('আপনি',
+                                            child: const Text('You',
                                                 style: TextStyle(
                                                     fontSize: 10,
                                                     color: Colors.white,
@@ -2584,5 +2608,371 @@ class _NoPostsBannerState extends State<_NoPostsBanner>
       },
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Map bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AdvertMapSheet extends StatefulWidget {
+  final UserDetail advertUser;
+  final double? viewerLat;
+  final double? viewerLon;
+
+  const _AdvertMapSheet({
+    required this.advertUser,
+    required this.viewerLat,
+    required this.viewerLon,
+  });
+
+  @override
+  State<_AdvertMapSheet> createState() => _AdvertMapSheetState();
+}
+
+class _AdvertMapSheetState extends State<_AdvertMapSheet>
+    with SingleTickerProviderStateMixin {
+  final MapController _mapCtrl = MapController();
+  late AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _mapCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openDirections() async {
+    final lat = widget.advertUser.lat!;
+    final lon = widget.advertUser.lon!;
+    final gMapsApp = Uri.parse('google.navigation:q=$lat,$lon');
+    final gMaps = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving');
+    if (await canLaunchUrl(gMapsApp)) {
+      await launchUrl(gMapsApp);
+    } else if (await canLaunchUrl(gMaps)) {
+      await launchUrl(gMaps, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  LatLngBounds _computeBounds(LatLng a, LatLng b) {
+    return LatLngBounds(
+      LatLng(math.min(a.latitude, b.latitude),
+          math.min(a.longitude, b.longitude)),
+      LatLng(math.max(a.latitude, b.latitude),
+          math.max(a.longitude, b.longitude)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final advertLL = LatLng(widget.advertUser.lat!, widget.advertUser.lon!);
+    final hasViewer = widget.viewerLat != null && widget.viewerLon != null;
+    final viewerLL =
+        hasViewer ? LatLng(widget.viewerLat!, widget.viewerLon!) : null;
+    final distance = widget.advertUser.user_distance ?? '';
+    final address = widget.advertUser.address;
+    final name = widget.advertUser.businessName;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.82,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 4),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD1D5DB),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 12, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDF4FF),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(Icons.map_rounded,
+                      size: 18, color: Color(0xFF1A56DB)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name.isNotEmpty ? name : 'View Location',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (distance.isNotEmpty)
+                        Text(
+                          distance,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF16A34A),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 20, color: Color(0xFF6B7280)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          // Map
+          Expanded(
+            child: FlutterMap(
+              mapController: _mapCtrl,
+              options: MapOptions(
+                initialCenter: advertLL,
+                initialZoom: 14.0,
+                minZoom: 4.0,
+                maxZoom: 19.0,
+                onMapReady: () {
+                  if (viewerLL != null) {
+                    final bounds = _computeBounds(advertLL, viewerLL);
+                    _mapCtrl.fitCamera(
+                      CameraFit.bounds(
+                        bounds: bounds,
+                        padding: const EdgeInsets.all(64),
+                      ),
+                    );
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.aarambd.android',
+                ),
+                MarkerLayer(markers: [
+                  // Advert user pin
+                  Marker(
+                    point: advertLL,
+                    width: 56,
+                    height: 68,
+                    alignment: Alignment.bottomCenter,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A56DB),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: Colors.white, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF1A56DB)
+                                    .withValues(alpha: 0.45),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.person_rounded,
+                              size: 20, color: Colors.white),
+                        ),
+                        CustomPaint(
+                          size: const Size(14, 8),
+                          painter: _MapPinTip(const Color(0xFF1A56DB)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Viewer pulsing dot
+                  if (viewerLL != null)
+                    Marker(
+                      point: viewerLL,
+                      width: 52,
+                      height: 52,
+                      child: AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (_, __) =>
+                            _PulsingDot(pulse: _pulseCtrl.value),
+                      ),
+                    ),
+                ]),
+              ],
+            ),
+          ),
+          // Bottom info card
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 16,
+                  offset: Offset(0, -4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (address.isNotEmpty)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1),
+                        child: Icon(Icons.location_on_rounded,
+                            size: 15, color: Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          address,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF374151),
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (!hasViewer)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            size: 14, color: Color(0xFFF97316)),
+                        SizedBox(width: 5),
+                        Text(
+                          'Your location is unavailable',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFFF97316)),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _openDirections,
+                    icon: const Icon(Icons.directions_rounded, size: 18),
+                    label: const Text(
+                      'Get Directions',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A56DB),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                    height:
+                        MediaQuery.of(context).padding.bottom + 12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingDot extends StatelessWidget {
+  final double pulse;
+  const _PulsingDot({required this.pulse});
+
+  @override
+  Widget build(BuildContext context) {
+    final ripple = 16.0 + pulse * 18.0;
+    final opacity = (1.0 - pulse).clamp(0.0, 1.0);
+    return Stack(alignment: Alignment.center, children: [
+      Container(
+        width: ripple,
+        height: ripple,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF1A56DB)
+              .withValues(alpha: opacity * 0.22),
+        ),
+      ),
+      Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF1A56DB),
+          border: Border.all(color: Colors.white, width: 2.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1A56DB).withValues(alpha: 0.4),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+}
+
+class _MapPinTip extends CustomPainter {
+  final Color color;
+  const _MapPinTip(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width / 2, size.height)
+        ..close(),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MapPinTip old) => old.color != color;
 }
 

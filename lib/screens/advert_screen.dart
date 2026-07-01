@@ -738,9 +738,9 @@ class _AdvertScreenState extends State<AdvertScreen> {
     final int starCount = _calcUserStars(user);
     final bool isOwn =
         loginUserId != null && int.tryParse(loginUserId!) == user.user_id;
-    final int good = _reviewSummary?['good_count'] ?? 0;
-    final int bad = _reviewSummary?['bad_count'] ?? 0;
+    final double avgRating = (_reviewSummary?['avg_rating'] ?? 0).toDouble();
     final int total = _reviewSummary?['total'] ?? 0;
+    final List<dynamic> topTags = _reviewSummary?['top_tags'] ?? [];
 
     // 5 stars in a 64° arc (122° → 58°, 16° steps) centred at 12 o'clock (90°)
     final List<Widget> arcStars = List.generate(5, (i) {
@@ -1070,77 +1070,122 @@ class _AdvertScreenState extends State<AdvertScreen> {
               ],
             ),
           ),
+          // ── Rating summary row ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _inlineReviewBadge(
-                  Icons.thumb_up_rounded, '$good', 'Good',
-                  const Color(0xFF16A34A), const Color(0xFFF0FDF4),
-                  const Color(0xFFBBF7D0),
+                Row(
+                  children: [
+                    // Star score
+                    if (total > 0) ...[
+                      Text(
+                        avgRating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1A2340),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Row(
+                        children: List.generate(5, (i) {
+                          final filled = i < avgRating.round();
+                          return Icon(
+                            filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                            size: 16,
+                            color: filled ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
+                          );
+                        }),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '($total)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ] else
+                      const Text(
+                        'No reviews yet',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                      ),
+                    const Spacer(),
+                    if (!isOwn)
+                      GestureDetector(
+                        onTap: () => _showReviewSheet(user),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(99),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF1A56DB).withValues(alpha: 0.28),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _myReviewId != null
+                                    ? Icons.edit_outlined
+                                    : Icons.rate_review_outlined,
+                                size: 13,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _myReviewId != null ? 'Edit Review' : 'Write Review',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _inlineReviewBadge(
-                  Icons.thumb_down_rounded, '$bad', 'Bad',
-                  const Color(0xFFDC2626), const Color(0xFFFEF2F2),
-                  const Color(0xFFFECACA),
-                ),
-                if (total > 0) ...[
-                  const SizedBox(width: 8),
-                  Text('$total total',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
-                    ),
+                // Top tags
+                if (topTags.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    children: topTags.take(4).map<Widget>((tag) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F4FF),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: const Color(0xFFBFD0FF)),
+                        ),
+                        child: Text(
+                          tag.toString(),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF1A56DB),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
-                const Spacer(),
-                if (!isOwn)
-                  GestureDetector(
-                    onTap: () => _showReviewSheet(user),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(99),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.28),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _myReviewId != null
-                                ? Icons.edit_outlined
-                                : Icons.rate_review_outlined,
-                            size: 12,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _myReviewId != null ? 'Edit' : 'Review',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -1200,37 +1245,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
   }
 
 
-  Widget _inlineReviewBadge(IconData icon, String count, String label,
-      Color iconColor, Color bg, Color border) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: border, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: iconColor),
-          const SizedBox(width: 4),
-          Text(
-            count,
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700, color: iconColor),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: iconColor.withValues(alpha: 0.7)),
-          ),
-        ],
-      ),
-    );
-  }
 
 
   Widget _statusPill(bool isActive) {
@@ -1652,18 +1666,29 @@ class _ReviewSheet extends StatefulWidget {
   State<_ReviewSheet> createState() => _ReviewSheetState();
 }
 
+// Tags: positive shown for rating ≥ 3, negative for ≤ 2
+const _kPosTags = [
+  'বিশ্বস্ত', 'দ্রুত সেবা', 'ভালো মান', 'সাশ্রয়ী',
+  'দক্ষ', 'সময়মতো', 'বন্ধুত্বপূর্ণ', 'সৎ',
+];
+const _kNegTags = [
+  'দেরি', 'দুর্ব্যবহার', 'অতিরিক্ত মূল্য', 'কাজ ভালো না',
+  'অবিশ্বস্ত', 'সাড়া দেয় না',
+];
+
 class _ReviewSheetState extends State<_ReviewSheet> {
-  List<dynamic> _reviews = [];
-  int _total = 0;
-  int _page = 1;
-  final int _pageSize = 10;
-  bool _loading = true;
-  bool _hasMore = true;
-  bool _submitting = false;
+  List<dynamic> _reviews   = [];
+  int  _total              = 0;
+  int  _page               = 1;
+  final int _pageSize      = 10;
+  bool _loading            = true;
+  bool _hasMore            = true;
+  bool _submitting         = false;
 
   // Write-review form state
-  String? _selectedRating; // 'good' or 'bad'
-  final _commentController = TextEditingController();
+  int            _starRating  = 0;   // 0 = not set yet
+  final Set<String> _selTags  = {};
+  final _commentController    = TextEditingController();
   late int? _myReviewId;
 
   final _scrollController = ScrollController();
@@ -1719,9 +1744,9 @@ class _ReviewSheetState extends State<_ReviewSheet> {
   }
 
   Future<void> _submitReview() async {
-    if (_selectedRating == null) {
+    if (_starRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select Good or Bad')),
+        const SnackBar(content: Text('Please select a star rating first')),
       );
       return;
     }
@@ -1732,16 +1757,16 @@ class _ReviewSheetState extends State<_ReviewSheet> {
         {
           'reviewer_id': widget.loginUserId,
           'reviewed_id': widget.reviewedId,
-          'rating': _selectedRating,
-          'comment': _commentController.text.trim(),
+          'rating':      _starRating,
+          'comment':     _commentController.text.trim(),
+          'tags':        _selTags.toList(),
         },
         context,
       );
       if (resp != null && resp.statusCode == 201) {
         _commentController.clear();
-        setState(() => _selectedRating = null);
+        setState(() { _starRating = 0; _selTags.clear(); });
         await _loadReviews(reset: true);
-        // Refresh myReviewId
         final mine = _reviews.firstWhere(
           (r) => r['reviewer_id'] == widget.loginUserId,
           orElse: () => null,
@@ -1750,7 +1775,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
         widget.onReviewChanged();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Review submitted!'),
+            content: Text('রিভিউ জমা হয়েছে! ধন্যবাদ।'),
             backgroundColor: Color(0xFF16A34A),
           ),
         );
@@ -1806,37 +1831,83 @@ class _ReviewSheetState extends State<_ReviewSheet> {
     }
   }
 
-  Widget _ratingChip(String value, String label, IconData icon, Color color) {
-    final selected = _selectedRating == value;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedRating = selected ? null : value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: selected ? color : const Color(0xFFE2E8F0),
-            width: 1.5,
-          ),
+  // ── Star picker row ────────────────────────────────────────────────────────
+  Widget _starPicker() {
+    const labels = ['', 'খুব খারাপ', 'খারাপ', 'ঠিক আছে', 'ভালো', 'অসাধারণ'];
+    const colors = [
+      Colors.transparent,
+      Color(0xFFEF4444), Color(0xFFF97316),
+      Color(0xFFF59E0B), Color(0xFF22C55E), Color(0xFF16A34A),
+    ];
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) {
+            final star = i + 1;
+            final filled = star <= _starRating;
+            return GestureDetector(
+              onTap: () => setState(() => _starRating = star),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Icon(
+                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 38,
+                  color: filled ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
+                ),
+              ),
+            );
+          }),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: selected ? color : const Color(0xFF94A3B8)),
-            const SizedBox(width: 6),
-            Text(
-              label,
+        if (_starRating > 0)
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              labels[_starRating],
+              key: ValueKey(_starRating),
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? color : const Color(0xFF64748B),
+                fontWeight: FontWeight.w700,
+                color: colors[_starRating],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
+    );
+  }
+
+  // ── Tag chips ──────────────────────────────────────────────────────────────
+  Widget _tagChips() {
+    final tags = _starRating >= 3 ? _kPosTags : _kNegTags;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: tags.map((tag) {
+        final sel = _selTags.contains(tag);
+        return GestureDetector(
+          onTap: () => setState(() => sel ? _selTags.remove(tag) : _selTags.add(tag)),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: sel ? const Color(0xFF1A56DB) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(
+                color: sel ? const Color(0xFF1A56DB) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Text(
+              tag,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: sel ? Colors.white : const Color(0xFF475569),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1925,80 +1996,87 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (_myReviewId == null) ...[
+                    // Star rating
                     const Text(
-                      'Leave a review',
+                      'রেটিং দিন',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1A2340),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _ratingChip('good', 'Good', Icons.thumb_up_rounded,
-                            const Color(0xFF16A34A)),
-                        const SizedBox(width: 8),
-                        _ratingChip('bad', 'Bad', Icons.thumb_down_rounded,
-                            const Color(0xFFDC2626)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _commentController,
-                      maxLines: 2,
-                      maxLength: 300,
-                      decoration: InputDecoration(
-                        hintText: 'Write a comment (optional)',
-                        hintStyle: const TextStyle(
-                            fontSize: 13, color: Color(0xFF94A3B8)),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0)),
+                    const SizedBox(height: 10),
+                    Center(child: _starPicker()),
+                    // Tags (show after star selected)
+                    if (_starRating > 0) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'ট্যাগ বেছে নিন (ঐচ্ছিক)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF1A56DB), width: 1.5),
-                        ),
-                        counterStyle: const TextStyle(
-                            fontSize: 11, color: Color(0xFF94A3B8)),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _submitting ? null : _submitReview,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A56DB),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14),
+                      const SizedBox(height: 8),
+                      _tagChips(),
+                      const SizedBox(height: 14),
+                      // Opinion text
+                      TextField(
+                        controller: _commentController,
+                        maxLines: 2,
+                        maxLength: 300,
+                        decoration: InputDecoration(
+                          hintText: 'আপনার মতামত লিখুন (ঐচ্ছিক)',
+                          hintStyle: const TextStyle(
+                              fontSize: 13, color: Color(0xFF94A3B8)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF1A56DB), width: 1.5),
+                          ),
+                          counterStyle: const TextStyle(
+                              fontSize: 11, color: Color(0xFF94A3B8)),
                         ),
-                        child: _submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2))
-                            : const Text('Submit Review'),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _submitReview,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A56DB),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            textStyle: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
+                              : const Text('রিভিউ জমা দিন'),
+                        ),
+                      ),
+                    ],
                   ] else ...[
                     Row(
                       children: [
@@ -2066,123 +2144,132 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                               ),
                             );
                           }
-                          final r = _reviews[i];
-                          final isGood = r['rating'] == 'good';
-                          final isMyReview =
-                              r['review_id'] == _myReviewId;
+                          final r          = _reviews[i];
+                          final rating     = (r['rating'] as int?) ?? 3;
+                          final isMyReview = r['review_id'] == _myReviewId;
+                          final tags       = (r['tags'] as List?) ?? [];
 
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipOval(
-                                child: Image.network(
-                                  r['reviewer_photo'] ?? '',
-                                  width: 36,
-                                  height: 36,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: 36,
-                                    height: 36,
-                                    color: const Color(0xFFE2E8F0),
-                                    child: const Icon(Icons.person,
-                                        size: 18,
-                                        color: Color(0xFF94A3B8)),
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isMyReview
+                                  ? const Color(0xFFF0F4FF)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isMyReview
+                                    ? const Color(0xFFBFD0FF)
+                                    : const Color(0xFFF1F5F9),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipOval(
+                                  child: Image.network(
+                                    r['reviewer_photo'] ?? '',
+                                    width: 38, height: 38,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 38, height: 38,
+                                      color: const Color(0xFFE2E8F0),
+                                      child: const Icon(Icons.person,
+                                          size: 18, color: Color(0xFF94A3B8)),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Name + "You" badge
+                                      Row(children: [
                                         Expanded(
                                           child: Text(
                                             r['reviewer_name'] ?? '',
                                             style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: FontWeight.w700,
                                               fontSize: 13,
                                               color: Color(0xFF1A2340),
                                             ),
                                           ),
                                         ),
                                         if (isMyReview)
-                                          const Text(
-                                            'You',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xFF1A56DB),
-                                              fontWeight: FontWeight.w600,
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1A56DB),
+                                              borderRadius: BorderRadius.circular(99),
                                             ),
-                                          ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: isGood
-                                                ? const Color(0xFFF0FDF4)
-                                                : const Color(0xFFFEF2F2),
-                                            borderRadius:
-                                                BorderRadius.circular(99),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                isGood
-                                                    ? Icons.thumb_up_rounded
-                                                    : Icons
-                                                        .thumb_down_rounded,
-                                                size: 11,
-                                                color: isGood
-                                                    ? const Color(0xFF16A34A)
-                                                    : const Color(
-                                                        0xFFDC2626),
-                                              ),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                isGood ? 'Good' : 'Bad',
+                                            child: const Text('আপনি',
                                                 style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isGood
-                                                      ? const Color(
-                                                          0xFF16A34A)
-                                                      : const Color(
-                                                          0xFFDC2626),
-                                                ),
-                                              ),
-                                            ],
+                                                    fontSize: 10,
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w700)),
                                           ),
+                                      ]),
+                                      const SizedBox(height: 4),
+                                      // Stars
+                                      Row(children: [
+                                        ...List.generate(5, (i) => Icon(
+                                          i < rating
+                                              ? Icons.star_rounded
+                                              : Icons.star_outline_rounded,
+                                          size: 14,
+                                          color: i < rating
+                                              ? const Color(0xFFF59E0B)
+                                              : const Color(0xFFCBD5E1),
+                                        )),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _timeAgo(r['created_at'] ?? ''),
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF94A3B8)),
+                                        ),
+                                      ]),
+                                      // Tags
+                                      if (tags.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 5, runSpacing: 4,
+                                          children: tags.map<Widget>((tag) =>
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF0F4FF),
+                                                borderRadius: BorderRadius.circular(99),
+                                                border: Border.all(
+                                                    color: const Color(0xFFBFD0FF)),
+                                              ),
+                                              child: Text(tag.toString(),
+                                                  style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: Color(0xFF1A56DB),
+                                                      fontWeight: FontWeight.w600)),
+                                            ),
+                                          ).toList(),
                                         ),
                                       ],
-                                    ),
-                                    if ((r['comment'] ?? '').toString().isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        r['comment'],
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF475569),
-                                          height: 1.4,
+                                      // Comment
+                                      if ((r['comment'] ?? '').toString().isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          r['comment'],
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF475569),
+                                              height: 1.4),
                                         ),
-                                      ),
+                                      ],
                                     ],
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _timeAgo(r['created_at'] ?? ''),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           );
                         },
                       ),

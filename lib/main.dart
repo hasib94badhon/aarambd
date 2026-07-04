@@ -10,12 +10,15 @@ import 'package:aaram_bd/screens/login_screen.dart';
 import 'package:aaram_bd/screens/navigation_screen.dart';
 import 'package:aaram_bd/screens/splash_screen.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
+import 'package:aaram_bd/services/deep_link_service.dart';
 import 'package:aaram_bd/localization/language_provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,10 +39,30 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DeepLinkService.instance.init(navigatorKey);
+    });
+  }
+
+  @override
+  void dispose() {
+    DeepLinkService.instance.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       navigatorObservers: [routeObserver],
       theme: ThemeData(

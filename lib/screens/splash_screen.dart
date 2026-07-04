@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:aaram_bd/screens/onboarding.dart';
+import 'package:aaram_bd/screens/signup_screen.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
 import 'package:aaram_bd/screens/navigation_screen.dart';
 
@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen>
       await prefs.setBool('isFirstTime', false);
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => Onboarding()),
+        MaterialPageRoute(builder: (_) => SignUpScreen()),
       );
     } else if (isLoggedIn) {
       final userPhone = prefs.getString('userPhone') ?? '';
@@ -67,6 +67,10 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final textFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.35, 1.0, curve: Curves.easeOut),
+    );
 
     return Material(
       child: Container(
@@ -93,21 +97,37 @@ class _SplashScreenState extends State<SplashScreen>
                 height: 120,
               ),
             ),
-            const SizedBox(height: 30),
-            const Text(
-              'In search for everything you need',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 32),
+            FadeTransition(
+              opacity: textFade,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.15),
+                  end: Offset.zero,
+                ).animate(textFade),
+                child: const Text(
+                  'In search for everything you need',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
               ),
             ),
-            const Text(
-              'PoweredBy @ AaramBD',
-              style: TextStyle(
-                color: Color(0xFF1A56DB),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 10),
+            FadeTransition(
+              opacity: textFade,
+              child: Text(
+                'POWERED BY AARAMBD',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2,
+                ),
               ),
             ),
           ],

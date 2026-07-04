@@ -3,14 +3,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
-import 'package:aaram_bd/localization/language_provider.dart';
 import 'package:aaram_bd/screens/otp_screen.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
+import 'package:aaram_bd/services/deep_link_service.dart';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/screens/signup_screen.dart';
 import 'package:aaram_bd/screens/navigation_screen.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final String host = Config.host;
@@ -41,8 +40,7 @@ class _LoginScreenState extends State<LoginScreen>
   static const Color _borderColor = Color(0xFFE8ECF4);
   static const Color _labelColor  = Color(0xFF6B7280);
 
-  AppLocalizations get _l10n =>
-      Provider.of<LanguageProvider>(context, listen: false).l10n;
+  AppLocalizations get _l10n => const AppLocalizations('en');
 
   @override
   void initState() {
@@ -164,6 +162,7 @@ class _LoginScreenState extends State<LoginScreen>
           MaterialPageRoute(
               builder: (context) => NavigationScreen(userPhone: userPhone)),
         );
+        await DeepLinkService.instance.consumePendingShare();
       } else {
         final data      = json.decode(response.body);
         String errorMsg = data['error'] ?? data['message'] ?? l10n.loginFailed;
@@ -285,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.watch<LanguageProvider>().l10n;
+    const l10n = AppLocalizations('en');
     final screenHeight = MediaQuery.of(context).size.height;
 
     return GestureDetector(

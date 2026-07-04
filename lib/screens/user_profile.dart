@@ -319,11 +319,11 @@ final FocusNode _focusNode = FocusNode();
 
   Future<void> shareProfile() async {
     try {
-      if (host.isEmpty || userPhone == null || userPhone!.isEmpty) {
-        throw Exception('Host or userPhone is missing');
+      if (userPhone == null || userPhone!.isEmpty) {
+        throw Exception('userPhone is missing');
       }
 
-      final profileLink = '$host/get_user_by_phone?phone=$userPhone';
+      final profileLink = 'https://aarambd.com/u/$userPhone';
 
       final shareMessage = "👤 Name: $userName\n"
           "📂 Category: $userCategory\n"

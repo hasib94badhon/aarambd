@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/recovery_screen.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
-import 'package:aaram_bd/localization/language_provider.dart';
 
 final String host = Config.host;
 
@@ -22,8 +21,7 @@ class _OTPScreenState extends State<OTPScreen> {
   late TextEditingController phoneController;
   TextEditingController secretController = TextEditingController();
 
-  AppLocalizations get _l10n =>
-      Provider.of<LanguageProvider>(context, listen: false).l10n;
+  AppLocalizations get _l10n => const AppLocalizations('en');
 
   @override
   void initState() {
@@ -39,6 +37,26 @@ class _OTPScreenState extends State<OTPScreen> {
   }
 
   bool _isSnackBarVisible = false;
+
+  Future<void> _contactSupport() async {
+    try {
+      final response = await Config.apiGet('/get_contact_info', context);
+      if (response != null && response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final String phone = (data['phone'] ?? '').toString().trim();
+        if (data['success'] == true && phone.isNotEmpty) {
+          final Uri telUri = Uri(scheme: 'tel', path: phone);
+          if (await canLaunchUrl(telUri)) {
+            await launchUrl(telUri);
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // fall through to the snackbar below
+    }
+    _showSupportSnackBar();
+  }
 
   void _showSupportSnackBar() {
     if (!mounted || _isSnackBarVisible) return;
@@ -106,7 +124,7 @@ class _OTPScreenState extends State<OTPScreen> {
         _showSnackBar(data['message'] ?? _l10n.otpVerificationFailed);
       }
     } catch (e) {
-      if (mounted) _showSnackBar('ত্রুটি: $e');
+      if (mounted) _showSnackBar('Error: $e');
     }
   }
 
@@ -166,7 +184,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.watch<LanguageProvider>().l10n;
+    const l10n = AppLocalizations('en');
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -369,7 +387,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
                   // Support button
                   GestureDetector(
-                    onTap: _showSupportSnackBar,
+                    onTap: _contactSupport,
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(

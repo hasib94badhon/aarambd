@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:aaram_bd/config.dart';
-import 'package:aaram_bd/screens/SignUp_screen.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
+import 'package:aaram_bd/screens/navigation_screen.dart';
+import 'package:aaram_bd/services/fcm_service.dart';
+import 'package:aaram_bd/services/deep_link_service.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
-import 'package:aaram_bd/localization/language_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignUpScreen extends StatefulWidget {
   @override
@@ -24,13 +26,12 @@ class _SignUpState extends State<SignUpScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  AppLocalizations get _l10n =>
-      Provider.of<LanguageProvider>(context, listen: false).l10n;
+  AppLocalizations get _l10n => const AppLocalizations('en');
 
   // ── Backend: unchanged ────────────────────────────────────────────────────
 
   Future<void> addDataToDB(String secretNumber) async {
-    final String apiUrl = '$host/add';
+    final String apiUrl = '${Config.host}/add';
     final Map<String, dynamic> requestData = {
       'name': _nameController.text.trim(),
       'phone': _phoneController.text.trim(),
@@ -45,9 +46,8 @@ class _SignUpState extends State<SignUpScreen> {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final json = jsonDecode(response.body);
-      final msg = json['message'] ?? _l10n.signupSuccess;
-      _showSuccessMessage(msg);
+      _showSuccessMessage(_l10n.signupSuccess);
+      await _loginAfterSignup();
     } else {
       String errorMsg = _l10n.signupFailed;
       try {
@@ -107,8 +107,58 @@ class _SignUpState extends State<SignUpScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
 
-    Future.delayed(const Duration(seconds: 2), () {
+  // Chains straight into /login right after a successful /add so the user
+  // never has to re-enter the credentials they just typed.
+  Future<void> _loginAfterSignup() async {
+    final String phone = _phoneController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    try {
+      final response = await http.post(
+        Uri.parse('${Config.host}/login'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'phone': phone, 'password': password}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final userPhone = data['user']['phone'];
+        final userId = data['user']['user_id'].toString();
+        final accessToken = data['access_token'];
+        final refreshToken = data['refresh_token'];
+
+        await Config.saveTokens(accessToken, refreshToken);
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userPhone', userPhone);
+        await prefs.setString('user_id', userId);
+
+        if (!mounted) return;
+        if (Platform.isAndroid) await FCMService().init(context);
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => NavigationScreen(userPhone: userPhone)),
+        );
+        await DeepLinkService.instance.consumePendingShare();
+      } else {
+        _goToLoginScreen();
+      }
+    } catch (e) {
+      if (mounted) _goToLoginScreen();
+    }
+  }
+
+  void _goToLoginScreen() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => LoginScreen()),
@@ -319,7 +369,7 @@ class _SignUpState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.watch<LanguageProvider>().l10n;
+    const l10n = AppLocalizations('en');
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,

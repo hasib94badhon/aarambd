@@ -6,6 +6,9 @@ import 'dart:convert';
 
 final String host = Config.host;
 
+const Color _kBlue = Color(0xFF1A56DB);
+const Color _kBlueSoft = Color(0xFFEFF4FF);
+
 class FavoriteProfilesPage extends StatefulWidget {
   final String userId;
 
@@ -18,8 +21,22 @@ class FavoriteProfilesPage extends StatefulWidget {
 class _FavoriteProfilesPageState extends State<FavoriteProfilesPage>
     with SingleTickerProviderStateMixin {
   List<dynamic> favoriteProfiles = [];
+  bool _loading = true;
   late AnimationController _controller;
   late Animation<double> _pulse;
+
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  List<dynamic> get _filtered {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return favoriteProfiles;
+    return favoriteProfiles.where((p) {
+      final name = (p['name'] ?? '').toString().toLowerCase();
+      final cat = (p['cat_name'] ?? '').toString().toLowerCase();
+      return name.contains(q) || cat.contains(q);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -29,132 +46,208 @@ class _FavoriteProfilesPageState extends State<FavoriteProfilesPage>
       duration: const Duration(seconds: 1),
       vsync: this,
     )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 0.8, end: 1.2).animate(
+    _pulse = Tween<double>(begin: 0.85, end: 1.05).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
 
   Future<void> fetchFavorites() async {
-    final response = await http.get(
-      Uri.parse('$host/get_favorite_user_profiles?user_id=${widget.userId}'),
-    );
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      setState(() {
-        favoriteProfiles = data['favorite_profiles'];
-      });
-    } else {
-      print('Failed to load favorites');
+    try {
+      final response = await http.get(
+        Uri.parse('$host/get_favorite_user_profiles?user_id=${widget.userId}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          favoriteProfiles = data['favorite_profiles'];
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (_) {
+      setState(() => _loading = false);
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
+  Widget _statMini(IconData icon, String value) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 12, color: _kBlue.withValues(alpha: 0.75)),
+      const SizedBox(width: 3),
+      Text(value,
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: _kBlue.withValues(alpha: 0.85))),
+    ]);
+  }
+
   Widget buildFavoriteItem(Map<String, dynamic> profile) {
-    final bool isService =
-        profile['is_service'] == true || profile['is_service'] == 'true';
     final int service = profile['service_id'] ?? 0;
     final int shop = profile['shop_id'] ?? 0;
-    final int userId = profile['user_id'] ?? '';
-    final String fetchId = isService ? service.toString() : shop.toString();
+    final int userId = profile['user_id'] ?? 0;
+    final int viewCount = profile['my_view_count'] ?? 0;
+    final int callCount = profile['my_call_count'] ?? 0;
+    final String favoritedAgo = Config.getTimeDifference(
+        (profile['favorited_at'] ?? '').toString(),
+        fallback: '');
+    final String photo = (profile['photo'] ?? '').toString();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Material(
-        elevation: 6,
-        borderRadius: BorderRadius.circular(35),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.purple.shade200, Colors.blue[50]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(35),
-            border: Border.all(color: Colors.white70, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.pink.shade200.withValues(alpha: 0.5),
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            leading: CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.white,
-              child: ClipOval(
-                child: profile['photo'] != null &&
-                        profile['photo'].toString().trim().isNotEmpty
-                    ? Image.network(
-                        profile['photo'],
-                        fit: BoxFit.cover,
-                        width: 60,
-                        height: 60,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.person_off, color: Colors.grey),
-                      )
-                    : const Icon(Icons.person_off,
-                        color: Colors.grey, size: 30),
-              ),
-            ),
-            title: Text(
-              profile['name'] ?? '',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.black87),
-            ),
-            subtitle: Text(
-              profile['cat_name'] ?? '',
-              style: const TextStyle(color: Colors.black54, fontSize: 14),
-            ),
-            trailing: ScaleTransition(
-              scale: _pulse,
-              child:
-                  const Icon(Icons.favorite, color: Colors.redAccent, size: 32),
-            ),
-            onTap: () {
-              late final String targetId;
-              late final bool isService;
-              late final Map<String, String> additionalData;
+    return _Tilt3DCard(
+      onTap: () {
+        late final String targetId;
+        late final bool tappedIsService;
+        late final Map<String, String> additionalData;
 
-              if (service != 0) {
-                targetId = service.toString();
-                isService = true;
-                additionalData = {'service_id': targetId};
-              } else if (shop != 0) {
-                targetId = shop.toString();
-                isService = false;
-                additionalData = {'shop_id': targetId};
-              } else {
-                // neither service nor shop → user‑only
-                targetId = userId.toString();
-                isService = false;
-                additionalData = {'user_only': targetId};
-              }
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AdvertScreen(
-                      userId: targetId,
-                      isService: isService,
-                      advertData: AdvertData(
-                        userId: targetId,
-                        isService: isService,
-                        additionalData: additionalData,
+        if (service != 0) {
+          targetId = service.toString();
+          tappedIsService = true;
+          additionalData = {'service_id': targetId};
+        } else if (shop != 0) {
+          targetId = shop.toString();
+          tappedIsService = false;
+          additionalData = {'shop_id': targetId};
+        } else {
+          targetId = userId.toString();
+          tappedIsService = false;
+          additionalData = {'user_only': targetId};
+        }
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AdvertScreen(
+                userId: targetId,
+                isService: tappedIsService,
+                advertData: AdvertData(
+                  userId: targetId,
+                  isService: tappedIsService,
+                  additionalData: additionalData,
+                ),
+              ),
+            ));
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Photo — large, rounded-square, floating heart badge
+            SizedBox(
+              width: 108,
+              height: 108,
+              child: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: photo.trim().isNotEmpty
+                        ? Image.network(
+                            photo,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _kBlueSoft,
+                              child: const Icon(Icons.person,
+                                  color: _kBlue, size: 42),
+                            ),
+                          )
+                        : Container(
+                            color: _kBlueSoft,
+                            child: const Icon(Icons.person,
+                                color: _kBlue, size: 42),
+                          ),
+                  ),
+                  // Subtle top sheen — adds glassy depth to the photo
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.center,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.16),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
                     ),
-                  ));
-            },
-          ),
+                  ),
+                  // Floating heart badge
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: ScaleTransition(
+                      scale: _pulse,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3)),
+                          ],
+                        ),
+                        child: const Icon(Icons.favorite_rounded,
+                            color: Colors.redAccent, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Info area
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile['name'] ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: Color(0xFF1A2340)),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    profile['cat_name'] ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF6B7280), fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    _statMini(Icons.visibility_outlined, '$viewCount views'),
+                    const SizedBox(width: 14),
+                    _statMini(Icons.call_outlined, '$callCount calls'),
+                  ]),
+                  if (favoritedAgo.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text('Saved $favoritedAgo',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -163,43 +256,205 @@ class _FavoriteProfilesPageState extends State<FavoriteProfilesPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
-        title: const Text('Saved Profiles'),
+        title: const Text('Saved Profiles',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 230, 194, 232),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: _kBlue,
+        surfaceTintColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFEAEDF2)),
+        ),
       ),
-      body: favoriteProfiles.isEmpty
-          // ✨ Animated “No saved profiles” placeholder
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ScaleTransition(
-                    scale: _pulse,
-                    child: Icon(
-                      Icons.favorite_border,
-                      size: 80,
-                      color: Colors.grey.withValues(alpha: 0.6),
-                    ),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: _kBlue, strokeWidth: 2.5))
+          : favoriteProfiles.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ScaleTransition(
+                        scale: _pulse,
+                        child: Container(
+                          padding: const EdgeInsets.all(22),
+                          decoration: const BoxDecoration(
+                              color: Color.fromARGB(255, 255, 255, 255), shape: BoxShape.circle),
+                          child: const Icon(Icons.favorite_border_rounded,
+                              size: 42, color: _kBlue),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No saved profiles yet',
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: Color(0xFF1A2340),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Profiles you save will show up here',
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade500),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No saved profiles',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                )
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                      child: Container(
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: _query.isEmpty
+                                  ? const Color(0xFFE8ECF4)
+                                  : _kBlue.withValues(alpha: 0.45)),
+                          boxShadow: [
+                            BoxShadow(
+                                color: _kBlue.withValues(alpha: 0.06),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4)),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) => setState(() => _query = v),
+                          style: const TextStyle(
+                              fontSize: 14, color: Color(0xFF1A2340)),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search saved profiles...',
+                            hintStyle: const TextStyle(
+                                fontSize: 14, color: Color(0xFFA0A6B8)),
+                            prefixIcon: const Icon(Icons.search_rounded,
+                                size: 21, color: _kBlue),
+                            suffixIcon: _query.isEmpty
+                                ? null
+                                : GestureDetector(
+                                    onTap: () => setState(() {
+                                      _searchCtrl.clear();
+                                      _query = '';
+                                    }),
+                                    child: const Icon(Icons.close_rounded,
+                                        size: 19, color: Color(0xFFA0A6B8)),
+                                  ),
+                            border: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: favoriteProfiles.length,
-              itemBuilder: (context, i) =>
-                  buildFavoriteItem(favoriteProfiles[i]),
-            ),
+                    Expanded(
+                      child: Builder(builder: (context) {
+                        final results = _filtered;
+                        if (results.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded,
+                                    size: 34,
+                                    color: Colors.black.withValues(alpha: 0.20)),
+                                const SizedBox(height: 10),
+                                Text('No matching profiles',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.all(12),
+                          itemCount: results.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, i) =>
+                              buildFavoriteItem(results[i]),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  3D-style card: layered "floating" shadow that compresses on press, plus a
+//  slight scale-down, for a tactile raised/pressable feel.
+// ─────────────────────────────────────────────────────────────────────────────
+class _Tilt3DCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _Tilt3DCard({required this.child, required this.onTap});
+
+  @override
+  State<_Tilt3DCard> createState() => _Tilt3DCardState();
+}
+
+class _Tilt3DCardState extends State<_Tilt3DCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _pressed
+                ? [
+                    BoxShadow(
+                      color: _kBlue.withValues(alpha: 0.10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [
+                    // Deep ambient glow — the "lifted off the page" shadow
+                    BoxShadow(
+                      color: _kBlue.withValues(alpha: 0.16),
+                      blurRadius: 22,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 12),
+                    ),
+                    // Tight contact shadow for crisp edge definition
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: widget.child,
+          ),
+        ),
+      ),
     );
   }
 }

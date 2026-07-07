@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/pages/editpost.dart';
 import 'package:aaram_bd/screens/DataCollectorLearnMorePage.dart';
+import 'package:aaram_bd/screens/advert_screen.dart' show ReviewSheet;
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/widgets/call_history_dialog.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
@@ -70,6 +71,8 @@ final FocusNode _focusNode = FocusNode();
   String nid = "";
   String totalpost = '';
   String totalCollection = '';
+
+  Map<String, dynamic>? _reviewSummary;
 
   bool get isDataCollector =>
       (userCategory).trim().toLowerCase() == 'data collector';
@@ -273,6 +276,8 @@ final FocusNode _focusNode = FocusNode();
 
           isloading = false;
         });
+
+        if (page == 1) _fetchReviewSummary(user_id.toString());
       } else {
         setState(() => isloading = false);
       }
@@ -281,6 +286,41 @@ final FocusNode _focusNode = FocusNode();
     } finally {
       setState(() => _postLoading = false);
     }
+  }
+
+  // Average rating left by OTHER users about this profile (not reviews this
+  // user wrote about others) — GET /review/summary, backed by user_reviews.
+  Future<void> _fetchReviewSummary(String userId) async {
+    if (userId.isEmpty) return;
+    try {
+      final resp =
+          await Config.apiGet('/review/summary?reviewed_id=$userId', context);
+      if (resp != null && resp.statusCode == 200 && mounted) {
+        setState(() => _reviewSummary = jsonDecode(resp.body));
+      }
+    } catch (_) {
+      // Leave _reviewSummary null — UserStarWidget just shows no stars filled.
+    }
+  }
+
+  // Read-only: reuses ReviewSheet with reviewedId == loginUserId, which
+  // makes it hide the write-a-review form (that's only for other profiles).
+  void _showMyReviews() {
+    final myId = int.tryParse(user_id);
+    if (myId == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ReviewSheet(
+        reviewedId: myId,
+        reviewedName: userName,
+        reviewedPhoto: profile_pic,
+        myReviewId: null,
+        loginUserId: myId,
+        onReviewChanged: () {},
+      ),
+    );
   }
 
   Future<bool> postDescription(
@@ -578,182 +618,188 @@ final FocusNode _focusNode = FocusNode();
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ── Gradient cover ──────────────────────────────────
-                      SizedBox(
-                        height: 84,
-                        child: Stack(
-                          clipBehavior: Clip.none,
+                      // ── Profile header (flat, modern — no gradient cover) ──
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Positioned.fill(
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF1040B0),
-                                      Color(0xFF1A56DB),
-                                      Color(0xFF2563EB),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                            // Avatar + Name + Category, with the star rating
+                            // badge floating at the top of the header
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned(
+                                  top: -10,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onTap: _showMyReviews,
+                                    child: UserStarWidget(
+                                      rating: (_reviewSummary?['avg_rating'] ??
+                                              0)
+                                          .toDouble(),
+                                      reviewCount:
+                                          _reviewSummary?['total'] ?? 0,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            // Decorative circles
-                            Positioned(
-                              top: -24,
-                              right: -24,
-                              child: Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: -40,
-                              right: 70,
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.05),
-                                ),
-                              ),
-                            ),
-                            // UserStarWidget — top right of cover
-                            Positioned(
-                              top: 8,
-                              right: 10,
-                              child: UserStarWidget(
-                                showEditIcon: true,
-                                phone: userPhone,
-                                name: userName,
-                                profilePicture: profile_pic,
-                                tin: tin,
-                                nid: nid,
-                                postCount: posts.length,
-                                view: userview,
-                                sub_type: subscription_type,
-                                usercall: usercall,
-                              ),
-                            ),
-                            // Avatar — overlapping cover bottom-left
-                            Positioned(
-                              bottom: -54,
-                              left: 16,
-                              child: GestureDetector(
-                                onTap: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 22),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => Dialog(
+                                        backgroundColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: ClipOval(
+                                          child: SizedBox(
+                                            height: 300,
+                                            width: 300,
+                                            child: profile_pic.isNotEmpty
+                                                ? Image.network(profile_pic,
+                                                    fit: BoxFit.cover)
+                                                : Container(
+                                                    color: const Color(
+                                                        0xFF1A56DB),
+                                                    child: const Icon(
+                                                        Icons.person,
+                                                        size: 120,
+                                                        color: Colors.white),
+                                                  ),
+                                          ),
+                                        ),
                                       ),
-                                      child: ClipOval(
-                                        child: SizedBox(
-                                          height: 300,
-                                          width: 300,
+                                    );
+                                  },
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Container(
+                                        width: 84,
+                                        height: 84,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: const Color(0xFFE8ECF4),
+                                              width: 2),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.10),
+                                              blurRadius: 14,
+                                              offset: const Offset(0, 6),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ClipOval(
                                           child: profile_pic.isNotEmpty
                                               ? Image.network(profile_pic,
                                                   fit: BoxFit.cover)
                                               : Container(
-                                                  color: const Color(0xFF1A56DB),
-                                                  child: const Icon(Icons.person,
-                                                      size: 120,
+                                                  color:
+                                                      const Color(0xFF1A56DB),
+                                                  child: const Icon(
+                                                      Icons.person,
+                                                      size: 40,
                                                       color: Colors.white),
                                                 ),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                },
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Container(
-                                      width: 110,
-                                      height: 110,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: Colors.white, width: 3.5),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.22),
-                                            blurRadius: 18,
-                                            offset: const Offset(0, 8),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
                                           ),
-                                          BoxShadow(
-                                            color: const Color(0xFF1A56DB)
-                                                .withValues(alpha: 0.18),
-                                            blurRadius: 24,
-                                            offset: const Offset(0, 4),
+                                          child: verifiedWidgetIcon(
+                                            subscriptionType:
+                                                subscription_type,
+                                            lastPayString: last_pay,
+                                            context: context,
                                           ),
-                                        ],
-                                      ),
-                                      child: ClipOval(
-                                        child: profile_pic.isNotEmpty
-                                            ? Image.network(profile_pic,
-                                                fit: BoxFit.cover)
-                                            : Container(
-                                                color: const Color(0xFF1A56DB),
-                                                child: const Icon(Icons.person,
-                                                    size: 52,
-                                                    color: Colors.white),
-                                              ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 2,
-                                      right: 2,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(3),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: verifiedWidgetIcon(
-                                          subscriptionType: subscription_type,
-                                          lastPayString: last_pay,
-                                          context: context,
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        userName,
+                                        style: const TextStyle(
+                                          fontSize: 21,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF111827),
+                                          letterSpacing: -0.4,
+                                          height: 1.1,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      // Category pill
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF1A56DB)
+                                              .withValues(alpha: 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: const Color(0xFF1A56DB)
+                                                  .withValues(alpha: 0.18)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                                Icons.category_rounded,
+                                                size: 12,
+                                                color: Color(0xFF1A56DB)),
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: Text(
+                                                userCategory,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF1A56DB),
+                                                ),
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
 
-                      // ── Profile body ─────────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 64, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Name
-                            Text(
-                              userName,
-                              style: const TextStyle(
-                                fontSize: 21,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF111827),
-                                letterSpacing: -0.4,
-                                height: 1.1,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 14),
 
                             // ── Action Bar: Status toggle + Edit + Share ──
                             Container(
@@ -973,38 +1019,6 @@ final FocusNode _focusNode = FocusNode();
                                         color: Color(0xFF7C3AED),
                                         size: 18,
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 7),
-
-                            // Category pill
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1A56DB)
-                                    .withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: const Color(0xFF1A56DB)
-                                        .withValues(alpha: 0.18)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.category_rounded,
-                                      size: 12, color: Color(0xFF1A56DB)),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    userCategory,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1A56DB),
                                     ),
                                   ),
                                 ],

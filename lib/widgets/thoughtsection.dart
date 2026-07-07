@@ -7,6 +7,84 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+// ── Flying suggestion word: animates a tapped chip from its position in the
+// suggestion row up to the cursor, morphing from a pill into plain text ─────
+class _FlyingWord extends StatefulWidget {
+  final String text;
+  final Color color;
+  final Offset start;
+  final Offset end;
+  final VoidCallback onComplete;
+
+  const _FlyingWord({
+    required this.text,
+    required this.color,
+    required this.start,
+    required this.end,
+    required this.onComplete,
+  });
+
+  @override
+  State<_FlyingWord> createState() => _FlyingWordState();
+}
+
+class _FlyingWordState extends State<_FlyingWord>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+  )..forward();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutCubic);
+    return AnimatedBuilder(
+      animation: curved,
+      builder: (_, __) {
+        if (curved.status == AnimationStatus.completed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => widget.onComplete());
+        }
+        final t = curved.value;
+        final pos = Offset.lerp(widget.start, widget.end, t)!;
+        final pillT = 1 - t; // 1 = full pill styling, 0 = plain text
+
+        return Positioned(
+          left: pos.dx,
+          top: pos.dy,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 1,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                    horizontal: 12 * pillT + 1, vertical: 7 * pillT + 1),
+                decoration: BoxDecoration(
+                  color: Color.lerp(Colors.white, Colors.transparent, t),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                      color: widget.color.withValues(alpha: 0.25 * pillT)),
+                ),
+                child: Text(widget.text,
+                    style: TextStyle(
+                      color: Color.lerp(
+                          widget.color, const Color(0xFF1A2340), t),
+                      fontSize: 15 - (1.5 * pillT),
+                      fontWeight: FontWeight.w700,
+                    )),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ── Category colour helper (used by description_landing_page too) ────────────
 Color getColorFromCategory(String name) {
   const colors = [
@@ -50,9 +128,9 @@ class CatTheme {
 const _themes = <int, CatTheme>{
   23: CatTheme(
     catId: 23, label: 'Billboard For Ads', emoji: '📢',
-    primary: Color(0xFF1A1A2E), accent: Color(0xFFF5C518),
-    bg: Color(0xFF16213E), chipBg: Color(0xFF0F3460),
-    chipText: Color(0xFFF5C518),
+    primary: Color(0xFF1565C0), accent: Color(0xFFF5C518),
+    bg: Color(0xFFF0F7FF), chipBg: Color(0xFFE3EEFF),
+    chipText: Color(0xFF1565C0),
     composerHint: 'আপনার বিজ্ঞাপনের বিবরণ লিখুন...',
     postButtonLabel: 'Publish Ad',
     icon: Icons.campaign_rounded,
@@ -68,27 +146,27 @@ const _themes = <int, CatTheme>{
   ),
   191: CatTheme(
     catId: 191, label: 'Need Shops', emoji: '🏪',
-    primary: Color(0xFFD97706), accent: Color(0xFFF59E0B),
-    bg: Color(0xFFFFFBEB), chipBg: Color(0xFFFEF3C7),
-    chipText: Color(0xFF92400E),
+    primary: Color(0xFF1976D2), accent: Color(0xFF43C6A3),
+    bg: Color(0xFFF0F7FF), chipBg: Color(0xFFE8F1FF),
+    chipText: Color(0xFF1976D2),
     composerHint: 'কোন পণ্য বা দোকান খুঁজছেন লিখুন...',
     postButtonLabel: 'Post Inquiry',
     icon: Icons.storefront_rounded,
   ),
   192: CatTheme(
     catId: 192, label: 'Need Help', emoji: '🆘',
-    primary: Color(0xFFDC2626), accent: Color(0xFFFCA5A5),
-    bg: Color(0xFFFFF5F5), chipBg: Color(0xFFFEE2E2),
-    chipText: Color(0xFF991B1B),
+    primary: Color(0xFF1A56DB), accent: Color(0xFFDC2626),
+    bg: Colors.white, chipBg: Color(0xFFE8F1FF),
+    chipText: Color(0xFF1A56DB),
     composerHint: 'আপনার সমস্যা বা সাহায্যের বিষয়টি লিখুন...',
     postButtonLabel: 'Ask for Help',
     icon: Icons.sos_rounded,
   ),
   194: CatTheme(
     catId: 194, label: 'Need Information', emoji: 'ℹ️',
-    primary: Color(0xFF0891B2), accent: Color(0xFF67E8F9),
-    bg: Color(0xFFF0FDFF), chipBg: Color(0xFFCFFAFE),
-    chipText: Color(0xFF164E63),
+    primary: Color(0xFF0288D1), accent: Color(0xFF43C6A3),
+    bg: Color(0xFFF0F7FF), chipBg: Color(0xFFE8F1FF),
+    chipText: Color(0xFF0288D1),
     composerHint: 'কী জানতে চান বিস্তারিত লিখুন...',
     postButtonLabel: 'Ask Question',
     icon: Icons.info_outline_rounded,
@@ -119,22 +197,56 @@ class _SubCat {
 // ═════════════════════════════════════════════════════════════════════════════
 class NeedBuilderPage extends StatefulWidget {
   final String? initialCatId;
-  const NeedBuilderPage({super.key, this.initialCatId});
+  const 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  NeedBuilderPage({super.key, this.initialCatId});
 
   @override
   State<NeedBuilderPage> createState() => _NeedBuilderPageState();
 }
 
-class _NeedBuilderPageState extends State<NeedBuilderPage> {
-  final _textCtrl   = TextEditingController();
-  final _noteCtrl   = TextEditingController();
-  final _scrollCtrl = ScrollController();
+// Fixed two-colour palette for this page only — description_landing_page.dart
+// keeps using CatTheme's per-category colours unchanged.
+const Color _kBlue     = Color(0xFF1A56DB);
+const Color _kBlueSoft = Color(0xFFEFF4FF);
+
+class _NeedBuilderPageState extends State<NeedBuilderPage>
+    with TickerProviderStateMixin {
+  final _textCtrl         = TextEditingController();
+  final _scrollCtrl       = ScrollController();
+  final _subCatSearchCtrl = TextEditingController();
+  final _textFocusNode    = FocusNode();
+  final _textFieldKey     = GlobalKey();
+  Map<String, GlobalKey> _suggKeys = {};
+  late final AnimationController _suggEntryCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+
+  // Suggestion-chip colour palette — "slightly different" per word, not the
+  // page's single blue, so the suggestion row feels lively.
+  static const _suggColors = [
+    Color(0xFF1A56DB), Color(0xFF0D9488), Color(0xFF7C3AED),
+    Color(0xFFDB2777), Color(0xFFD97706), Color(0xFF16A34A),
+  ];
 
   List<Map<String, dynamic>> _categories  = [];
   List<Map<String, dynamic>> _myPosts     = [];
   List<_SubCat>              _subCats     = [];
   List<String>               _suggestions = [];
-  final Set<String>          _selectedChips = {};
+  bool                       _textFocused = false;
 
   String?   _selectedCatId;
   _SubCat?  _selectedSubCat;
@@ -145,10 +257,21 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
   bool      _loadingSubCats   = false;
   bool      _loadingSugg      = false;
   bool      _isPosting        = false;
+  String    _subCatQuery      = '';
 
   final Map<String, bool> _expandedMap = {};
 
   CatTheme get _theme => themeFor(int.tryParse(_selectedCatId ?? ''));
+
+  List<_SubCat> get _filteredSubCats {
+    final q = _subCatQuery.trim().toLowerCase();
+    if (q.isEmpty) return _subCats;
+    return _subCats
+        .where((s) =>
+            s.nameBn.toLowerCase().contains(q) ||
+            s.nameEn.toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -157,13 +280,18 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
     _fetchCategories();
     _fetchMyPosts();
     if (_selectedCatId != null) _fetchSubCats(_selectedCatId!);
+    _textFocusNode.addListener(() {
+      setState(() => _textFocused = _textFocusNode.hasFocus);
+    });
   }
 
   @override
   void dispose() {
     _textCtrl.dispose();
-    _noteCtrl.dispose();
     _scrollCtrl.dispose();
+    _subCatSearchCtrl.dispose();
+    _textFocusNode.dispose();
+    _suggEntryCtrl.dispose();
     super.dispose();
   }
 
@@ -230,8 +358,10 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
       final data = jsonDecode(resp.body);
       setState(() {
         _suggestions = List<String>.from(data['suggestions'] ?? []);
+        _suggKeys = { for (final s in _suggestions) s: GlobalKey() };
         _loadingSugg = false;
       });
+      _suggEntryCtrl.forward(from: 0);
     } else {
       setState(() => _loadingSugg = false);
     }
@@ -273,7 +403,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
         'des_cat_id':     _selectedCatId!,
         'des_sub_cat_id': _selectedSubCat!.id.toString(),
         'description':    text,
-        'special_note':   _noteCtrl.text.trim(),
+        'special_note':   '',
         'status':         'live',
         'is_hidden':      '0',
       },
@@ -344,20 +474,86 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  String _buildText() {
-    final chips = _selectedChips.join(' ');
-    final typed = _textCtrl.text.trim();
-    return [chips, typed].where((s) => s.isNotEmpty).join(' ');
+  String _buildText() => _textCtrl.text.trim();
+
+  // Inserts a suggestion at the current cursor position (or at the end if
+  // there's no active selection) and keeps the cursor right after it, so the
+  // user can immediately keep typing.
+  void _insertSuggestion(String s) {
+    HapticFeedback.lightImpact();
+    final text = _textCtrl.text;
+    final sel  = _textCtrl.selection;
+    final start = sel.start >= 0 ? sel.start : text.length;
+    final end   = sel.end   >= 0 ? sel.end   : text.length;
+
+    final needsLeadingSpace = start > 0 && text[start - 1] != ' ';
+    final insertion = '${needsLeadingSpace ? ' ' : ''}$s ';
+
+    final newText = text.replaceRange(start, end, insertion);
+    _textCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + insertion.length),
+    );
+    _textFocusNode.requestFocus();
+  }
+
+  // Animates the tapped suggestion word flying from its chip up to sit right
+  // before the cursor, then inserts it for real once the flight lands.
+  void _flyToField(String word, Color color) {
+    final key = _suggKeys[word];
+    final srcCtx = key?.currentContext;
+    final fieldCtx = _textFieldKey.currentContext;
+    if (srcCtx == null || fieldCtx == null) {
+      _insertSuggestion(word); // fallback — no measurable position, just insert
+      return;
+    }
+
+    final overlayState = Overlay.of(context);
+    final overlayBox = overlayState.context.findRenderObject() as RenderBox;
+    final srcBox = srcCtx.findRenderObject() as RenderBox;
+    final fieldBox = fieldCtx.findRenderObject() as RenderBox;
+
+    final srcOffset = srcBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final fieldOffset = fieldBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+
+    // Estimate the caret position (end of current text) inside the field,
+    // accounting for wrapping, via the same style/width the field renders with.
+    const innerPadding = EdgeInsets.fromLTRB(14, 12, 14, 12);
+    const fieldStyle = TextStyle(
+        fontSize: 15, height: 1.5, fontWeight: FontWeight.w600, color: Color(0xFF1A2340));
+    final tp = TextPainter(
+      text: TextSpan(text: _textCtrl.text, style: fieldStyle),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: fieldBox.size.width - innerPadding.horizontal);
+    final caret = tp.getOffsetForCaret(
+        TextPosition(offset: _textCtrl.text.length), Rect.zero);
+    final targetOffset = fieldOffset +
+        Offset(innerPadding.left + caret.dx, innerPadding.top + caret.dy);
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _FlyingWord(
+        text: word,
+        color: color,
+        start: srcOffset,
+        end: targetOffset,
+        onComplete: () {
+          entry.remove();
+          _insertSuggestion(word);
+        },
+      ),
+    );
+    overlayState.insert(entry);
   }
 
   void _resetComposer() {
     setState(() {
-      _selectedChips.clear();
       _textCtrl.clear();
-      _noteCtrl.clear();
       _pickedPhoto = null;
       _selectedSubCat = null;
       _suggestions = [];
+      _subCatSearchCtrl.clear();
+      _subCatQuery = '';
     });
   }
 
@@ -374,7 +570,6 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
     HapticFeedback.lightImpact();
     setState(() {
       _selectedSubCat = sub;
-      _selectedChips.clear();
     });
     _fetchSuggestions(sub.id);
   }
@@ -407,7 +602,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: t.primary,
+        foregroundColor: _kBlue,
         surfaceTintColor: Colors.white,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -447,7 +642,6 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
   // ── Category panel ────────────────────────────────────────────────────────
 
   Widget _buildCategoryPanel() {
-    final t = _theme;
     final selName = _selectedCatId == null ? '' :
         (_categories.firstWhere(
           (c) => c['des_cat_id'].toString() == _selectedCatId,
@@ -473,10 +667,10 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: t.primary.withValues(alpha: 0.10),
+                    color: _kBlue.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.category_outlined, color: t.primary, size: 20),
+                  child: const Icon(Icons.category_outlined, color: _kBlue, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Column(
@@ -490,7 +684,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                       selName.isNotEmpty ? selName : 'ক্যাটাগরি নির্বাচন করুন',
                       style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 13.5,
-                        color: selName.isNotEmpty ? t.primary : const Color(0xFFB0B7C3),
+                        color: selName.isNotEmpty ? _kBlue : const Color(0xFFB0B7C3),
                       ),
                     ),
                   ],
@@ -499,10 +693,10 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                        color: t.primary.withValues(alpha: 0.10),
+                        color: _kBlue.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(999)),
-                    child: Text('✓ Selected', style: TextStyle(
-                        color: t.primary, fontSize: 11, fontWeight: FontWeight.w800)),
+                    child: const Text('✓ Selected', style: TextStyle(
+                        color: _kBlue, fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 const SizedBox(width: 6),
                 AnimatedRotation(
@@ -532,25 +726,25 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                                 final name = (cat['des_cat_name'] ?? '').toString();
                                 final id   = (cat['des_cat_id'] ?? '').toString();
                                 final sel  = _selectedCatId == id;
-                                final ct   = themeFor(int.tryParse(id));
+                                final emoji = themeFor(int.tryParse(id)).emoji;
                                 return GestureDetector(
                                   onTap: () { HapticFeedback.lightImpact(); _selectCategory(id); },
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 180),
                                     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
                                     decoration: BoxDecoration(
-                                      color: sel ? ct.primary : ct.primary.withValues(alpha: 0.08),
+                                      color: sel ? _kBlue : _kBlue.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(999),
                                       border: Border.all(
-                                        color: sel ? ct.primary : ct.primary.withValues(alpha: 0.25),
+                                        color: sel ? _kBlue : _kBlue.withValues(alpha: 0.25),
                                         width: sel ? 1.5 : 1,
                                       ),
                                     ),
                                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Text(ct.emoji, style: const TextStyle(fontSize: 14)),
+                                      Text(emoji, style: const TextStyle(fontSize: 14)),
                                       const SizedBox(width: 5),
                                       Text(name, style: TextStyle(
-                                        color: sel ? Colors.white : ct.primary,
+                                        color: sel ? Colors.white : _kBlue,
                                         fontWeight: FontWeight.w800, fontSize: 13,
                                       )),
                                     ]),
@@ -578,20 +772,16 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
     }
 
     final t = _theme;
-    final isBillboard = t.catId == 23;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: isBillboard ? t.bg : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: isBillboard
-              ? Border.all(color: t.accent.withValues(alpha: 0.35), width: 1.5)
-              : null,
-          boxShadow: [BoxShadow(
-            color: t.primary.withValues(alpha: isBillboard ? 0.20 : 0.08),
-            blurRadius: 20, offset: const Offset(0, 6),
+          boxShadow: const [BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20, offset: Offset(0, 6),
           )],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -599,25 +789,23 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
           // ── Header bar ─────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-            decoration: BoxDecoration(
-              color: isBillboard ? t.primary : t.primary.withValues(alpha: 0.06),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: const BoxDecoration(
+              color: _kBlueSoft,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(children: [
-              Icon(t.icon, color: isBillboard ? t.accent : t.primary, size: 20),
+              Icon(t.icon, color: _kBlue, size: 20),
               const SizedBox(width: 8),
               Expanded(child: Text('${t.emoji}  ${t.label}',
-                  style: TextStyle(
-                    color: isBillboard ? t.accent : t.primary,
+                  style: const TextStyle(
+                    color: _kBlue,
                     fontWeight: FontWeight.w900, fontSize: 14.5,
                   ))),
               if (_selectedSubCat != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isBillboard
-                        ? t.accent.withValues(alpha: 0.18)
-                        : t.primary.withValues(alpha: 0.12),
+                    color: _kBlue.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -625,8 +813,8 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                         style: const TextStyle(fontSize: 12)),
                     const SizedBox(width: 4),
                     Text(_selectedSubCat!.nameBn,
-                        style: TextStyle(
-                          color: isBillboard ? t.accent : t.primary,
+                        style: const TextStyle(
+                          color: _kBlue,
                           fontSize: 11, fontWeight: FontWeight.w800,
                         )),
                     const SizedBox(width: 4),
@@ -634,10 +822,9 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                       onTap: () => setState(() {
                         _selectedSubCat = null;
                         _suggestions = [];
-                        _selectedChips.clear();
                       }),
-                      child: Icon(Icons.close_rounded, size: 13,
-                          color: isBillboard ? t.accent : t.primary),
+                      child: const Icon(Icons.close_rounded, size: 13,
+                          color: _kBlue),
                     ),
                   ]),
                 ),
@@ -650,235 +837,166 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
 
               // ── STEP 1: Sub-category selection ─────────────────────────
               if (_selectedSubCat == null) ...[
-                Text('Sub-category নির্বাচন করুন',
+                const Text('Sub-category নির্বাচন করুন',
                     style: TextStyle(
                       fontSize: 12.5, fontWeight: FontWeight.w700,
-                      color: isBillboard
-                          ? t.accent.withValues(alpha: 0.80)
-                          : t.primary,
+                      color: _kBlue,
                     )),
                 const SizedBox(height: 10),
                 if (_loadingSubCats)
                   const Center(child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: _kBlue),
                   ))
                 else
-                  _buildSubCatGrid(t, isBillboard),
+                  _buildSubCatGrid(),
               ]
 
-              // ── STEP 2: Word chips + text + image ──────────────────────
+              // ── STEP 2: Text field (cursor at top) + animated suggestions ──
               else ...[
-                // Word suggestion chips
-                if (_loadingSugg)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Center(child: SizedBox(width: 22, height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2))),
-                  )
-                else if (_suggestions.isNotEmpty) ...[
-                  Text('Quick suggestions',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700,
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.75)
-                              : t.primary.withValues(alpha: 0.65))),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 7, runSpacing: 7,
-                    children: _suggestions.map((s) {
-                      final sel = _selectedChips.contains(s);
-                      return GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() => sel
-                              ? _selectedChips.remove(s)
-                              : _selectedChips.add(s));
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: sel ? t.primary : t.chipBg,
-                            borderRadius: BorderRadius.circular(
-                                isBillboard ? 6 : 999),
-                            border: isBillboard
-                                ? Border.all(color: sel
-                                    ? t.accent : t.accent.withValues(alpha: 0.30))
-                                : Border.all(color: sel
-                                    ? t.primary : t.primary.withValues(alpha: 0.18)),
-                            boxShadow: sel ? [BoxShadow(
-                                color: t.primary.withValues(alpha: 0.28),
-                                blurRadius: 8, offset: const Offset(0, 3))] : null,
-                          ),
-                          child: Text(s, style: TextStyle(
-                            color: sel ? Colors.white : t.chipText,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          )),
+                // One rectangular field: type at the top where the cursor
+                // blinks, suggestions live directly beneath it. Tapping a
+                // suggestion flies it up to sit right before the cursor.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _textFocused
+                          ? _kBlue
+                          : const Color(0xFFE8EDF5),
+                      width: _textFocused ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    TextField(
+                      key: _textFieldKey,
+                      controller: _textCtrl,
+                      focusNode: _textFocusNode,
+                      minLines: 3, maxLines: 6,
+                      cursorColor: _kBlue,
+                      style: const TextStyle(
+                        fontSize: 15, height: 1.5, fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A2340),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: t.composerHint,
+                        hintStyle: const TextStyle(
+                          color: Color(0xFFB0B7C3),
+                          fontSize: 14, fontWeight: FontWeight.w500,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
-                // Text field
-                TextField(
-                  controller: _textCtrl,
-                  minLines: 3, maxLines: 6,
-                  style: TextStyle(
-                    fontSize: 15, height: 1.5, fontWeight: FontWeight.w600,
-                    color: isBillboard ? Colors.white : const Color(0xFF1A2340),
-                  ),
-                  decoration: InputDecoration(
-                    hintText: t.composerHint,
-                    hintStyle: TextStyle(
-                      color: isBillboard
-                          ? Colors.white.withValues(alpha: 0.35)
-                          : const Color(0xFFB0B7C3),
-                      fontSize: 14, fontWeight: FontWeight.w500,
-                    ),
-                    filled: true,
-                    fillColor: isBillboard
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : const Color(0xFFF7F9FC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.30)
-                              : const Color(0xFFE8EDF5)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.30)
-                              : const Color(0xFFE8EDF5)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: t.primary, width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Special note
-                TextField(
-                  controller: _noteCtrl,
-                  minLines: 1, maxLines: 3,
-                  style: TextStyle(
-                    fontSize: 13.5, fontWeight: FontWeight.w500,
-                    color: isBillboard ? Colors.white70 : const Color(0xFF4A5568),
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Additional note (optional)...',
-                    hintStyle: TextStyle(
-                      color: isBillboard
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : const Color(0xFFB0B7C3),
-                      fontSize: 13,
-                    ),
-                    filled: true,
-                    fillColor: isBillboard
-                        ? Colors.white.withValues(alpha: 0.04)
-                        : const Color(0xFFF7F9FC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.20)
-                              : const Color(0xFFE8EDF5)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.20)
-                              : const Color(0xFFE8EDF5)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                          color: t.primary.withValues(alpha: 0.50), width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Photo picker
-                GestureDetector(
-                  onTap: _pickPhoto,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isBillboard
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : const Color(0xFFF8FAFD),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isBillboard
-                            ? t.accent.withValues(alpha: 0.25)
-                            : const Color(0xFFE8EDF5),
+                        filled: false,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                       ),
                     ),
-                    child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: t.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.image_outlined, color: t.primary, size: 20),
+
+                    if (_loadingSugg)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Center(child: SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: _kBlue))),
+                      )
+                    else if (_suggestions.isNotEmpty) ...[
+                      const Divider(height: 1, color: Color(0xFFE8EDF5)),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+                        child: Row(children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 13, color: _kBlue),
+                          const SizedBox(width: 5),
+                          Text('Tap a word to add it',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                                  color: _kBlue.withValues(alpha: 0.70))),
+                        ]),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(
-                        _pickedPhoto == null
-                            ? 'Add a photo (optional)'
-                            : 'Photo selected ✓',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: isBillboard
-                              ? (_pickedPhoto == null ? Colors.white54 : t.accent)
-                              : (_pickedPhoto == null
-                                  ? const Color(0xFF8A94A6)
-                                  : t.primary),
-                        ),
-                      )),
-                      Icon(Icons.add_photo_alternate_rounded,
-                          color: isBillboard
-                              ? t.accent.withValues(alpha: 0.60)
-                              : const Color(0xFF8A94A6)),
-                    ]),
-                  ),
-                ),
-                if (_pickedPhoto != null) ...[
-                  const SizedBox(height: 10),
-                  Stack(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.file(File(_pickedPhoto!.path),
-                          height: 160, width: double.infinity, fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      top: 8, right: 8,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _pickedPhoto = null),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                              shape: BoxShape.circle, color: Colors.black54),
-                          child: const Icon(Icons.close_rounded,
-                              color: Colors.white, size: 17),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: _suggestions.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final s = entry.value;
+                            final color = _suggColors[i % _suggColors.length];
+                            final start = (i * 0.08).clamp(0.0, 0.6);
+                            final anim = CurvedAnimation(
+                              parent: _suggEntryCtrl,
+                              curve: Interval(start, (start + 0.4).clamp(0.0, 1.0),
+                                  curve: Curves.easeOutCubic),
+                            );
+                            return AnimatedBuilder(
+                              key: _suggKeys[s],
+                              animation: anim,
+                              builder: (_, child) => Opacity(
+                                opacity: anim.value,
+                                child: Transform.translate(
+                                  offset: Offset(0, (1 - anim.value) * 10),
+                                  child: child,
+                                ),
+                              ),
+                              child: GestureDetector(
+                                onTap: () => _flyToField(s, color),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: color.withValues(alpha: 0.35)),
+                                  ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    Icon(Icons.add_rounded, size: 13, color: color),
+                                    const SizedBox(width: 3),
+                                    Text(s, style: TextStyle(
+                                        color: color, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                  ]),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                    ),
+                    ] else
+                      const SizedBox(height: 12),
                   ]),
-                ],
+                ),
+                const SizedBox(height: 12),
+
+                // Photo — compact, icon-only
+                Row(children: [
+                  GestureDetector(
+                    onTap: _pickPhoto,
+                    child: Container(
+                      width: 42, height: 42,
+                      decoration: BoxDecoration(
+                        color: _kBlue.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _kBlue.withValues(alpha: 0.25)),
+                      ),
+                      child: _pickedPhoto == null
+                          ? const Icon(Icons.camera_alt_rounded, color: _kBlue, size: 19)
+                          : ClipOval(
+                              child: Image.file(File(_pickedPhoto!.path), fit: BoxFit.cover),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _pickedPhoto == null ? 'Add a photo (optional)' : 'Photo added',
+                    style: TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w600,
+                        color: _pickedPhoto == null ? const Color(0xFF8A94A6) : _kBlue),
+                  ),
+                  if (_pickedPhoto != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(() => _pickedPhoto = null),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF8A94A6)),
+                    ),
+                  ],
+                ]),
                 const SizedBox(height: 14),
 
                 // Post button
@@ -895,9 +1013,9 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
                             fontSize: 15, fontWeight: FontWeight.w900)),
                     onPressed: _isPosting ? null : _submitPost,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: t.primary,
-                      foregroundColor: isBillboard ? t.accent : Colors.white,
-                      disabledBackgroundColor: t.primary.withValues(alpha: 0.45),
+                      backgroundColor: _kBlue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: _kBlue.withValues(alpha: 0.45),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
@@ -912,64 +1030,105 @@ class _NeedBuilderPageState extends State<NeedBuilderPage> {
     );
   }
 
-  Widget _buildSubCatGrid(CatTheme t, bool isBillboard) {
+  Widget _buildSubCatGrid() {
     if (_subCats.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text('No sub-categories found',
-              style: TextStyle(color: isBillboard ? Colors.white54 : Colors.grey)),
+          padding: EdgeInsets.all(20),
+          child: Text('No sub-categories found', style: TextStyle(color: Colors.grey)),
         ),
       );
     }
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 2.5,
-      children: _subCats.map((sub) {
-        return GestureDetector(
-          onTap: () => _selectSubCat(sub),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isBillboard
-                  ? t.accent.withValues(alpha: 0.12)
-                  : t.primary.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isBillboard
-                    ? t.accent.withValues(alpha: 0.35)
-                    : t.primary.withValues(alpha: 0.20),
-              ),
-            ),
-            child: Row(children: [
-              const SizedBox(width: 10),
-              Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(
-                  color: isBillboard
-                      ? t.accent.withValues(alpha: 0.20)
-                      : t.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+
+    final results = _filteredSubCats;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // Search box — filters the grid below as you type
+      TextField(
+        controller: _subCatSearchCtrl,
+        onChanged: (v) => setState(() => _subCatQuery = v),
+        style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A2340)),
+        decoration: InputDecoration(
+          hintText: 'Sub-category খুঁজুন...',
+          hintStyle: const TextStyle(color: Color(0xFFB0B7C3), fontSize: 13.5),
+          prefixIcon: const Icon(Icons.search_rounded, color: _kBlue, size: 20),
+          suffixIcon: _subCatQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF8A94A6), size: 18),
+                  onPressed: () => setState(() {
+                    _subCatSearchCtrl.clear();
+                    _subCatQuery = '';
+                  }),
                 ),
-                child: Center(child: Text(sub.emoji.isNotEmpty ? sub.emoji : '📌',
-                    style: const TextStyle(fontSize: 16))),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(sub.nameBn,
-                  maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 12.5,
-                    color: isBillboard ? t.accent : t.primary,
-                  ))),
-            ]),
+          filled: true,
+          fillColor: const Color(0xFFF7F9FC),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE8EDF5)),
           ),
-          
-        );
-      }).toList(),
-    );
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE8EDF5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: _kBlue, width: 1.5),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      if (results.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(
+            child: Text('কোনো ফলাফল পাওয়া যায়নি',
+                style: TextStyle(color: Color(0xFF8A94A6), fontSize: 13)),
+          ),
+        )
+      else
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 2.5,
+          children: results.map((sub) {
+            return GestureDetector(
+              onTap: () => _selectSubCat(sub),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _kBlue.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _kBlue.withValues(alpha: 0.20)),
+                ),
+                child: Row(children: [
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 34, height: 34,
+                    decoration: BoxDecoration(
+                      color: _kBlue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(child: Text(sub.emoji.isNotEmpty ? sub.emoji : '📌',
+                        style: const TextStyle(fontSize: 16))),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(sub.nameBn,
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 12.5,
+                        color: _kBlue,
+                      ))),
+                ]),
+              ),
+            );
+          }).toList(),
+        ),
+    ]);
   }
 
   Widget _emptyComposerHint() {
@@ -1120,7 +1279,6 @@ class _BillboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t         = theme;
     final desId     = item['des_id'].toString();
     final des       = (item['des'] ?? '').toString();
     final subName   = (item['sub_cat_name_bn'] ?? '').toString();
@@ -1135,18 +1293,18 @@ class _BillboardCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: t.accent.withValues(alpha: 0.22)),
-          boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.30),
+          border: Border.all(color: _kBlue.withValues(alpha: 0.18)),
+          boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.10),
               blurRadius: 20, offset: const Offset(0, 8))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
-          // Gold top ribbon
+          // Blue top ribbon
           Container(height: 6,
               decoration: BoxDecoration(
-                color: isLive ? t.accent : Colors.grey.shade600,
+                color: isLive ? _kBlue : Colors.grey.shade600,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               )),
 
@@ -1170,12 +1328,12 @@ class _BillboardCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                      color: t.accent.withValues(alpha: 0.15),
+                      color: _kBlue.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: t.accent.withValues(alpha: 0.35)),
+                      border: Border.all(color: _kBlue.withValues(alpha: 0.35)),
                     ),
                     child: Text('${subEmoji.isNotEmpty ? "$subEmoji " : ""}$subName',
-                        style: TextStyle(color: t.accent,
+                        style: TextStyle(color: _kBlue,
                             fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 if (subName.isNotEmpty) const SizedBox(width: 8),
@@ -1195,10 +1353,10 @@ class _BillboardCard extends StatelessWidget {
                 ),
                 if (isHidden) ...[
                   const SizedBox(width: 6),
-                  Icon(Icons.visibility_off_rounded, size: 13, color: Colors.white30),
+                  Icon(Icons.visibility_off_rounded, size: 13, color: Colors.grey.shade400),
                 ],
                 const Spacer(),
-                Text(time, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(time, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
               ]),
 
               const SizedBox(height: 12),
@@ -1207,9 +1365,9 @@ class _BillboardCard extends StatelessWidget {
               Text(des,
                 maxLines: isExp ? null : 3,
                 overflow: isExp ? TextOverflow.visible : TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 18, height: 1.4, fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: Color(0xFF1A2340),
                   letterSpacing: -0.3,
                 ),
               ),
@@ -1219,7 +1377,7 @@ class _BillboardCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(isExp ? 'See less' : 'See more',
-                        style: TextStyle(color: t.accent,
+                        style: TextStyle(color: _kBlue,
                             fontSize: 12, fontWeight: FontWeight.w800)),
                   ),
                 ),
@@ -1228,35 +1386,35 @@ class _BillboardCard extends StatelessWidget {
 
               // Stats + actions
               Row(children: [
-                _statRow(item, t.accent, true),
+                _statRow(item, _kBlue, false),
                 const Spacer(),
                 _actionChip(isLive ? 'Deactivate' : 'Activate',
-                    isLive ? Colors.orangeAccent : Colors.greenAccent.shade400,
-                    true, () => onStatusToggle(desId, isLive ? 'dead' : 'live')),
+                    isLive ? const Color(0xFFD0703A) : const Color(0xFF30A882),
+                    false, () => onStatusToggle(desId, isLive ? 'dead' : 'live')),
                 const SizedBox(width: 6),
                 _actionChip(isHidden ? 'Unhide' : 'Hide',
-                    t.accent, true, () => onHideToggle(desId, !isHidden)),
+                    _kBlue, false, () => onHideToggle(desId, !isHidden)),
                 const SizedBox(width: 6),
-                _actionChip('Del', Colors.redAccent, true, () => onDelete(desId)),
+                _actionChip('Del', Colors.redAccent, false, () => onDelete(desId)),
               ]),
             ]),
           ),
 
-          // Gold visit strip at bottom
+          // Blue visit strip at bottom
           GestureDetector(
             onTap: () => onNavigate(desId),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 11),
               decoration: BoxDecoration(
-                color: t.accent.withValues(alpha: 0.10),
-                border: Border(top: BorderSide(color: t.accent.withValues(alpha: 0.20))),
+                color: _kBlue.withValues(alpha: 0.10),
+                border: Border(top: BorderSide(color: _kBlue.withValues(alpha: 0.20))),
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
               ),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text('View full ad', style: TextStyle(
-                    color: t.accent, fontSize: 13, fontWeight: FontWeight.w800)),
+                    color: _kBlue, fontSize: 13, fontWeight: FontWeight.w800)),
                 const SizedBox(width: 5),
-                Icon(Icons.arrow_forward_rounded, size: 14, color: t.accent),
+                Icon(Icons.arrow_forward_rounded, size: 14, color: _kBlue),
               ]),
             ),
           ),
@@ -1305,7 +1463,7 @@ class _ServiceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.10),
+          boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.10),
               blurRadius: 18, offset: const Offset(0, 6))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -1314,7 +1472,7 @@ class _ServiceCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
-              color: isLive ? t.primary : Colors.grey.shade500,
+              color: isLive ? _kBlue : Colors.grey.shade500,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
@@ -1360,7 +1518,7 @@ class _ServiceCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 3),
                     child: Text(isExp ? 'See less' : 'See more',
-                        style: TextStyle(color: t.primary,
+                        style: TextStyle(color: _kBlue,
                             fontSize: 12, fontWeight: FontWeight.w800)),
                   ),
                 ),
@@ -1370,9 +1528,9 @@ class _ServiceCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: t.primary.withValues(alpha: 0.05),
+                    color: _kBlue.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: t.primary.withValues(alpha: 0.12)),
+                    border: Border.all(color: _kBlue.withValues(alpha: 0.12)),
                   ),
                   child: Text(note, style: const TextStyle(
                       fontSize: 13, color: Color(0xFF4A5568), fontWeight: FontWeight.w500)),
@@ -1392,7 +1550,7 @@ class _ServiceCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               Row(children: [
-                _statRow(item, t.primary, false),
+                _statRow(item, _kBlue, false),
                 const Spacer(),
                 _actionChip(isLive ? 'Pause' : 'Resume',
                     isLive ? const Color(0xFFD0703A) : const Color(0xFF30A882),
@@ -1411,15 +1569,15 @@ class _ServiceCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: t.primary.withValues(alpha: 0.08),
+                    color: _kBlue.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: t.primary.withValues(alpha: 0.15)),
+                    border: Border.all(color: _kBlue.withValues(alpha: 0.15)),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text('View task', style: TextStyle(
-                        color: t.primary, fontSize: 13, fontWeight: FontWeight.w800)),
+                        color: _kBlue, fontSize: 13, fontWeight: FontWeight.w800)),
                     const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: t.primary),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _kBlue),
                   ]),
                 ),
               ),
@@ -1452,7 +1610,6 @@ class _ShopsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t        = theme;
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
     final subName  = (item['sub_cat_name_bn'] ?? '').toString();
@@ -1468,10 +1625,10 @@ class _ShopsCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.accent.withValues(alpha: 0.30)),
-          boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.12),
+          border: Border.all(color: _kBlue.withValues(alpha: 0.30)),
+          boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.12),
               blurRadius: 16, offset: const Offset(0, 5))],
         ),
         child: IntrinsicHeight(
@@ -1481,7 +1638,7 @@ class _ShopsCard extends StatelessWidget {
             Container(
               width: 70,
               decoration: BoxDecoration(
-                color: isLive ? t.primary : Colors.grey.shade400,
+                color: isLive ? _kBlue : Colors.grey.shade400,
                 borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
               ),
               child: Column(
@@ -1517,7 +1674,7 @@ class _ShopsCard extends StatelessWidget {
                     if (subName.isNotEmpty)
                       Expanded(child: Text(subName, maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: t.primary,
+                          style: TextStyle(color: _kBlue,
                               fontSize: 12, fontWeight: FontWeight.w800))),
                     Text(time, style: TextStyle(
                         color: Colors.grey.shade500, fontSize: 10.5)),
@@ -1533,7 +1690,7 @@ class _ShopsCard extends StatelessWidget {
                     GestureDetector(
                       onTap: () => onExpandToggle(desId, !isExp),
                       child: Text(isExp ? 'See less' : 'See more',
-                          style: TextStyle(color: t.primary,
+                          style: TextStyle(color: _kBlue,
                               fontSize: 11.5, fontWeight: FontWeight.w800)),
                     ),
                   if (note.isNotEmpty) ...[
@@ -1551,17 +1708,17 @@ class _ShopsCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 8),
                   Row(children: [
-                    _statRow(item, t.primary, false),
+                    _statRow(item, _kBlue, false),
                     const Spacer(),
                     GestureDetector(
                       onTap: () => onNavigate(desId),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: t.primary,
+                          color: _kBlue,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [BoxShadow(
-                            color: t.primary.withValues(alpha: 0.30),
+                            color: _kBlue.withValues(alpha: 0.30),
                             blurRadius: 6, offset: const Offset(0, 2),
                           )],
                         ),
@@ -1612,7 +1769,6 @@ class _HelpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t        = theme;
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
     final subName  = (item['sub_cat_name_bn'] ?? '').toString();
@@ -1626,10 +1782,10 @@ class _HelpCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF5F5),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: t.primary.withValues(alpha: 0.18)),
-          boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.14),
+          border: Border.all(color: _kBlue.withValues(alpha: 0.18)),
+          boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.14),
               blurRadius: 14, offset: const Offset(0, 5))],
         ),
         child: ClipRRect(
@@ -1638,7 +1794,7 @@ class _HelpCard extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
-                    color: isLive ? t.primary : Colors.grey.shade400, width: 7),
+                    color: isLive ? _kBlue : Colors.grey.shade400, width: 7),
               ),
             ),
             child: Padding(
@@ -1649,16 +1805,16 @@ class _HelpCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: t.primary.withValues(alpha: 0.10),
+                      color: _kBlue.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: Icon(Icons.sos_rounded, color: t.primary, size: 18),
+                    child: Icon(Icons.sos_rounded, color: _kBlue, size: 18),
                   ),
                   const SizedBox(width: 8),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     if (subName.isNotEmpty)
                       Text('${subEmoji.isNotEmpty ? "$subEmoji " : ""}$subName',
-                          style: TextStyle(color: t.primary,
+                          style: TextStyle(color: _kBlue,
                               fontSize: 11.5, fontWeight: FontWeight.w800)),
                     Text(time, style: const TextStyle(
                         fontSize: 10.5, color: Color(0xFF9CA3AF))),
@@ -1666,12 +1822,12 @@ class _HelpCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isLive ? t.primary.withValues(alpha: 0.10) : Colors.grey.shade100,
+                      color: isLive ? _kBlue.withValues(alpha: 0.10) : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(isLive ? '🆘 ACTIVE' : 'RESOLVED',
                         style: TextStyle(
-                          color: isLive ? t.primary : Colors.grey,
+                          color: isLive ? _kBlue : Colors.grey,
                           fontSize: 10, fontWeight: FontWeight.w900,
                         )),
                   ),
@@ -1695,21 +1851,21 @@ class _HelpCard extends StatelessWidget {
                   GestureDetector(
                     onTap: () => onExpandToggle(desId, !isExp),
                     child: Text(isExp ? 'See less' : 'See more',
-                        style: TextStyle(color: t.primary,
+                        style: TextStyle(color: _kBlue,
                             fontSize: 12, fontWeight: FontWeight.w800)),
                   ),
 
                 const SizedBox(height: 10),
 
                 Row(children: [
-                  _statRow(item, t.primary, false),
+                  _statRow(item, _kBlue, false),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => onNavigate(desId),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isLive ? t.primary : Colors.grey.shade300,
+                        color: isLive ? _kBlue : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Text('View', style: TextStyle(
@@ -1722,7 +1878,7 @@ class _HelpCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(children: [
                   _actionChip(isLive ? 'Mark Resolved' : 'Reopen',
-                      isLive ? const Color(0xFF16A34A) : t.primary,
+                      isLive ? const Color(0xFF16A34A) : _kBlue,
                       false, () => onStatusToggle(desId, isLive ? 'dead' : 'live')),
                   const SizedBox(width: 6),
                   _actionChip(isHidden ? 'Show' : 'Hide',
@@ -1760,7 +1916,6 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t        = theme;
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
     final note     = (item['special_note'] ?? '').toString();
@@ -1777,8 +1932,8 @@ class _InfoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.primary.withValues(alpha: 0.18)),
-          boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.10),
+          border: Border.all(color: _kBlue.withValues(alpha: 0.18)),
+          boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.10),
               blurRadius: 16, offset: const Offset(0, 5))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -1787,17 +1942,17 @@ class _InfoCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             decoration: BoxDecoration(
-              color: isLive ? t.primary.withValues(alpha: 0.08) : Colors.grey.shade50,
+              color: isLive ? _kBlue.withValues(alpha: 0.08) : Colors.grey.shade50,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(
-                bottom: BorderSide(color: t.primary.withValues(alpha: 0.12)),
+                bottom: BorderSide(color: _kBlue.withValues(alpha: 0.12)),
               ),
             ),
             child: Row(children: [
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(
-                  color: isLive ? t.primary : Colors.grey.shade300,
+                  color: isLive ? _kBlue : Colors.grey.shade300,
                   shape: BoxShape.circle,
                 ),
                 child: const Center(child: Text('?',
@@ -1811,7 +1966,7 @@ class _InfoCard extends StatelessWidget {
                       ? '${subEmoji.isNotEmpty ? "$subEmoji " : ""}$subName'
                       : 'Information Request',
                   style: TextStyle(
-                    color: isLive ? t.primary : Colors.grey,
+                    color: isLive ? _kBlue : Colors.grey,
                     fontSize: 12.5, fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1826,13 +1981,13 @@ class _InfoCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                 decoration: BoxDecoration(
                   color: isLive
-                      ? t.primary.withValues(alpha: 0.10)
+                      ? _kBlue.withValues(alpha: 0.10)
                       : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(isLive ? 'OPEN' : 'CLOSED',
                     style: TextStyle(
-                      color: isLive ? t.primary : Colors.grey,
+                      color: isLive ? _kBlue : Colors.grey,
                       fontSize: 9.5, fontWeight: FontWeight.w900,
                     )),
               ),
@@ -1846,7 +2001,7 @@ class _InfoCard extends StatelessWidget {
               // Question text with leading quotes
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('"', style: TextStyle(
-                    fontSize: 32, color: t.primary.withValues(alpha: 0.25),
+                    fontSize: 32, color: _kBlue.withValues(alpha: 0.25),
                     height: 0.85, fontWeight: FontWeight.w900)),
                 const SizedBox(width: 6),
                 Expanded(child: Text(des,
@@ -1862,7 +2017,7 @@ class _InfoCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 3, left: 28),
                     child: Text(isExp ? 'See less' : 'See more',
-                        style: TextStyle(color: t.primary,
+                        style: TextStyle(color: _kBlue,
                             fontSize: 12, fontWeight: FontWeight.w800)),
                   ),
                 ),
@@ -1872,9 +2027,9 @@ class _InfoCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: t.primary.withValues(alpha: 0.05),
+                    color: _kBlue.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: t.primary.withValues(alpha: 0.12)),
+                    border: Border.all(color: _kBlue.withValues(alpha: 0.12)),
                   ),
                   child: Text(note, style: const TextStyle(
                       fontSize: 12.5, color: Color(0xFF4A5568),
@@ -1885,16 +2040,16 @@ class _InfoCard extends StatelessWidget {
               const SizedBox(height: 12),
 
               Row(children: [
-                _statRow(item, t.primary, false),
+                _statRow(item, _kBlue, false),
                 const Spacer(),
                 GestureDetector(
                   onTap: () => onNavigate(desId),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
-                      color: t.primary,
+                      color: _kBlue,
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: [BoxShadow(color: t.primary.withValues(alpha: 0.28),
+                      boxShadow: [BoxShadow(color: _kBlue.withValues(alpha: 0.28),
                           blurRadius: 8, offset: const Offset(0, 3))],
                     ),
                     child: const Text('View Answers', style: TextStyle(
@@ -1906,7 +2061,7 @@ class _InfoCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(children: [
                 _actionChip(isLive ? 'Close Q' : 'Reopen',
-                    isLive ? const Color(0xFF6B7280) : t.primary,
+                    isLive ? const Color(0xFF6B7280) : _kBlue,
                     false, () => onStatusToggle(desId, isLive ? 'dead' : 'live')),
                 const SizedBox(width: 6),
                 _actionChip(isHidden ? 'Show' : 'Hide',

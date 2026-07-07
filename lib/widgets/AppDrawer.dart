@@ -17,7 +17,14 @@ final String host = Config.host;
 class AppDrawer extends StatefulWidget {
   final String userPhone;
 
-  const AppDrawer({Key? key, required this.userPhone}) : super(key: key);
+  /// Pushes [page] onto the currently active tab's nested navigator (see
+  /// NavigationScreen._pushInCurrentTab), so drawer destinations keep the
+  /// outer AppBar and bottom nav dock visible instead of replacing the
+  /// whole navigation shell.
+  final void Function(Widget page) onNavigate;
+
+  const AppDrawer({Key? key, required this.userPhone, required this.onNavigate})
+      : super(key: key);
 
   @override
   _AppDrawerState createState() => _AppDrawerState();
@@ -61,7 +68,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
   void _push(Widget page) {
     _close();
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    widget.onNavigate(page);
   }
 
   Future<void> _logout() async {

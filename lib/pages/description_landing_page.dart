@@ -506,101 +506,159 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Post prompt bar — full-width fake text field that opens the composer
+//  Post prompt bar — the entry point into AaramBD's AI posting assistant
+//  (NeedBuilderPage / thoughtsection.dart): tell it what you need, in any
+//  words, and it helps turn that into a proper post. Styled to read as an
+//  "AI assistant" trigger, not a plain fake textfield.
 // ─────────────────────────────────────────────────────────────────────────────
-class _PostPromptBar extends StatelessWidget {
+class _PostPromptBar extends StatefulWidget {
   final double statusH;
   final VoidCallback? onTap;
 
   const _PostPromptBar({required this.statusH, this.onTap});
 
   @override
+  State<_PostPromptBar> createState() => _PostPromptBarState();
+}
+
+class _PostPromptBarState extends State<_PostPromptBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  static const _aiColors = [
+    Color(0xFF4F46E5), // indigo
+    Color(0xFF7C3AED), // violet
+    Color(0xFFDB2777), // pink
+  ];
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      
-      padding: EdgeInsets.fromLTRB(14, statusH + 10, 14, 0),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1B2060), Color(0xFF2A1863)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(
-              color: const Color(0xFF5060FF).withValues(alpha: 0.55),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF3B4FCD).withValues(alpha: 0.50),
-                blurRadius: 20,
-                spreadRadius: -3,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 14),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF5060FF).withValues(alpha: 0.20),
-                  shape: BoxShape.circle,
+      padding: EdgeInsets.fromLTRB(14, widget.statusH + 10, 14, 0),
+      child: AnimatedBuilder(
+        animation: _pulseCtrl,
+        builder: (context, child) {
+          final glow = 0.35 + (_pulseCtrl.value * 0.25);
+          return GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: _aiColors,
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                 ),
-                child: const Icon(Icons.edit_rounded,
-                    size: 14, color: Color(0xFF9AABFF)),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  'আজকের কথা লিখুন, GO LIVE করুন...',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withValues(alpha: 0.48),
-                    letterSpacing: 0.2,
-                  ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 1.2,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                margin: const EdgeInsets.only(right: 10),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 13, vertical: 7),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4A5AFF), Color(0xFF8B2FC9)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7C3AED).withValues(alpha: glow),
+                    blurRadius: 22,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 8),
                   ),
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4A5AFF).withValues(alpha: 0.55),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 12),
+                  Transform.scale(
+                    scale: 0.94 + (_pulseCtrl.value * 0.12),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: glow * 0.6),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.auto_awesome_rounded,
+                          size: 17, color: Colors.white),
                     ),
-                  ],
-                ),
-                child: const Text('GO LIVE',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8)),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'কি লাগবে?',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'AaramBD AI দিয়ে সহজে পোস্ট করুন',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.80),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 13, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.bolt_rounded,
+                          size: 13, color: Color(0xFF7C3AED)),
+                      const SizedBox(width: 3),
+                      const Text('GO LIVE',
+                          style: TextStyle(
+                              color: Color(0xFF4F46E5),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6)),
+                    ]),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -681,8 +739,8 @@ class _CatBarState extends State<_CatBar> {
                     const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
                   color: sel
-                      ? t.primary
-                      : Colors.black54 ,
+                      ? Colors.blue.shade900
+                      : Colors.blue.shade100  ,
                   borderRadius: BorderRadius.circular(22),
                   border: sel
                       ? null
@@ -705,11 +763,11 @@ class _CatBarState extends State<_CatBar> {
                           fontSize: 12.5,
                           fontWeight: sel
                               ? FontWeight.w700
-                              : FontWeight.w400,
+                              : FontWeight.bold,
                           color: sel
                               ? Colors.white
-                              : Colors.white
-                                  .withValues(alpha: 0.60))),
+                              : Colors.black
+                                  )),
                 ),
               ),
             ),
@@ -723,7 +781,7 @@ class _CatBarState extends State<_CatBar> {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Sub-cat popup — slides up from bottom, chip grid, minimize arrow
 // ─────────────────────────────────────────────────────────────────────────────
-class _SubCatPopup extends StatelessWidget {
+class _SubCatPopup extends StatefulWidget {
   final List<Map<String, dynamic>> subCats;
   final bool loading;
   final String? selectedSubCatId;
@@ -743,13 +801,39 @@ class _SubCatPopup extends StatelessWidget {
   });
 
   @override
+  State<_SubCatPopup> createState() => _SubCatPopupState();
+}
+
+class _SubCatPopupState extends State<_SubCatPopup> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.subCats;
+    return widget.subCats.where((it) {
+      final bn = (it['name_bn'] ?? '').toString().toLowerCase();
+      final en = (it['name_en'] ?? '').toString().toLowerCase();
+      return bn.contains(q) || en.contains(q);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accent = theme.primary;
+    final accent = widget.theme.primary;
     final mq     = MediaQuery.of(context);
+    final results = _filtered;
+    final searching = _query.trim().isNotEmpty;
 
     return ConstrainedBox(
       constraints:
-          BoxConstraints(maxHeight: mq.size.height * 0.48),
+          BoxConstraints(maxHeight: mq.size.height * 0.58),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -789,15 +873,30 @@ class _SubCatPopup extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    catName.isNotEmpty ? catName : 'উপ-বিভাগ',
+                    widget.catName.isNotEmpty ? widget.catName : 'উপ-বিভাগ',
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: accent),
                   ),
                 ),
+                if (!widget.loading)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text('${widget.subCats.length}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: accent)),
+                  ),
+                const SizedBox(width: 6),
                 GestureDetector(
-                  onTap: onClose,
+                  onTap: widget.onClose,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     child: const Icon(Icons.close_rounded,
@@ -806,14 +905,72 @@ class _SubCatPopup extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+
+            // Search field
+            if (!widget.loading)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F6FA),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: _query.isEmpty
+                            ? const Color(0xFFE8EAF0)
+                            : accent.withValues(alpha: 0.45)),
+                  ),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _query = v),
+                    style: const TextStyle(
+                        fontSize: 13.5, color: Color(0xFF1A2340)),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'উপ-বিভাগ খুঁজুন...',
+                      hintStyle: const TextStyle(
+                          fontSize: 13.5, color: Color(0xFFA0A6B8)),
+                      prefixIcon:
+                          Icon(Icons.search_rounded, size: 20, color: accent),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : GestureDetector(
+                              onTap: () => setState(() {
+                                _searchCtrl.clear();
+                                _query = '';
+                              }),
+                              child: const Icon(Icons.close_rounded,
+                                  size: 18, color: Color(0xFFA0A6B8)),
+                            ),
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
 
             // Chips
-            if (loading)
+            if (widget.loading)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: CircularProgressIndicator(
                     color: accent, strokeWidth: 2),
+              )
+            else if (results.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Column(children: [
+                  Icon(Icons.search_off_rounded,
+                      size: 30, color: Colors.black.withValues(alpha: 0.20)),
+                  const SizedBox(height: 8),
+                  Text('কোনো ফলাফল পাওয়া যায়নি',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black.withValues(alpha: 0.40))),
+                ]),
               )
             else
               Flexible(
@@ -825,22 +982,23 @@ class _SubCatPopup extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _SubChip(
-                        label: 'সব',
-                        selected: selectedSubCatId == null,
-                        accent: accent,
-                        onTap: () => onSelect(null),
-                      ),
-                      ...subCats.map((it) {
+                      if (!searching)
+                        _SubChip(
+                          label: 'সব',
+                          selected: widget.selectedSubCatId == null,
+                          accent: accent,
+                          onTap: () => widget.onSelect(null),
+                        ),
+                      ...results.map((it) {
                         final id =
                             it['des_sub_cat_id']?.toString();
                         final name =
                             it['name_bn']?.toString() ?? '';
                         return _SubChip(
                           label: name,
-                          selected: id == selectedSubCatId,
+                          selected: id == widget.selectedSubCatId,
                           accent: accent,
-                          onTap: () => onSelect(id),
+                          onTap: () => widget.onSelect(id),
                         );
                       }),
                     ],
@@ -852,7 +1010,7 @@ class _SubCatPopup extends StatelessWidget {
 
             // Minimize / down-arrow button
             GestureDetector(
-              onTap: onClose,
+              onTap: widget.onClose,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 6),
@@ -940,7 +1098,7 @@ class _PostCard extends StatelessWidget {
 
 
 
-  
+
   final Map item;
   final CatTheme theme;
   const _PostCard({required this.item, required this.theme});

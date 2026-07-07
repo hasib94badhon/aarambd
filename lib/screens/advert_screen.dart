@@ -527,7 +527,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ReviewSheet(
+      builder: (_) => ReviewSheet(
         reviewedId: user.user_id,
         reviewedName: user.businessName,
         reviewedPhoto: user.photo,
@@ -1669,7 +1669,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
 // Review bottom sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ReviewSheet extends StatefulWidget {
+class ReviewSheet extends StatefulWidget {
   final int reviewedId;
   final String reviewedName;
   final String reviewedPhoto;
@@ -1677,7 +1677,7 @@ class _ReviewSheet extends StatefulWidget {
   final int? loginUserId;
   final VoidCallback onReviewChanged;
 
-  const _ReviewSheet({
+  const ReviewSheet({
     required this.reviewedId,
     required this.reviewedName,
     required this.reviewedPhoto,
@@ -1687,7 +1687,7 @@ class _ReviewSheet extends StatefulWidget {
   });
 
   @override
-  State<_ReviewSheet> createState() => _ReviewSheetState();
+  State<ReviewSheet> createState() => _ReviewSheetState();
 }
 
 // Tags: positive shown for rating ≥ 3, negative for ≤ 2
@@ -1700,7 +1700,7 @@ const _kNegTags = [
   'Unreliable', 'Unresponsive',
 ];
 
-class _ReviewSheetState extends State<_ReviewSheet> {
+class _ReviewSheetState extends State<ReviewSheet> {
   List<dynamic> _reviews   = [];
   int  _total              = 0;
   int  _page               = 1;

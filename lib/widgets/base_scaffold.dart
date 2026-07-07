@@ -22,7 +22,11 @@ class BaseScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: appBar,
-      drawer: AppDrawer(userPhone: userPhone),
+      drawer: AppDrawer(
+        userPhone: userPhone,
+        onNavigate: (page) => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => page)),
+      ),
       body: body,
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: currentIndex,

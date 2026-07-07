@@ -305,6 +305,15 @@ class _NavigationScreenState extends State<NavigationScreen>
     );
   }
 
+  /// Pushes [page] onto the currently active tab's nested navigator, so
+  /// drawer destinations (Favorites, Account Settings, etc.) render inside
+  /// this Scaffold's body — keeping the outer AppBar and bottom nav dock
+  /// visible — instead of replacing the whole NavigationScreen shell.
+  void _pushInCurrentTab(Widget page) {
+    _currentNavKey.currentState
+        ?.push(MaterialPageRoute(builder: (_) => page));
+  }
+
   // ── AppBar actions — all push into the active tab's nested navigator ────────
 
   /// Opens ThoughtSectionPage on the ROOT navigator (full-screen compose flow).
@@ -659,7 +668,7 @@ class _NavigationScreenState extends State<NavigationScreen>
           title: _buildAppBarTitle(),
         ),
 
-        drawer: AppDrawer(userPhone: userPhone),
+        drawer: AppDrawer(userPhone: userPhone, onNavigate: _pushInCurrentTab),
 
         // ── Body — IndexedStack with 6 nested navigators ──────────────────────
         body: Stack(

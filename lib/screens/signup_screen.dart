@@ -30,7 +30,43 @@ class _SignUpState extends State<SignUpScreen> {
 
   // ── Backend: unchanged ────────────────────────────────────────────────────
 
+  void _showSnackMessage(String message, {bool isError = true}) {
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+                isError
+                    ? Icons.error_outline_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: isError ? Colors.white : Colors.lightGreenAccent,
+                size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor:
+            isError ? const Color(0xFFDC2626) : const Color(0xFF111827),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(14),
+      ),
+    );
+  }
+
   Future<void> addDataToDB(String secretNumber) async {
+    if (!await Config.isConnected()) {
+      _showSnackMessage(_l10n.noInternetMessage);
+      if (mounted) setState(() => _isSubmitting = false);
+      return;
+    }
+
     final String apiUrl = '${Config.host}/add';
     final Map<String, dynamic> requestData = {
       'name': _nameController.text.trim(),
@@ -39,44 +75,27 @@ class _SignUpState extends State<SignUpScreen> {
       'secret_number': secretNumber,
     };
 
-    final response = await http.post(
-      Uri.parse(apiUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(requestData),
-    );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      _showSuccessMessage(_l10n.signupSuccess);
-      await _loginAfterSignup();
-    } else {
-      String errorMsg = _l10n.signupFailed;
-      try {
-        final err = jsonDecode(response.body);
-        errorMsg = err['error'] ?? err['message'] ?? errorMsg;
-      } catch (_) {}
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline_rounded,
-                  color: Colors.white, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  errorMsg,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFDC2626),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(14),
-        ),
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestData),
       );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _showSuccessMessage(_l10n.signupSuccess);
+        await _loginAfterSignup();
+      } else {
+        String errorMsg = _l10n.signupFailed;
+        try {
+          final err = jsonDecode(response.body);
+          errorMsg = err['error'] ?? err['message'] ?? errorMsg;
+        } catch (_) {}
+        _showSnackMessage(errorMsg);
+      }
+    } catch (e) {
+      // Dropped connection mid-request, DNS failure, timeout, etc.
+      _showSnackMessage(_l10n.noInternetMessage);
     }
 
     if (mounted) setState(() => _isSubmitting = false);

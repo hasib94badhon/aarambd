@@ -88,6 +88,13 @@ class _LoginScreenState extends State<LoginScreen>
       'password': _passwordController.text.trim(),
     };
 
+    if (!await Config.isConnected()) {
+      if (mounted) {
+        _showErrorDialog(l10n.noInternetMessage, title: l10n.noInternetTitle);
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -170,13 +177,21 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       debugPrint('Login exception: $e');
-      if (mounted) _showErrorDialog(l10n.loginUnexpectedError);
+      if (!mounted) return;
+      // A dropped connection mid-request (e.g. wifi cut out while waiting
+      // on the response) surfaces here as a SocketException — same message
+      // as the pre-flight check, not the generic "unexpected error" one.
+      if (e is SocketException || e.toString().contains('SocketException')) {
+        _showErrorDialog(l10n.noInternetMessage, title: l10n.noInternetTitle);
+      } else {
+        _showErrorDialog(l10n.loginUnexpectedError);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showErrorDialog(String message) {
+  void _showErrorDialog(String message, {String? title}) {
     final l10n = _l10n;
     showDialog(
       context: context,
@@ -200,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                l10n.loginErrorTitle,
+                title ?? l10n.loginErrorTitle,
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,

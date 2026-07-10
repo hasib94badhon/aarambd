@@ -330,13 +330,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ─── Header ──────────────────────────────────────────────────────────────────
 
+  Widget _headerAvatarFallback(String initials) {
+    return Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     final initials = widget.userName.trim().isNotEmpty
         ? widget.userName.trim()[0].toUpperCase()
         : 'U';
+    final photoUrl =
+        _existingPhotoUrls.isNotEmpty ? _existingPhotoUrls.first : null;
 
     return SliverAppBar(
-      expandedHeight: 200,
+      expandedHeight: 180,
       pinned: true,
       backgroundColor: _kPrimaryDark,
       leading: IconButton(
@@ -358,55 +373,114 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           child: SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 44),
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.15),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ── Profile photo (from DB if available) ──────────────────
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.15),
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: photoUrl != null
+                          ? Image.network(
+                              photoUrl,
+                              fit: BoxFit.cover,
+                              width: 82,
+                              height: 82,
+                              errorBuilder: (_, __, ___) =>
+                                  _headerAvatarFallback(initials),
+                            )
+                          : _headerAvatarFallback(initials),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  widget.userName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.phone_rounded,
-                        size: 12, color: Colors.white.withValues(alpha: 0.7)),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.userPhone,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 13,
-                      ),
+                  const SizedBox(width: 16),
+
+                  // ── Name + phone, to the right of the photo ────────────────
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.phone_rounded,
+                                  size: 13,
+                                  color: Colors.white.withValues(alpha: 0.85)),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  widget.userPhone,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.90),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             ),
           ),
         ),

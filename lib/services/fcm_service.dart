@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/screens/advert_screen.dart';
+import 'package:aaram_bd/screens/post_details.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -28,10 +30,16 @@ class FCMService {
   // Guard against registering listeners more than once
   bool _listenersRegistered = false;
 
+  GlobalKey<NavigatorState>? _navigatorKey;
+
   // ── Init ─────────────────────────────────────────────────────────────────
 
-  Future<void> init(BuildContext context) async {
+  Future<void> init(
+    BuildContext context, [
+    GlobalKey<NavigatorState>? navigatorKey,
+  ]) async {
     if (!Platform.isAndroid) return;
+    if (navigatorKey != null) _navigatorKey = navigatorKey;
     await _requestPermission();
     await _setupLocalNotifications();
 
@@ -124,12 +132,49 @@ Future<void> _setupLocalNotifications() async {
     _fcm.getInitialMessage().then((message) {
       if (message != null) {
         debugPrint('[FCM] Opened from terminated: ${message.data}');
+        _dispatchTap(message.data);
       }
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       debugPrint('[FCM] Opened from background: ${message.data}');
+      _dispatchTap(message.data);
     });
+  }
+
+  /// Mirrors NotificationShow's tap routing so a push behaves the same as
+  /// tapping the equivalent row in the in-app notification list.
+  void _dispatchTap(Map<String, dynamic> data) {
+    final navState = _navigatorKey?.currentState;
+    if (navState == null) return;
+
+    final type = (data['type'] ?? '').toString();
+    final userId = (data['detail_user'] ?? '').toString();
+    if (userId.isEmpty) return; // broadcast / subscription_usage / new_post — no per-user target yet
+
+    if (type == 'comment') {
+      final postId = (data['detail_post_id'] ?? '0').toString();
+      navState.push(MaterialPageRoute(
+        builder: (_) => PostDetails(postId: postId, userId: userId),
+      ));
+    } else if (type == 'view' || type == 'call' || type == 'share') {
+      final isService = data['is_service'] == '1';
+      final serviceId = int.tryParse((data['service_id'] ?? '0').toString()) ?? 0;
+      final shopId = int.tryParse((data['shop_id'] ?? '0').toString()) ?? 0;
+
+      navState.push(MaterialPageRoute(
+        builder: (_) => AdvertScreen(
+          advertData: AdvertData(
+            userId: userId,
+            isService: isService,
+            additionalData:
+                isService ? {'service_id': serviceId} : {'shop_id': shopId},
+          ),
+          userId: userId,
+          isService: isService,
+        ),
+      ));
+    }
   }
 
   // ── Token management ──────────────────────────────────────────────────────

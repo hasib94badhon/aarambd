@@ -183,23 +183,29 @@ class _InitialScreenState extends State<InitialScreen> {
         MaterialPageRoute(builder: (context) => SplashScreen()),
       );
     } else if (isLoggedIn && userPhone.isNotEmpty) {
-      // Check if the phone exists in the database
-      final bool phoneExists = await _checkPhoneInDatabase(userPhone, context);
-      if (phoneExists) {
-        await _updateLoginTime(userPhone);
-        if (Platform.isAndroid) await FCMService().init(context);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => NavigationScreen(userPhone: userPhone)),
-        );
-      } else {
-        // If phone number is not found in the database, log out the user
+      // Check if the phone exists in the database.
+      // null = couldn't reach the server (e.g. no internet) — NOT the same
+      // as the server confirming the account is gone, so don't log out.
+      final bool? phoneExists = await _checkPhoneInDatabase(userPhone, context);
+      if (phoneExists == false) {
+        // Server explicitly confirmed this session is no longer valid.
         await prefs.setBool('isLoggedIn', false);
         await prefs.remove('userPhone');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      } else {
+        // true (confirmed) or null (couldn't check, e.g. offline) — both
+        // continue into the app using the cached local session.
+        if (phoneExists == true) await _updateLoginTime(userPhone);
+        if (Platform.isAndroid) {
+          await FCMService().init(context, navigatorKey);
+        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => NavigationScreen(userPhone: userPhone)),
         );
       }
     } else {
@@ -223,7 +229,10 @@ class _InitialScreenState extends State<InitialScreen> {
     }
   }
 
-  Future<bool> _checkPhoneInDatabase(String phone, BuildContext context) async {
+  /// Returns true/false when the server explicitly confirms the account's
+  /// status, or null when it couldn't be determined (no internet, timeout,
+  /// server error) — null must NOT be treated as "log the user out".
+  Future<bool?> _checkPhoneInDatabase(String phone, BuildContext context) async {
     final String apiUrl = '/check_phone'; // Updated API endpoint
     final Map<String, dynamic> requestData = {
       'phone': phone,
@@ -233,16 +242,22 @@ class _InitialScreenState extends State<InitialScreen> {
     try {
       final response = await Config.apiPost(apiUrl, requestData, context);
 
-      if (response != null && response.statusCode == 200) {
+      // null here means Config.apiPost couldn't reach the server at all
+      // (no internet, or it already handled a forced logout on 401) — not
+      // proof the account is invalid.
+      if (response == null) return null;
+
+      if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         return responseData[
             'exists']; // Assumes the API returns a JSON object with an 'exists' boolean field
-      } else {
-        return false;
       }
+      // A non-200 from a reachable server (e.g. transient 5xx) is also
+      // inconclusive — don't punish the user for a backend hiccup.
+      return null;
     } catch (e) {
       print("Exception: $e");
-      return false;
+      return null;
     }
   }
 

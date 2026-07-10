@@ -727,6 +727,11 @@ final FocusNode _focusNode = FocusNode();
                                                 subscription_type,
                                             lastPayString: last_pay,
                                             context: context,
+                                            userId:
+                                                int.tryParse(user_id) ?? 0,
+                                            onChanged: () => setState(
+                                                () => subscription_type =
+                                                    'waiting'),
                                           ),
                                         ),
                                       ),

@@ -29,6 +29,13 @@ class AppLocalizations {
   String get navUpdatePostTitle => _t('Update Post', 'আপডেট পোস্ট');
   String get loading => _t('Loading…', 'লোড হচ্ছে…');
 
+  // ── Network ───────────────────────────────────────────────────────────────
+  String get noInternetTitle =>
+      _t('No Internet Connection', 'ইন্টারনেট সংযোগ নেই');
+  String get noInternetMessage => _t(
+      'No internet. Please check your internet connection and try again.',
+      'ইন্টারনেট সংযোগ নেই। আপনার ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।');
+
   // ── Login ─────────────────────────────────────────────────────────────────
   String get loginWelcome => _t('Welcome 👋', 'স্বাগতম 👋');
   String get loginSubtitle =>

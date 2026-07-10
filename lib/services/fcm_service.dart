@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
 import 'package:aaram_bd/screens/post_details.dart';
+import 'package:aaram_bd/screens/thoughtdetails.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -31,6 +32,11 @@ class FCMService {
   bool _listenersRegistered = false;
 
   GlobalKey<NavigatorState>? _navigatorKey;
+
+  /// Set by NavigationScreen so the bell can react the instant a push
+  /// arrives while the app is open, instead of only on the next manual
+  /// refresh/lifecycle event.
+  VoidCallback? onForegroundMessage;
 
   // ── Init ─────────────────────────────────────────────────────────────────
 
@@ -101,6 +107,7 @@ Future<void> _setupLocalNotifications() async {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM] Foreground: ${message.notification?.title}');
       _showLocalNotification(message);
+      onForegroundMessage?.call();
     });
   }
 
@@ -149,8 +156,18 @@ Future<void> _setupLocalNotifications() async {
     if (navState == null) return;
 
     final type = (data['type'] ?? '').toString();
+
+    if (type == 'new_post') {
+      final desId = (data['des_id'] ?? '').toString();
+      if (desId.isEmpty) return;
+      navState.push(MaterialPageRoute(
+        builder: (_) => ThoughtDetails(desId: desId),
+      ));
+      return;
+    }
+
     final userId = (data['detail_user'] ?? '').toString();
-    if (userId.isEmpty) return; // broadcast / subscription_usage / new_post — no per-user target yet
+    if (userId.isEmpty) return; // broadcast / subscription_usage — no per-user target yet
 
     if (type == 'comment') {
       final postId = (data['detail_post_id'] ?? '0').toString();

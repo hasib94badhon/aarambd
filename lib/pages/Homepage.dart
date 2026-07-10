@@ -76,7 +76,12 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
 
   String _search = '';
   String _selectedCat = '';
-  String _sort = 'views'; // 'views' | 'name'
+  final String _sort = 'views'; // fixed default sent to the backend; no UI toggle
+
+  // Category chip the current search text matches (by name), so the
+  // horizontal category row can animate it into view.
+  String? _matchedCat;
+  final Map<String, GlobalKey> _catKeys = {};
 
   List<_FbPage> _fbPages = [];
   List<_YtChannel> _ytChannels = [];
@@ -87,7 +92,18 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   bool _hasError = false;
 
   final _searchCtrl = TextEditingController();
+  final _catScrollCtrl = ScrollController();
   Timer? _debounce;
+
+  // The header (platform toggle + search bar + category chips) is pinned
+  // while scrolling, which requires a known fixed height up front. It's
+  // rendered once unconstrained (SliverToBoxAdapter) to measure its true
+  // natural height, then switched to the pinned sliver using that value —
+  // measuring it *after* it's already been forced into a fixed-size box
+  // would just echo back that same size and could never detect overflow.
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerHeight = 150;
+  bool _headerMeasured = false;
 
   static const _fbBlue = Color(0xFF1877F2);
   static const _ytRed  = Color(0xFFFF0000);
@@ -103,6 +119,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _catScrollCtrl.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -172,7 +189,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   }
 
   void _reload() {
-    setState(() { _search = ''; _selectedCat = ''; });
+    setState(() { _search = ''; _selectedCat = ''; _matchedCat = null; });
     _searchCtrl.clear();
     _fetchFb();
     _fetchYt();
@@ -187,7 +204,45 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     _debounce = Timer(const Duration(milliseconds: 350), () {
       setState(() => _search = val);
       _applyFilters();
+      _updateMatchedCategory(val);
     });
+  }
+
+  // If the typed search text matches a category name, that category is
+  // reordered to the front of the horizontal row (right after "All") — see
+  // _orderedCats(). Here we just track which one matched and snap the row
+  // back to the start so the reordered chip is actually visible.
+  void _updateMatchedCategory(String query) {
+    final cats = _platform == 'fb' ? _fbCats : _ytCats;
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      if (_matchedCat != null) setState(() => _matchedCat = null);
+      return;
+    }
+    final match = cats.firstWhere(
+      (c) => c.toLowerCase().contains(q),
+      orElse: () => '',
+    );
+    if (match == _matchedCat) return;
+    setState(() => _matchedCat = match.isEmpty ? null : match);
+    if (match.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_catScrollCtrl.hasClients) {
+        _catScrollCtrl.animateTo(
+          0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  // "All" plus the rest of the categories, with whichever one matches the
+  // current search text pulled to the front.
+  List<String> _orderedCats(List<String> cats) {
+    if (_matchedCat == null || !cats.contains(_matchedCat)) return cats;
+    return [_matchedCat!, ...cats.where((c) => c != _matchedCat)];
   }
 
   void _switchPlatform(String p) {
@@ -197,6 +252,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
       _platform = p;
       _search = '';
       _selectedCat = '';
+      _matchedCat = null;
       _searchCtrl.clear();
     });
   }
@@ -204,13 +260,6 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   void _selectCat(String cat) {
     HapticFeedback.selectionClick();
     setState(() => _selectedCat = cat == _selectedCat ? '' : cat);
-    _applyFilters();
-  }
-
-  void _toggleSort(String s) {
-    if (_sort == s) return;
-    HapticFeedback.selectionClick();
-    setState(() => _sort = s);
     _applyFilters();
   }
 
@@ -243,6 +292,22 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
+  // Only runs while unmeasured: reads the header's true natural height from
+  // its unconstrained first render (see build()) and switches to the pinned
+  // sliver from the next frame on.
+  void _measureHeader() {
+    if (_headerMeasured) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final height = _headerKey.currentContext?.size?.height;
+      if (height != null && mounted) {
+        setState(() {
+          _headerHeight = height;
+          _headerMeasured = true;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isFb   = _platform == 'fb';
@@ -252,6 +317,8 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     // local filter on top of server results
     final items = isFb ? _filterFb() : _filterYt();
 
+    _measureHeader();
+
     return Scaffold(
       backgroundColor: _bg,
       body: RefreshIndicator(
@@ -259,11 +326,19 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
         onRefresh: () async => _reload(),
         child: CustomScrollView(
           slivers: [
-            // ── Header ────────────────────────────────────────────────────
-            SliverToBoxAdapter(child: _buildHeader(accent, isFb, cats)),
-
-            // ── Sort bar ───────────────────────────────────────────────────
-            SliverToBoxAdapter(child: _buildSortBar(accent)),
+            // ── Header (pinned/frozen while scrolling) ───────────────────
+            // Unconstrained on the very first frame so _measureHeader() can
+            // read its true natural height; pinned from then on.
+            if (!_headerMeasured)
+              SliverToBoxAdapter(child: _buildHeader(accent, isFb, cats))
+            else
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedHeaderDelegate(
+                height: _headerHeight,
+                child: _buildHeader(accent, isFb, cats),
+              ),
+            ),
 
             // ── Content ────────────────────────────────────────────────────
             if (_loading && items.isEmpty)
@@ -338,6 +413,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
 
   Widget _buildHeader(Color accent, bool isFb, List<String> cats) {
     return Container(
+      key: _headerKey,
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
       child: Column(
@@ -405,7 +481,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                 GestureDetector(
                   onTap: () {
                     _searchCtrl.clear();
-                    setState(() => _search = '');
+                    setState(() { _search = ''; _matchedCat = null; });
                     _applyFilters();
                   },
                   child: const Padding(
@@ -418,11 +494,14 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 10),
 
-          // category chips
-          if (cats.isNotEmpty)
-            SizedBox(
+          // category chips — space is always reserved (even before the
+          // first fetch resolves) so the header's height stays constant;
+          // it's pinned to a fixed height in a sliver, so it must never
+          // need more room than it was first measured at.
+          SizedBox(
               height: 40,
               child: ListView(
+                controller: _catScrollCtrl,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(bottom: 4),
                 children: [
@@ -432,12 +511,17 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                     accent: accent,
                     onTap: () => _selectCat(''),
                   ),
-                  ...cats.map((c) => _CatChip(
-                        label: c,
-                        selected: _selectedCat == c,
-                        accent: accent,
-                        onTap: () => _selectCat(c),
-                      )),
+                  ..._orderedCats(cats).map((c) {
+                    final key = _catKeys.putIfAbsent(c, () => GlobalKey());
+                    return _CatChip(
+                      key: key,
+                      label: c,
+                      selected: _selectedCat == c,
+                      highlighted: _matchedCat == c,
+                      accent: accent,
+                      onTap: () => _selectCat(c),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -446,66 +530,66 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     );
   }
 
-  // ── Sort bar ───────────────────────────────────────────────────────────────
-
-  Widget _buildSortBar(Color accent) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      child: Row(children: [
-        const Text('Sort:',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF64748B))),
-        const SizedBox(width: 8),
-        _SortBtn(
-          label: 'Most Visited',
-          icon: Icons.remove_red_eye_rounded,
-          selected: _sort == 'views',
-          accent: accent,
-          onTap: () => _toggleSort('views'),
-        ),
-        const SizedBox(width: 6),
-        _SortBtn(
-          label: 'A → Z',
-          icon: Icons.sort_by_alpha_rounded,
-          selected: _sort == 'name',
-          accent: accent,
-          onTap: () => _toggleSort('name'),
-        ),
-        const Spacer(),
-        if (_loading)
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: accent),
-          ),
-      ]),
-    );
-  }
-
   // ── Local filter (instant for typed search) ────────────────────────────────
 
+  // Name matches are ranked above category-only matches, so typing a page/
+  // channel's own name always brings its card to the top.
   List<dynamic> _filterFb() {
     if (_search.isEmpty) return _fbPages;
     final q = _search.toLowerCase();
-    return _fbPages
-        .where((p) =>
-            p.name.toLowerCase().contains(q) ||
-            p.cat.toLowerCase().contains(q))
-        .toList();
+    final nameMatches = <_FbPage>[];
+    final catOnlyMatches = <_FbPage>[];
+    for (final p in _fbPages) {
+      if (p.name.toLowerCase().contains(q)) {
+        nameMatches.add(p);
+      } else if (p.cat.toLowerCase().contains(q)) {
+        catOnlyMatches.add(p);
+      }
+    }
+    return [...nameMatches, ...catOnlyMatches];
   }
 
   List<dynamic> _filterYt() {
     if (_search.isEmpty) return _ytChannels;
     final q = _search.toLowerCase();
-    return _ytChannels
-        .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            c.cat.toLowerCase().contains(q))
-        .toList();
+    final nameMatches = <_YtChannel>[];
+    final catOnlyMatches = <_YtChannel>[];
+    for (final c in _ytChannels) {
+      if (c.name.toLowerCase().contains(q)) {
+        nameMatches.add(c);
+      } else if (c.cat.toLowerCase().contains(q)) {
+        catOnlyMatches.add(c);
+      }
+    }
+    return [...nameMatches, ...catOnlyMatches];
+  }
+}
+
+// ── Pinned header delegate ────────────────────────────────────────────────────
+// Keeps the platform toggle + search bar + category chips fixed at the top
+// while the results list scrolls beneath it. Height is measured at runtime
+// (see _HomepageState._measureHeader) since the chip row's presence/absence
+// makes the header's natural height variable.
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+
+  _PinnedHeaderDelegate({required this.height, required this.child});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
 
@@ -577,35 +661,41 @@ class _PlatformBtn extends StatelessWidget {
 class _CatChip extends StatelessWidget {
   final String label;
   final bool selected;
+  final bool highlighted;
   final Color accent;
   final VoidCallback onTap;
 
   const _CatChip({
+    super.key,
     required this.label,
     required this.selected,
+    this.highlighted = false,
     required this.accent,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool active = selected || highlighted;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? accent : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? accent : const Color(0xFFE5E9F5),
+            color: active ? accent : const Color(0xFFE5E9F5),
+            width: highlighted && !selected ? 2 : 1,
           ),
-          boxShadow: selected
+          boxShadow: active
               ? [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.22),
-                    blurRadius: 8,
+                    color: accent.withValues(alpha: highlighted && !selected ? 0.35 : 0.22),
+                    blurRadius: highlighted && !selected ? 12 : 8,
                     offset: const Offset(0, 2),
                   )
                 ]
@@ -616,65 +706,10 @@ class _CatChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : const Color(0xFF64748B),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Sort button ───────────────────────────────────────────────────────────────
-
-class _SortBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _SortBtn({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.accent,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.10)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
             color: selected
-                ? accent.withValues(alpha: 0.40)
-                : Colors.transparent,
+                ? Colors.white
+                : (highlighted ? accent : const Color(0xFF64748B)),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 13,
-                color: selected ? accent : const Color(0xFF94A3B8)),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: selected ? accent : const Color(0xFF94A3B8),
-              ),
-            ),
-          ],
         ),
       ),
     );

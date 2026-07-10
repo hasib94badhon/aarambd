@@ -9,6 +9,7 @@ import 'package:aaram_bd/widgets/UpdatePost.dart';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/pages/ServiceCart.dart';
 import 'package:aaram_bd/screens/user_profile.dart';
+import 'package:aaram_bd/services/fcm_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
@@ -147,11 +148,18 @@ class _NavigationScreenState extends State<NavigationScreen>
     getUnreadCount();
     // Save this user's GPS to the backend so they appear in other users' "Nearby" radar.
     LocationService().updateUserLocationFromStorage();
+
+    // Ring the bell the instant a push arrives while the app is open, rather
+    // than waiting for the next manual refresh/lifecycle event.
+    FCMService().onForegroundMessage = () {
+      if (mounted) getUnreadCount();
+    };
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FCMService().onForegroundMessage = null;
     _bellController.dispose();
     super.dispose();
   }
@@ -443,8 +451,7 @@ class _NavigationScreenState extends State<NavigationScreen>
               _bellController.stop();
             }
             if (!mounted) return;
-            await Navigator.push(
-              context,
+            await _currentNavKey.currentState?.push(
               MaterialPageRoute(builder: (_) => const NotificationShow()),
             );
             await getUnreadCount();

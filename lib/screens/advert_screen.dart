@@ -1705,7 +1705,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
   int  _total              = 0;
   int  _page               = 1;
   final int _pageSize      = 10;
-  bool _loading            = true;
+  bool _loading            = false;
   bool _hasMore            = true;
   bool _submitting         = false;
 

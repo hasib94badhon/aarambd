@@ -83,6 +83,15 @@
             <data android:mimeType="text/plain" />
         </intent>
          <package android:name="com.facebook.katana" />
+        <!-- Generic web links (YouTube channels, Facebook plain-link fallback, etc.) —
+             without this, canLaunchUrl() always returns false for https:// on
+             Android 11+ (API 30+) package-visibility restrictions, regardless
+             of whether a browser is actually installed. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 </manifest>
 

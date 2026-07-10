@@ -388,8 +388,8 @@ class _UpdatePostState extends State<UpdatePost> {
             children: [
               // ── Toolbar ─────────────────────────────────────────────────
               Container(
-                margin: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -533,7 +533,7 @@ class _UpdatePostState extends State<UpdatePost> {
 
                     return Container(
                       margin: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
@@ -574,7 +574,7 @@ class _UpdatePostState extends State<UpdatePost> {
                                 // ── Billboard header strip ───────────
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 9),
+                                      horizontal: 12, vertical: 7),
                                   decoration: const BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -703,7 +703,7 @@ class _UpdatePostState extends State<UpdatePost> {
                                 // ── Ad copy (body) ───────────────────
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
-                                      14, 13, 14, 13),
+                                      12, 10, 12, 10),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -740,12 +740,12 @@ class _UpdatePostState extends State<UpdatePost> {
                                         ),
                                       ],
 
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 9),
                                       Divider(
                                           height: 1,
                                           color: Colors.black
                                               .withValues(alpha: 0.07)),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 8),
 
                                       // Stats + CTA
                                       Row(
@@ -786,8 +786,8 @@ class _UpdatePostState extends State<UpdatePost> {
                                           Container(
                                             padding:
                                                 const EdgeInsets.symmetric(
-                                                    horizontal: 14,
-                                                    vertical: 8),
+                                                    horizontal: 12,
+                                                    vertical: 6),
                                             decoration: BoxDecoration(
                                               gradient: const LinearGradient(
                                                 colors: [

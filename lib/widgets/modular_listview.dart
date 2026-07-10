@@ -94,6 +94,16 @@ class _ModularListViewState extends State<ModularListView> {
     }
   }
 
+  Future<void> _refresh() async {
+    setState(() {
+      _posts.clear();
+      _page = 1;
+      _hasMoreData = true;
+      _initialLoadDone = false;
+    });
+    await _fetchPosts();
+  }
+
   Widget _buildNoDataFound() {
     return Center(
       child: Padding(
@@ -106,21 +116,33 @@ class _ModularListViewState extends State<ModularListView> {
   @override
   Widget build(BuildContext context) {
     if (_initialLoadDone && _posts.isEmpty) {
-      return _buildNoDataFound();
+      return RefreshIndicator(
+        color: const Color(0xFF1A56DB),
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [_buildNoDataFound()],
+        ),
+      );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: _posts.length + (_isLoading ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _posts.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB))),
-          );
-        }
-        return widget.itemBuilder(context, _posts[index]);
-      },
+    return RefreshIndicator(
+      color: const Color(0xFF1A56DB),
+      onRefresh: _refresh,
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _posts.length + (_isLoading ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _posts.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB))),
+            );
+          }
+          return widget.itemBuilder(context, _posts[index]);
+        },
+      ),
     );
   }
 }

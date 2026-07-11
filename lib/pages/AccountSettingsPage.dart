@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   @override
@@ -145,12 +146,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   }
 
   void _showSnack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red : Colors.green,
-      ),
-    );
+    showAppToast(context, msg,
+        icon: isError
+            ? Icons.error_outline_rounded
+            : Icons.check_circle_outline_rounded);
   }
 
   Widget _buildSectionTitle(String title) {

@@ -1,4 +1,5 @@
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -248,20 +249,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           });
         }
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Profile updated successfully'),
-              ],
-            ),
-            backgroundColor: _kSuccess,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        showAppToast(context, 'Profile updated successfully',
+            icon: Icons.check_circle_outline_rounded);
         Navigator.pop(context, true);
         return;
       }
@@ -278,23 +267,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed: ${data["message"] ?? "Unknown error"}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+      showAppToast(
+          context, 'Failed: ${data["message"] ?? "Unknown error"}',
+          icon: Icons.error_outline_rounded);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showAppToast(context, 'Error: $e',
+          icon: Icons.error_outline_rounded);
     } finally {
       setState(() => _isUploading = false);
     }

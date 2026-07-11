@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -402,12 +403,7 @@ class _HeroCard extends StatelessWidget {
                                 await Clipboard.setData(
                                     ClipboardData(text: referenceNumber));
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Referral code copied'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  showAppToast(context, 'Referral code copied');
                                 }
                               },
                             ),
@@ -1052,12 +1048,7 @@ class _CodeReminder extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: code));
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Code copied'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                showAppToast(context, 'Code copied');
               }
             },
           ),

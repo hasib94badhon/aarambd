@@ -2,6 +2,7 @@ import 'package:flutter/services.dart'; // For clipboard functionality
 import 'package:flutter/material.dart';
 import 'dart:convert'; // For JSON decoding
 import 'package:http/http.dart' as http;
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class UserProfile extends StatefulWidget {
   @override
@@ -72,45 +73,21 @@ class _UserProfileState extends State<UserProfile> {
       Clipboard.setData(ClipboardData(text: profileLink));
 
       // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profile link saved successfully!',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      showAppToast(context, 'Profile link saved successfully!',
+          icon: Icons.check_circle_outline_rounded);
     } else {
       print("Failed to fetch user data: ${response.statusCode}");
 
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to save profile link.',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      showAppToast(context, 'Failed to save profile link.',
+          icon: Icons.error_outline_rounded);
     }
   } catch (e) {
     print("Error: $e");
 
     // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'An error occurred while saving profile link.',
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    showAppToast(context, 'An error occurred while saving profile link.',
+        icon: Icons.error_outline_rounded);
   }
 }
 

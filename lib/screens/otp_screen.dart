@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/recovery_screen.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 final String host = Config.host;
 
@@ -61,35 +62,12 @@ class _OTPScreenState extends State<OTPScreen> {
   void _showSupportSnackBar() {
     if (!mounted || _isSnackBarVisible) return;
     _isSnackBarVisible = true;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.support_agent_rounded,
-                  color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _l10n.otpSupportMessage,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF1A56DB),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          margin: const EdgeInsets.all(14),
-        ),
-      ).closed.then((_) {
-        _isSnackBarVisible = false;
-      });
+    const duration = Duration(seconds: 3);
+    showAppToast(context, _l10n.otpSupportMessage,
+        icon: Icons.support_agent_rounded, duration: duration);
+    Future.delayed(duration, () {
+      _isSnackBarVisible = false;
+    });
   }
 
   Future<void> verifySecret() async {
@@ -133,22 +111,12 @@ class _OTPScreenState extends State<OTPScreen> {
 
     _isSnackBarVisible = true;
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          margin: const EdgeInsets.all(14),
-        ),
-      ).closed.then((_) {
-        _isSnackBarVisible = false;
-      });
+    const duration = Duration(seconds: 2);
+    showAppToast(context, message,
+        icon: Icons.error_outline_rounded, duration: duration);
+    Future.delayed(duration, () {
+      _isSnackBarVisible = false;
+    });
   }
 
   InputDecoration _inputDecoration({

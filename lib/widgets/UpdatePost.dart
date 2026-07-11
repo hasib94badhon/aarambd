@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class UpdatePost extends StatefulWidget {
   final List<dynamic> posts;
@@ -57,9 +58,7 @@ class _UpdatePostState extends State<UpdatePost> {
       final body = json.decode(response.body);
       final msg =
           body['error'] ?? body['message'] ?? 'Failed to load categories';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
+      showAppToast(context, msg, icon: Icons.error_outline_rounded);
     }
   }
 

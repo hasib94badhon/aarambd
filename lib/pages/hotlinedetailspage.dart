@@ -1,4 +1,5 @@
 import 'package:aaram_bd/model/hotline_category_model.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
  // Update this to your actual model path
@@ -101,9 +102,8 @@ class HotlineDetailsPage extends StatelessWidget {
         if (await canLaunchUrl(phoneUri)) {
           await launchUrl(phoneUri);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Couldn't launch phone dialer")),
-          );
+          showAppToast(context, "Couldn't launch phone dialer",
+              icon: Icons.error_outline_rounded);
         }
       }
     },

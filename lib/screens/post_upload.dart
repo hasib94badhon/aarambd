@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -65,9 +66,8 @@ class _PostUploadState extends State<PostUpload> {
     if (_selectedMediaList.isEmpty &&
         (!hasTextOnlyPost || _descriptionControllers[0].text.trim().isEmpty)) {
       setState(() => _isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please write something or add media.')),
-      );
+      showAppToast(context, 'Please write something or add media.',
+          icon: Icons.error_outline_rounded);
       return;
     }
 
@@ -126,15 +126,13 @@ class _PostUploadState extends State<PostUpload> {
           Navigator.pop(context, true);
         } else {
           final errorData = json.decode(body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${errorData['error']}')),
-          );
+          showAppToast(context, 'Error: ${errorData['error']}',
+              icon: Icons.error_outline_rounded);
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit post: ${e.toString()}')),
-      );
+      showAppToast(context, 'Failed to submit post: ${e.toString()}',
+          icon: Icons.error_outline_rounded);
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);

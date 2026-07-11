@@ -1,4 +1,5 @@
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -189,9 +190,8 @@ class _EditpostState extends State<Editpost> {
     if (_isUpdating) return;
 
     if (!_mainTextController.text.trim().isNotEmpty && !_newMedia.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Post cannot be updated as empty")),
-      );
+      showAppToast(context, "Post cannot be updated as empty",
+          icon: Icons.error_outline_rounded);
       return;
     }
 
@@ -245,21 +245,18 @@ class _EditpostState extends State<Editpost> {
       final resBody = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Post updated successfully")),
-        );
+        showAppToast(context, "Post updated successfully",
+            icon: Icons.check_circle_outline_rounded);
         Navigator.pop(context, true);
       } else {
         final error = json.decode(resBody);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${error['error']}")),
-        );
+        showAppToast(context, "Error: ${error['error']}",
+            icon: Icons.error_outline_rounded);
       }
     } catch (e) {
       print("Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Update failed: ${e.toString()}")),
-      );
+      showAppToast(context, "Update failed: ${e.toString()}",
+          icon: Icons.error_outline_rounded);
     } finally {
       if (mounted) {
         setState(() => _isUpdating = false);
@@ -416,12 +413,10 @@ class _EditpostState extends State<Editpost> {
                                                       .removeAt(i);
                                                 });
 
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          'Media deleted successfully')),
-                                                );
+                                                showAppToast(context,
+                                                    'Media deleted successfully',
+                                                    icon: Icons
+                                                        .check_circle_outline_rounded);
                                               }
                                             },
                                     ),

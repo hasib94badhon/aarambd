@@ -6,6 +6,7 @@ import 'package:aaram_bd/localization/app_localizations.dart';
 import 'package:aaram_bd/screens/otp_screen.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
 import 'package:aaram_bd/services/deep_link_service.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/screens/signup_screen.dart';
 import 'package:aaram_bd/screens/navigation_screen.dart';
@@ -112,43 +113,21 @@ class _LoginScreenState extends State<LoginScreen>
         final responseData = json.decode(response.body);
         final userPhone    = responseData['user']['phone'];
         final userId       = responseData['user']['user_id'].toString();
+        final userStatus   = responseData['user']['status'] ?? 1;
         final accessToken  = responseData['access_token'];
         final refreshToken = responseData['refresh_token'];
 
         await Config.saveTokens(accessToken, refreshToken);
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_outline_rounded,
-                    color: Colors.greenAccent, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  l10n.loginSuccess,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF111827),
-            behavior: SnackBarBehavior.floating,
-            elevation: 6.0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
-            margin: const EdgeInsets.all(14),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        showAppToast(context, l10n.loginSuccess,
+            icon: Icons.check_circle_outline_rounded);
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('userPhone', userPhone);
         await prefs.setString('user_id', userId);
+        await prefs.setInt('user_status', userStatus is int ? userStatus : 1);
 
         if (_rememberMe) {
           await prefs.setBool('rememberMe', true);
@@ -363,9 +342,8 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+       
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -374,8 +352,8 @@ class _LoginScreenState extends State<LoginScreen>
                   offset: const Offset(0, 10)),
             ],
           ),
-          child: Image.asset('images/call1.png',
-              height: 60, width: 60, fit: BoxFit.contain),
+          child: Image.asset('images/app_icon.png',
+              height: 100, width: 100, fit: BoxFit.contain),
         ),
         const SizedBox(height: 14),
         Text(

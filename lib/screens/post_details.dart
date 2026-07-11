@@ -4,6 +4,7 @@ import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:aaram_bd/config.dart'; // Adjust as necessary for your project
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -622,12 +623,11 @@ class _PostDetailsState extends State<PostDetails> {
                                         }
                                       } else {
                                         if (!mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।')),
-                                        );
+                                        showAppToast(
+                                            context,
+                                            'মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।',
+                                            icon: Icons
+                                                .error_outline_rounded);
                                       }
                                     },
                                     child: Container(

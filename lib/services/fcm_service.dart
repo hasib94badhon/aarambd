@@ -6,6 +6,7 @@ import 'package:aaram_bd/screens/advert_screen.dart';
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/screens/thoughtdetails.dart';
 import 'package:aaram_bd/screens/user_profile.dart';
+import 'package:aaram_bd/pages/subscriptionofferpage.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -158,7 +159,7 @@ Future<void> _setupLocalNotifications() async {
 
     final type = (data['type'] ?? '').toString();
 
-    if (type == 'subscription_approved' || type == 'subscription_rejected') {
+    if (type == 'subscription_approved') {
       SharedPreferences.getInstance().then((prefs) {
         final phone = prefs.getString('userPhone');
         if (phone == null || phone.isEmpty) return;
@@ -166,6 +167,13 @@ Future<void> _setupLocalNotifications() async {
           builder: (_) => UserProfile(userPhone: phone),
         ));
       });
+      return;
+    }
+
+    if (type == 'subscription_notice') {
+      navState.push(MaterialPageRoute(
+        builder: (_) => const SubscriptionOfferPage(),
+      ));
       return;
     }
 

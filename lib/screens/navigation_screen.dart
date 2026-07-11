@@ -12,8 +12,10 @@ import 'package:aaram_bd/screens/user_profile.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/widgets/user_current_location.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 final String host = Config.host;
 
@@ -104,6 +106,7 @@ class _NavigationScreenState extends State<NavigationScreen>
   int pageIndex = 0;
   int unreadCount = 0;
   bool isDescLoading = true;
+  bool isInactive = false; // admin marked this account inactive (users.status = 0)
 
   late List<Widget> pages;
 
@@ -146,6 +149,7 @@ class _NavigationScreenState extends State<NavigationScreen>
     initializePages();
     fetchPageData(pageIndex);
     getUnreadCount();
+    _checkUserStatus();
     // Save this user's GPS to the backend so they appear in other users' "Nearby" radar.
     LocationService().updateUserLocationFromStorage();
 
@@ -205,11 +209,13 @@ class _NavigationScreenState extends State<NavigationScreen>
   void refreshCurrentPage() {
     fetchPageData(pageIndex);
     getUnreadCount();
+    _checkUserStatus();
   }
 
   void refreshPage(int index) {
     fetchPageData(index);
     getUnreadCount();
+    _checkUserStatus();
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -260,6 +266,49 @@ class _NavigationScreenState extends State<NavigationScreen>
     } catch (e) {
       debugPrint('Error loading notifications: $e');
     }
+  }
+
+  // Piggybacks on the same refresh points as getUnreadCount() so an admin
+  // marking this account inactive mid-session gets noticed without a
+  // dedicated polling timer.
+  Future<void> _checkUserStatus() async {
+    final ctx = context;
+    final userId = await getLoggedInUser();
+    if (userId == null || !mounted) return;
+    try {
+      final resp = await Config.apiGet('/get_user_status?user_id=$userId', ctx);
+      if (resp == null || resp.statusCode != 200) return;
+      final body = json.decode(resp.body) as Map<String, dynamic>;
+      final inactive = body['status'] == 0;
+      if (!mounted) return;
+      if (inactive != isInactive) setState(() => isInactive = inactive);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('user_status', inactive ? 0 : 1);
+    } catch (e) {
+      debugPrint('Error checking user status: $e');
+    }
+  }
+
+  Future<void> _contactAaramBD() async {
+    try {
+      final response = await Config.apiGet('/get_contact_info', context);
+      if (response != null && response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final String phone = (data['phone'] ?? '').toString().trim();
+        if (phone.isNotEmpty) {
+          final Uri telUri = Uri(scheme: 'tel', path: phone);
+          if (await canLaunchUrl(telUri)) {
+            await launchUrl(telUri);
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // fall through
+    }
+    if (!mounted) return;
+    showAppToast(context, 'Could not open dialer. Please try again.',
+        icon: Icons.error_outline_rounded);
   }
 
   // ── Page data fetch ────────────────────────────────────────────────────────
@@ -714,6 +763,46 @@ class _NavigationScreenState extends State<NavigationScreen>
                   ),
                 ),
               ),
+            if (isInactive)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Material(
+                    color: const Color(0xFFB91C1C),
+                    child: InkWell(
+                      onTap: _contactAaramBD,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'You have been made inactive by AaramBD. '
+                                'Please contact AaramBD.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.call_rounded,
+                                color: Colors.white, size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
 
@@ -774,6 +863,7 @@ class _NavigationScreenState extends State<NavigationScreen>
                                 setState(() => pageIndex = i);
                                 fetchPageData(i);
                                 getUnreadCount();
+                                _checkUserStatus();
                               }
                             },
                           ),

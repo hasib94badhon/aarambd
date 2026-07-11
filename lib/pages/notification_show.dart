@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/widgets/user_service.dart';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 final String host = Config.host;
 
@@ -326,9 +327,8 @@ class _NotificationShowState extends State<NotificationShow> {
                 ),
               );
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Unknown notification type")),
-              );
+              showAppToast(context, "Unknown notification type",
+                  icon: Icons.error_outline_rounded);
             }
           },
           child: Container(

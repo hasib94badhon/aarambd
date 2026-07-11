@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class GeneralSettingsPage extends StatefulWidget {
   @override
@@ -14,12 +15,8 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
 
   void _saveSettings() {
     // TODO: Save to API or local storage
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Settings saved successfully!"),
-        backgroundColor: Colors.green,
-      ),
-    );
+    showAppToast(context, "Settings saved successfully!",
+        icon: Icons.check_circle_outline_rounded);
   }
 
   Widget _buildDecoratedSwitch({

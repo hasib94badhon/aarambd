@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -263,27 +264,18 @@ class _ForgotScreenState extends State<RecoveryScreen> {
 
                               if (newPass.isEmpty || confirmPass.isEmpty) {
                                 if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text("Password fields cannot be empty"),
-                                      backgroundColor: Colors.red,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  showAppToast(
+                                      context, "Password fields cannot be empty",
+                                      icon: Icons.error_outline_rounded);
                                 }
                                 return;
                               }
 
                               if (newPass != confirmPass) {
                                 if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Passwords do not match"),
-                                      backgroundColor: Colors.red,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  showAppToast(
+                                      context, "Passwords do not match",
+                                      icon: Icons.error_outline_rounded);
                                 }
                                 return;
                               }
@@ -303,14 +295,10 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                                 if (response.statusCode == 200 &&
                                     data['status'] == 'success') {
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                            "Password reset successfully"),
-                                        backgroundColor: Colors.green,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                    showAppToast(
+                                        context, "Password reset successfully",
+                                        icon: Icons
+                                            .check_circle_outline_rounded);
 
                                     Navigator.pushAndRemoveUntil(
                                       context,
@@ -322,26 +310,18 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                                   }
                                 } else {
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(data['message'] ??
-                                            'Failed to reset password'),
-                                        backgroundColor: Colors.red,
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                    showAppToast(
+                                        context,
+                                        data['message'] ??
+                                            'Failed to reset password',
+                                        icon: Icons.error_outline_rounded);
                                   }
                                 }
                               } catch (e) {
                                 if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'An error occurred. Please try again.'),
-                                      backgroundColor: Colors.red,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  showAppToast(context,
+                                      'An error occurred. Please try again.',
+                                      icon: Icons.error_outline_rounded);
                                 }
                               }
                             },

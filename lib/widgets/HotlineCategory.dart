@@ -2,6 +2,7 @@ import 'package:aaram_bd/widgets/app_category_details.dart';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/screens/favorite_screen.dart';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
@@ -32,9 +33,8 @@ class _HotlinecategoryState extends State<Hotlinecategory> {
   Future<void> _callNumber(BuildContext context, String phoneRaw) async {
     final phone = phoneRaw.replaceAll(RegExp(r'[^\d\+]'), ''); // keep digits and '+'
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No valid phone number.')),
-      );
+      showAppToast(context, 'No valid phone number.',
+          icon: Icons.error_outline_rounded);
       return;
     }
 
@@ -56,24 +56,19 @@ class _HotlinecategoryState extends State<Hotlinecategory> {
 
         // Likely the iOS Simulator (it can't open the Phone app)
         await Clipboard.setData(ClipboardData(text: phone));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Cannot open dialer in iOS Simulator. Phone number copied to clipboard.',
-            ),
-          ),
-        );
+        showAppToast(
+            context,
+            'Cannot open dialer in iOS Simulator. Phone number copied to clipboard.',
+            icon: Icons.error_outline_rounded);
         return;
       }
 
       // Android fallback failed
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot open dialer on this device.')),
-      );
+      showAppToast(context, 'Cannot open dialer on this device.',
+          icon: Icons.error_outline_rounded);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Dialer error: $e')),
-      );
+      showAppToast(context, 'Dialer error: $e',
+          icon: Icons.error_outline_rounded);
     }
   }
 

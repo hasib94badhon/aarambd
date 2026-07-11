@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
   @override
@@ -29,12 +30,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
   void _saveSecuritySettings() {
     // TODO: Save 2FA and device list to backend
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Security settings saved successfully."),
-        backgroundColor: Colors.green,
-      ),
-    );
+    showAppToast(context, "Security settings saved successfully.",
+        icon: Icons.check_circle_outline_rounded);
   }
 
   Widget _buildSectionTitle(String title) {

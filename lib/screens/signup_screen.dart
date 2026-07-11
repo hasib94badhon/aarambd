@@ -8,6 +8,7 @@ import 'package:aaram_bd/screens/navigation_screen.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
 import 'package:aaram_bd/services/deep_link_service.dart';
 import 'package:aaram_bd/localization/app_localizations.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,33 +32,10 @@ class _SignUpState extends State<SignUpScreen> {
   // ── Backend: unchanged ────────────────────────────────────────────────────
 
   void _showSnackMessage(String message, {bool isError = true}) {
-    _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-                isError
-                    ? Icons.error_outline_rounded
-                    : Icons.check_circle_outline_rounded,
-                color: isError ? Colors.white : Colors.lightGreenAccent,
-                size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor:
-            isError ? const Color(0xFFDC2626) : const Color(0xFF111827),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(14),
-      ),
-    );
+    showAppToast(context, message,
+        icon: isError
+            ? Icons.error_outline_rounded
+            : Icons.check_circle_outline_rounded);
   }
 
   Future<void> addDataToDB(String secretNumber) async {
@@ -102,30 +80,8 @@ class _SignUpState extends State<SignUpScreen> {
   }
 
   void _showSuccessMessage(String message) {
-    _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline_rounded,
-                color: Colors.lightGreenAccent, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF111827),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(14),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showAppToast(context, message,
+        icon: Icons.check_circle_outline_rounded);
   }
 
   // Chains straight into /login right after a successful /add so the user
@@ -489,7 +445,7 @@ class _SignUpState extends State<SignUpScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: Image.asset(
-                    'images/call1.png',
+                    'images/app_icon.png',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.person_add_rounded,

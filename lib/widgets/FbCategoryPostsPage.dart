@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
@@ -74,9 +75,8 @@ class _FbCategoryPostsPageState extends State<FbCategoryPostsPage> {
   Future<void> _openFacebook(Map<String, dynamic> post) async {
     final webUrl = (post['link'] ?? '').toString().trim();
     if (webUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No Facebook link found.")),
-      );
+      showAppToast(context, "No Facebook link found.",
+          icon: Icons.error_outline_rounded);
       return;
     }
     final encoded = Uri.encodeComponent(webUrl);
@@ -91,26 +91,23 @@ class _FbCategoryPostsPageState extends State<FbCategoryPostsPage> {
       await launchUrl(webUri, mode: LaunchMode.externalApplication);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Could not open Facebook page.")),
-    );
+    showAppToast(context, "Could not open Facebook page.",
+        icon: Icons.error_outline_rounded);
   }
 
   Future<void> _callNumber(Map<String, dynamic> post) async {
     final phone = post['phone']?.toString().trim() ?? '';
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No phone number found.")),
-      );
+      showAppToast(context, "No phone number found.",
+          icon: Icons.error_outline_rounded);
       return;
     }
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not launch dialer.")),
-      );
+      showAppToast(context, "Could not launch dialer.",
+          icon: Icons.error_outline_rounded);
     }
   }
 

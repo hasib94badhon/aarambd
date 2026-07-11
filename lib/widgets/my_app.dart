@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
@@ -377,9 +378,8 @@ class _AppCardState extends State<AppCard> {
 
       throw Exception('No launchable URL found');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open app: ${e.toString()}')),
-      );
+      showAppToast(context, 'Could not open app: ${e.toString()}',
+          icon: Icons.error_outline_rounded);
     }
   }
 

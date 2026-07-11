@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class PrivacyRulesPage extends StatefulWidget {
   @override
@@ -19,12 +20,8 @@ class _PrivacyRulesPageState extends State<PrivacyRulesPage> {
 
   void _savePrivacySettings() {
     // TODO: Send updated settings to backend
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Privacy settings saved successfully."),
-        backgroundColor: Colors.green,
-      ),
-    );
+    showAppToast(context, "Privacy settings saved successfully.",
+        icon: Icons.check_circle_outline_rounded);
   }
 
   Widget _buildPrivacyCard(int index, String text) {

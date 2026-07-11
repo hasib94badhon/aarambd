@@ -11,6 +11,7 @@ import 'package:aaram_bd/services/app_location.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/profile_picture_dialog.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -502,12 +503,8 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
   void _openMapSheet(BuildContext context, UserDetail user) {
     if (user.lat == null || user.lon == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location unavailable for this user'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
-      );
+      showAppToast(context, 'Location unavailable for this user',
+          icon: Icons.error_outline_rounded);
       return;
     }
     showModalBottomSheet(
@@ -543,6 +540,50 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
 
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // Checks the cached admin-inactive flag (kept fresh by
+  // NavigationScreen._checkUserStatus) before letting the user contact
+  // someone — the actual dialer/WhatsApp launch happens client-side and
+  // can't be stopped by a server-side rejection alone.
+  Future<bool> _blockedByInactiveStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final status = prefs.getInt('user_status') ?? 1;
+    if (status != 0) return false;
+
+    if (!mounted) return true;
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Account Inactive'),
+        content: const Text(
+          'You have been made inactive by AaramBD. Please contact AaramBD.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              final response =
+                  await Config.apiGet('/get_contact_info', context);
+              if (response != null && response.statusCode == 200) {
+                final data = jsonDecode(response.body);
+                final phone = (data['phone'] ?? '').toString().trim();
+                if (phone.isNotEmpty) {
+                  final telUri = Uri(scheme: 'tel', path: phone);
+                  if (await canLaunchUrl(telUri)) await launchUrl(telUri);
+                }
+              }
+            },
+            child: const Text('Contact AaramBD'),
+          ),
+        ],
+      ),
+    );
+    return true;
+  }
 
   void updateUserCalled(String id, bool isService) async {
     final String idParam = isService ? 'service_id=$id' : 'shop_id=$id';
@@ -637,12 +678,8 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
       await SharePlus.instance.share(params);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error sharing: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppToast(context, 'Error sharing: $e',
+          icon: Icons.error_outline_rounded);
     }
   }
 
@@ -1027,6 +1064,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     isActive: isActive,
                     onTap: isActive
                         ? () async {
+                            if (await _blockedByInactiveStatus()) return;
                             handleAction(user.user_id, 'call', 0);
                             updateUserCalled(
                                 user.service_or_shop_id.toString(),
@@ -1057,6 +1095,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     isActive: isActive,
                     onTap: isActive
                         ? () async {
+                            if (await _blockedByInactiveStatus()) return;
                             handleAction(user.user_id, 'call', 0);
                             updateUserCalled(
                                 user.service_or_shop_id.toString(),
@@ -1769,9 +1808,8 @@ class _ReviewSheetState extends State<ReviewSheet> {
 
   Future<void> _submitReview() async {
     if (_starRating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a star rating first')),
-      );
+      showAppToast(context, 'Please select a star rating first',
+          icon: Icons.error_outline_rounded);
       return;
     }
     setState(() => _submitting = true);
@@ -1797,17 +1835,12 @@ class _ReviewSheetState extends State<ReviewSheet> {
         );
         setState(() => _myReviewId = mine?['review_id']);
         widget.onReviewChanged();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Review submitted! Thank you.'),
-            backgroundColor: Color(0xFF16A34A),
-          ),
-        );
+        showAppToast(context, 'Review submitted! Thank you.',
+            icon: Icons.check_circle_outline_rounded);
       } else {
         final body = jsonDecode(resp?.body ?? '{}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(body['error'] ?? 'Failed to submit review')),
-        );
+        showAppToast(context, body['error'] ?? 'Failed to submit review',
+            icon: Icons.error_outline_rounded);
       }
     } catch (e) {
       debugPrint("Error submitting review: $e");
@@ -1829,9 +1862,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
         setState(() => _myReviewId = null);
         await _loadReviews(reset: true);
         widget.onReviewChanged();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Review deleted')),
-        );
+        showAppToast(context, 'Review deleted');
       }
     } catch (e) {
       debugPrint("Error deleting review: $e");

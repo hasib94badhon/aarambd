@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/thoughtdetails.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -576,11 +577,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    ));
+    showAppToast(context, msg);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

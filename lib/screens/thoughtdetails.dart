@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 class ThoughtDetails extends StatefulWidget {
   final String desId;
@@ -360,10 +361,8 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     }
 
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Could not post comment. Please try again.')),
-      );
+      showAppToast(context, 'Could not post comment. Please try again.',
+          icon: Icons.error_outline_rounded);
       return;
     }
 

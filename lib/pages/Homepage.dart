@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -274,8 +275,10 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     } else if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open page.')));
+      if (mounted) {
+        showAppToast(context, 'Could not open page.',
+            icon: Icons.error_outline_rounded);
+      }
     }
   }
 
@@ -285,8 +288,10 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open channel.')));
+      if (mounted) {
+        showAppToast(context, 'Could not open channel.',
+            icon: Icons.error_outline_rounded);
+      }
     }
   }
 

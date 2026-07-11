@@ -7,6 +7,7 @@ import 'package:aaram_bd/screens/FavoriteProfilesPage.dart';
 import 'package:aaram_bd/screens/AboutAaramBDPage.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
 import 'package:aaram_bd/widgets/termsPolicies.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -242,9 +243,8 @@ class _AppDrawerState extends State<AppDrawer> {
           title: 'Favorite Contacts',
           onTap: () {
             if (userID.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User ID not loaded yet')),
-              );
+              showAppToast(context, 'User ID not loaded yet',
+                  icon: Icons.error_outline_rounded);
               return;
             }
             _push(FavoriteProfilesPage(userId: userID));

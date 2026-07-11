@@ -20,6 +20,7 @@ import 'package:readmore/readmore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:aaram_bd/main.dart';
 import 'package:aaram_bd/widgets/verified_widget.dart';
+import 'package:aaram_bd/widgets/app_toast.dart';
 
 String host = Config.host;
 
@@ -385,12 +386,8 @@ final FocusNode _focusNode = FocusNode();
 
       debugPrint("Share result: ${result.status}");
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error sharing: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppToast(context, 'Error sharing: $e',
+          icon: Icons.error_outline_rounded);
     }
   }
 
@@ -437,35 +434,9 @@ final FocusNode _focusNode = FocusNode();
   String message, {
   bool isError = false,
 }) {
-  final messenger = ScaffoldMessenger.of(context);
-  messenger.clearSnackBars(); // ✅ removes queue + current
-
-  messenger.showSnackBar(
-    SnackBar(
-      content: Row(
-        children: [
-          Icon(
-            isError ? Icons.error_outline : Icons.check_circle_outline,
-            color: Colors.white,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      duration: const Duration(milliseconds: 950), // ✅ fast
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      backgroundColor: isError ? Colors.redAccent : Colors.black87,
-    ),
-  );
+  showAppToast(context, message,
+      icon: isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+      duration: const Duration(milliseconds: 950));
 }
 
 
@@ -729,9 +700,6 @@ final FocusNode _focusNode = FocusNode();
                                             context: context,
                                             userId:
                                                 int.tryParse(user_id) ?? 0,
-                                            onChanged: () => setState(
-                                                () => subscription_type =
-                                                    'waiting'),
                                           ),
                                         ),
                                       ),

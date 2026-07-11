@@ -5,6 +5,7 @@ import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/screens/thoughtdetails.dart';
+import 'package:aaram_bd/screens/user_profile.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -156,6 +157,17 @@ Future<void> _setupLocalNotifications() async {
     if (navState == null) return;
 
     final type = (data['type'] ?? '').toString();
+
+    if (type == 'subscription_approved' || type == 'subscription_rejected') {
+      SharedPreferences.getInstance().then((prefs) {
+        final phone = prefs.getString('userPhone');
+        if (phone == null || phone.isEmpty) return;
+        navState.push(MaterialPageRoute(
+          builder: (_) => UserProfile(userPhone: phone),
+        ));
+      });
+      return;
+    }
 
     if (type == 'new_post') {
       final desId = (data['des_id'] ?? '').toString();

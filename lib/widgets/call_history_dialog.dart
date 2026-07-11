@@ -179,6 +179,8 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                     _Chip(label: 'In: $incomingCount', color: const Color(0xFF10B981)),
                     const SizedBox(width: 8),
                     _Chip(label: 'Out: $outgoingCount', color: const Color(0xFF3B82F6)),
+                    const SizedBox(width: 8),
+                    _CloseButton(onTap: () => Navigator.pop(context)),
                   ],
                 ),
               ),
@@ -313,6 +315,27 @@ class _Chip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CloseButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CloseButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
       ),
     );
   }
@@ -555,11 +578,24 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.hourglass_empty_rounded,
-                size: 56, color: Color(0xFF9CA3AF)),
-            SizedBox(height: 12),
-            Text(
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF6D28D9).withValues(alpha: 0.12),
+                    const Color(0xFF9333EA).withValues(alpha: 0.06),
+                  ],
+                ),
+              ),
+              child: const Icon(Icons.phone_disabled_rounded,
+                  size: 38, color: Color(0xFF6D28D9)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
               'No calls yet',
               style: TextStyle(
                 fontSize: 16.5,

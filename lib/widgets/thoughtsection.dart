@@ -390,10 +390,10 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
     setState(() => _isPosting = true);
     final userId = await Config.getLoggedInUser() ?? '';
 
-    Map<String, File>? files;
+    Map<String, List<File>>? files;
     if (_pickedPhoto != null) {
       final compressed = await Config.compressImageIfNeeded(File(_pickedPhoto!.path));
-      files = {'des_photo': compressed};
+      files = {'des_photo': [compressed]};
     }
     if (!mounted) return;
 

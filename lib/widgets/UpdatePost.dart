@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:aaram_bd/api_service.dart';
 import 'package:aaram_bd/widgets/modular_listview.dart';
@@ -518,8 +519,14 @@ class _UpdatePostState extends State<UpdatePost> {
                   catId: selectedCategoryId,
                   resetTrigger: _resetTrigger,
                   itemBuilder: (context, post) {
-                    final hasImage = post['photo'] != null &&
-                        post['photo'].toString().isNotEmpty;
+                    final photos = (post['photos'] as List?)
+                            ?.map((e) => e.toString())
+                            .where((e) => e.isNotEmpty)
+                            .toList() ??
+                        (post['photo'] != null &&
+                                post['photo'].toString().isNotEmpty
+                            ? [post['photo'].toString()]
+                            : <String>[]);
                     final createdAt = post['time'];
                     final formattedTime = Config.getTimeDifference(createdAt);
 
@@ -655,46 +662,11 @@ class _UpdatePostState extends State<UpdatePost> {
                                 // ── Media ────────────────────────────
                                 AspectRatio(
                                   aspectRatio: 16 / 9,
-                                  child: hasImage
-                                      ? Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            Image.network(
-                                              post['photo'],
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  _billboardPlaceholder(),
-                                              loadingBuilder:
-                                                  (_, child, progress) {
-                                                if (progress == null) {
-                                                  return child;
-                                                }
-                                                return Container(
-                                                    color: const Color(
-                                                        0xFFF3F7FF));
-                                              },
-                                            ),
-                                            // Subtle bottom vignette
-                                            Positioned.fill(
-                                              child: DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin:
-                                                        Alignment.topCenter,
-                                                    end: Alignment
-                                                        .bottomCenter,
-                                                    colors: [
-                                                      Colors.transparent,
-                                                      Colors.black
-                                                          .withValues(
-                                                              alpha: 0.28),
-                                                    ],
-                                                    stops: const [0.5, 1.0],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                  child: photos.isNotEmpty
+                                      ? _AutoSlideBillboardMedia(
+                                          photos: photos,
+                                          placeholderBuilder:
+                                              _billboardPlaceholder,
                                         )
                                       : _billboardPlaceholder(),
                                 ),
@@ -870,6 +842,116 @@ class _UpdatePostState extends State<UpdatePost> {
           color: Colors.white.withValues(alpha: 0.22),
         ),
       ),
+    );
+  }
+}
+
+// Auto-advances through a post's photos every 4 seconds (same interval as
+// user_profile.dart's own post previews), pausing implicitly whenever the
+// widget is disposed (e.g. the card scrolls out of view).
+class _AutoSlideBillboardMedia extends StatefulWidget {
+  final List<String> photos;
+  final Widget Function() placeholderBuilder;
+
+  const _AutoSlideBillboardMedia({
+    required this.photos,
+    required this.placeholderBuilder,
+  });
+
+  @override
+  State<_AutoSlideBillboardMedia> createState() =>
+      _AutoSlideBillboardMediaState();
+}
+
+class _AutoSlideBillboardMediaState extends State<_AutoSlideBillboardMedia> {
+  late final PageController _controller;
+  Timer? _timer;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+    if (widget.photos.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted || !_controller.hasClients) return;
+        final next = (_currentIndex + 1) % widget.photos.length;
+        _controller.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.photos.length,
+          onPageChanged: (index) => setState(() => _currentIndex = index),
+          itemBuilder: (context, index) {
+            return Image.network(
+              widget.photos[index],
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => widget.placeholderBuilder(),
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(color: const Color(0xFFF3F7FF));
+              },
+            );
+          },
+        ),
+        // Subtle bottom vignette
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.28),
+                ],
+                stops: const [0.5, 1.0],
+              ),
+            ),
+          ),
+        ),
+        if (widget.photos.length > 1)
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.photos.length, (i) {
+                final active = i == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: active ? 0.95 : 0.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 }

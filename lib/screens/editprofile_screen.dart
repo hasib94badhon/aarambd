@@ -217,16 +217,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       fields['reg_referral_id'] = referralInput;
     }
 
-    final files = <String, File>{};
+    final files = <String, List<File>>{};
 
     for (int i = 0; i < _images.length; i++) {
-      files['images[$i]'] = await _compressOrFallback(File(_images[i].path));
+      files['images[$i]'] = [await _compressOrFallback(File(_images[i].path))];
     }
     for (int i = 0; i < _nidFiles.length; i++) {
-      files['nids[$i]'] = await _compressOrFallback(File(_nidFiles[i].path));
+      files['nids[$i]'] = [await _compressOrFallback(File(_nidFiles[i].path))];
     }
     for (int i = 0; i < _tinFiles.length; i++) {
-      files['tins[$i]'] = await _compressOrFallback(File(_tinFiles[i].path));
+      files['tins[$i]'] = [await _compressOrFallback(File(_tinFiles[i].path))];
     }
 
     try {

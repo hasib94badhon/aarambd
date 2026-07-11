@@ -2,6 +2,8 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/pages/editpost.dart';
 import 'package:aaram_bd/screens/DataCollectorLearnMorePage.dart';
@@ -57,6 +59,7 @@ final FocusNode _focusNode = FocusNode();
   String user_id = '';
   String userName = "User Name";
   String profile_pic = "";
+  bool _isUpdatingProfilePhoto = false;
   String userCategory = "Category";
   String userCategoryId = "56";
   String userDescription = "";
@@ -287,6 +290,45 @@ final FocusNode _focusNode = FocusNode();
     } finally {
       setState(() => _postLoading = false);
     }
+  }
+
+  // Picks a single photo and uploads it as the new primary profile photo.
+  // /update_user_profile falls back to the existing name/category/description
+  // when those fields are omitted, so this only ever touches the photo --
+  // and puts the new image first in the comma-joined photo list, which is
+  // what every other endpoint reads as the display photo.
+  Future<bool> _pickAndUpdateProfilePhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 90);
+    if (picked == null) return false;
+
+    File toUpload = File(picked.path);
+    try {
+      toUpload = await Config.compressImageIfNeeded(toUpload);
+    } catch (_) {
+      // fall back to the uncompressed file
+    }
+    if (!mounted) return false;
+
+    final response = await Config.apiMultipartPost(
+      '/update_user_profile',
+      context,
+      files: {'images[0]': [toUpload]},
+    );
+
+    if (response == null) return false;
+    final body = jsonDecode(await response.stream.bytesToString());
+
+    if (response.statusCode == 200 && body['success'] == true) {
+      final urls = (body['image_urls'] ?? '').toString();
+      final newPhoto = urls.split(',').first.trim();
+      if (newPhoto.isNotEmpty && mounted) {
+        setState(() => profile_pic = newPhoto);
+      }
+      return true;
+    }
+    return false;
   }
 
   // Average rating left by OTHER users about this profile (not reviews this
@@ -624,29 +666,130 @@ final FocusNode _focusNode = FocusNode();
                                         onTap: () {
                                     showDialog(
                                       context: context,
-                                      builder: (context) => Dialog(
-                                        backgroundColor: Colors.transparent,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: ClipOval(
-                                          child: SizedBox(
-                                            height: 300,
-                                            width: 300,
-                                            child: profile_pic.isNotEmpty
-                                                ? Image.network(profile_pic,
-                                                    fit: BoxFit.cover)
-                                                : Container(
-                                                    color: const Color(
-                                                        0xFF1A56DB),
-                                                    child: const Icon(
-                                                        Icons.person,
-                                                        size: 120,
-                                                        color: Colors.white),
+                                      builder: (dialogCtx) => StatefulBuilder(
+                                        builder: (dialogCtx, setDialogState) {
+                                          Future<void> updatePhoto() async {
+                                            setDialogState(() =>
+                                                _isUpdatingProfilePhoto =
+                                                    true);
+                                            final success =
+                                                await _pickAndUpdateProfilePhoto();
+                                            setDialogState(() =>
+                                                _isUpdatingProfilePhoto =
+                                                    false);
+                                            if (!dialogCtx.mounted) return;
+                                            showAppToast(
+                                              dialogCtx,
+                                              success
+                                                  ? 'Profile photo updated'
+                                                  : 'Failed to update photo',
+                                              icon: success
+                                                  ? Icons
+                                                      .check_circle_outline_rounded
+                                                  : Icons
+                                                      .error_outline_rounded,
+                                            );
+                                          }
+
+                                          return Dialog(
+                                            backgroundColor:
+                                                Colors.transparent,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Stack(
+                                              clipBehavior: Clip.none,
+                                              alignment: Alignment.center,
+                                              children: [
+                                                ClipOval(
+                                                  child: SizedBox(
+                                                    height: 300,
+                                                    width: 300,
+                                                    child: Stack(
+                                                      fit: StackFit.expand,
+                                                      children: [
+                                                        profile_pic.isNotEmpty
+                                                            ? Image.network(
+                                                                profile_pic,
+                                                                fit: BoxFit
+                                                                    .cover)
+                                                            : Container(
+                                                                color: const Color(
+                                                                    0xFF1A56DB),
+                                                                child: const Icon(
+                                                                    Icons
+                                                                        .person,
+                                                                    size: 120,
+                                                                    color: Colors
+                                                                        .white),
+                                                              ),
+                                                        if (_isUpdatingProfilePhoto)
+                                                          Container(
+                                                            color: Colors.black
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.45),
+                                                            child: const Center(
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
                                                   ),
-                                          ),
-                                        ),
+                                                ),
+                                                Positioned(
+                                                  bottom: 6,
+                                                  right: 6,
+                                                  child: GestureDetector(
+                                                    onTap:
+                                                        _isUpdatingProfilePhoto
+                                                            ? null
+                                                            : updatePhoto,
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets
+                                                              .all(10),
+                                                      decoration:
+                                                          BoxDecoration(
+                                                        color: const Color(
+                                                            0xFF1A56DB),
+                                                        shape:
+                                                            BoxShape.circle,
+                                                        border: Border.all(
+                                                            color:
+                                                                Colors.white,
+                                                            width: 2.5),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors
+                                                                .black
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.25),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 3),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: const Icon(
+                                                          Icons
+                                                              .camera_alt_rounded,
+                                                          color: Colors.white,
+                                                          size: 20),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
                                       ),
                                     );
                                   },

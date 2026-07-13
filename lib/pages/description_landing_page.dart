@@ -534,11 +534,7 @@ class _PostPromptBarState extends State<_PostPromptBar>
     super.dispose();
   }
 
-  static const _aiColors = [
-    Color(0xFF4F46E5), // indigo
-    Color(0xFF7C3AED), // violet
-    Color(0xFFDB2777), // pink
-  ];
+  static const _brand = Color(0xFF1A56DB);
 
   @override
   Widget build(BuildContext context) {
@@ -547,26 +543,22 @@ class _PostPromptBarState extends State<_PostPromptBar>
       child: AnimatedBuilder(
         animation: _pulseCtrl,
         builder: (context, child) {
-          final glow = 0.35 + (_pulseCtrl.value * 0.25);
+          final glow = 0.14 + (_pulseCtrl.value * 0.10);
           return GestureDetector(
             onTap: widget.onTap,
             child: Container(
               height: 56,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: _aiColors,
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: _brand.withValues(alpha: 0.16),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7C3AED).withValues(alpha: glow),
-                    blurRadius: 22,
+                    color: _brand.withValues(alpha: glow),
+                    blurRadius: 20,
                     spreadRadius: -2,
                     offset: const Offset(0, 8),
                   ),
@@ -582,45 +574,39 @@ class _PostPromptBarState extends State<_PostPromptBar>
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
+                        color: _brand.withValues(alpha: 0.10),
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withValues(alpha: glow * 0.6),
-                            blurRadius: 10,
-                          ),
-                        ],
                       ),
                       child: const Icon(Icons.auto_awesome_rounded,
-                          size: 17, color: Colors.white),
+                          size: 17, color: _brand),
                     ),
                   ),
                   const SizedBox(width: 11),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'কি লাগবে?',
+                        Text(
+                          'সহজে পোস্ট বানান',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: Color(0xFF111827),
                             letterSpacing: 0.1,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        SizedBox(height: 1),
                         Text(
-                          'AaramBD AI দিয়ে সহজে পোস্ট করুন',
+                          'ক্যাটাগরি ও শব্দ বেছে লিখুন',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.80),
+                            color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
@@ -632,23 +618,26 @@ class _PostPromptBarState extends State<_PostPromptBar>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 13, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1040B0), _brand],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
+                          color: _brand.withValues(alpha: 0.32),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.bolt_rounded,
-                          size: 13, color: Color(0xFF7C3AED)),
-                      const SizedBox(width: 3),
-                      const Text('GO LIVE',
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.bolt_rounded, size: 13, color: Colors.white),
+                      SizedBox(width: 3),
+                      Text('GO LIVE',
                           style: TextStyle(
-                              color: Color(0xFF4F46E5),
+                              color: Colors.white,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.6)),
@@ -806,11 +795,22 @@ class _SubCatPopup extends StatefulWidget {
 
 class _SubCatPopupState extends State<_SubCatPopup> {
   final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
   String _query = '';
+  bool _searchFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(() {
+      if (mounted) setState(() => _searchFocused = _searchFocus.hasFocus);
+    });
+  }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -833,7 +833,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
 
     return ConstrainedBox(
       constraints:
-          BoxConstraints(maxHeight: mq.size.height * 0.58),
+          BoxConstraints(maxHeight: mq.size.height * 0.62),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -849,13 +849,19 @@ class _SubCatPopupState extends State<_SubCatPopup> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
+            // Drag handle — sole "this can be dismissed" affordance, paired
+            // with the explicit close button below (no more duplicate
+            // close controls top AND bottom).
             const SizedBox(height: 10),
-            Container(
-              width: 38, height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(2)),
+            GestureDetector(
+              onTap: widget.onClose,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 38, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(2)),
+              ),
             ),
             const SizedBox(height: 14),
 
@@ -888,7 +894,10 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                       color: accent.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text('${widget.subCats.length}',
+                    child: Text(
+                        searching
+                            ? '${results.length}/${widget.subCats.length}'
+                            : '${widget.subCats.length}',
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -907,22 +916,38 @@ class _SubCatPopupState extends State<_SubCatPopup> {
             ),
             const SizedBox(height: 12),
 
-            // Search field
+            // Search field — border/shadow reacts to focus, not just to
+            // whether text has been typed, so it feels alive as soon as
+            // you tap in (matches the focus-animated fields used elsewhere).
             if (!widget.loading)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 42,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F6FA),
+                    color: _searchFocused
+                        ? Colors.white
+                        : const Color(0xFFF5F6FA),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: _query.isEmpty
-                            ? const Color(0xFFE8EAF0)
-                            : accent.withValues(alpha: 0.45)),
+                        color: _searchFocused
+                            ? accent
+                            : const Color(0xFFE8EAF0),
+                        width: _searchFocused ? 1.6 : 1.0),
+                    boxShadow: _searchFocused
+                        ? [
+                            BoxShadow(
+                                color: accent.withValues(alpha: 0.16),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3)),
+                          ]
+                        : [],
                   ),
                   child: TextField(
                     controller: _searchCtrl,
+                    focusNode: _searchFocus,
                     onChanged: (v) => setState(() => _query = v),
                     style: const TextStyle(
                         fontSize: 13.5, color: Color(0xFF1A2340)),
@@ -970,6 +995,26 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                       style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withValues(alpha: 0.40))),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _searchCtrl.clear();
+                      _query = '';
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text('অনুসন্ধান মুছুন',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: accent)),
+                    ),
+                  ),
                 ]),
               )
             else
@@ -1006,26 +1051,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                 ),
               ),
 
-            const SizedBox(height: 12),
-
-            // Minimize / down-arrow button
-            GestureDetector(
-              onTap: widget.onClose,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 6),
-                margin: const EdgeInsets.only(bottom: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 26,
-                    color: Colors.black38),
-              ),
-            ),
-            const SizedBox(height: 6),
+            SizedBox(height: mq.padding.bottom + 12),
           ],
         ),
       ),
@@ -1072,15 +1098,24 @@ class _SubChip extends StatelessWidget {
                 ]
               : [],
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: selected
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-                color: selected
-                    ? Colors.white
-                    : const Color(0xFF1A2340))),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+              const SizedBox(width: 4),
+            ],
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: selected
+                        ? Colors.white
+                        : const Color(0xFF1A2340))),
+          ],
+        ),
       ),
     );
   }

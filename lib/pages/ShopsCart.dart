@@ -12,12 +12,14 @@ class CategoryCount {
   final String categoryName;
   final dynamic photo;
   final String cat_id;
+  final int catUsed;
 
   CategoryCount({
     required this.categoryCount,
     required this.categoryName,
     required this.cat_id,
     required this.photo,
+    required this.catUsed,
   });
 
   factory CategoryCount.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,9 @@ class CategoryCount {
       categoryName: json['name']?.toString() ?? '',
       cat_id: json['cat_id'].toString(),
       photo: json['photo'],
+      catUsed: json['cat_used'] is int
+          ? json['cat_used']
+          : int.tryParse(json['cat_used']?.toString() ?? '0') ?? 0,
     );
   }
 }
@@ -119,11 +124,13 @@ class _ShopCategoryCard extends StatelessWidget {
   final String imageUrl;
   final String name;
   final int count;
+  final int catUsed;
   final VoidCallback onTap;
 
   const _ShopCategoryCard({
     required this.imageUrl,
     required this.name,
+    required this.catUsed,
     required this.count,
     required this.onTap,
   });
@@ -262,13 +269,36 @@ class _ShopCategoryCard extends StatelessWidget {
                           size: 13, color: _blue),
                       const SizedBox(width: 5),
                       Text(
-                        '$count shops available',
+                        '$count shops',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.black.withValues(alpha: 0.52),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (catUsed > 0) ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.local_fire_department_rounded,
+                            size: 13, color: Color(0xFFF97316)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$catUsed visits',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFF97316),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -503,6 +533,7 @@ class _ShopsCartState extends State<ShopsCart> {
                                                 cat.photo?.toString() ?? '',
                                             name: cat.categoryName,
                                             count: cat.categoryCount,
+                                            catUsed: cat.catUsed,
                                             onTap: () {
                                               updateCategoryUsage(
                                                   cat.cat_id, context);

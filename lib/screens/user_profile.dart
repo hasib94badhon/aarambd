@@ -10,6 +10,7 @@ import 'package:aaram_bd/screens/DataCollectorLearnMorePage.dart';
 import 'package:aaram_bd/screens/advert_screen.dart' show ReviewSheet;
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/widgets/call_history_dialog.dart';
+import 'package:aaram_bd/widgets/confirm_delete_dialog.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/thoughtsection.dart';
 import 'package:aaram_bd/widgets/userstarwidget.dart';
@@ -48,7 +49,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
 
   _UserProfileState({required this.userPhone});
 
-final FocusNode _focusNode = FocusNode();
+  final FocusNode _focusNode = FocusNode();
   late String userID;
   bool isActive = true;
   String selectedSortValue = 'recent';
@@ -104,7 +105,6 @@ final FocusNode _focusNode = FocusNode();
   final int _postPageSize = 8;
   bool _postLoading = false;
   bool _postHasMore = true;
-
 
   @override
   void didChangeDependencies() {
@@ -190,32 +190,6 @@ final FocusNode _focusNode = FocusNode();
     _getDescriptions();
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
     try {
@@ -299,8 +273,8 @@ final FocusNode _focusNode = FocusNode();
   // what every other endpoint reads as the display photo.
   Future<bool> _pickAndUpdateProfilePhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 90);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
     if (picked == null) return false;
 
     File toUpload = File(picked.path);
@@ -314,7 +288,9 @@ final FocusNode _focusNode = FocusNode();
     final response = await Config.apiMultipartPost(
       '/update_user_profile',
       context,
-      files: {'images[0]': [toUpload]},
+      files: {
+        'images[0]': [toUpload]
+      },
     );
 
     if (response == null) return false;
@@ -471,16 +447,18 @@ final FocusNode _focusNode = FocusNode();
       setState(() {});
     }
   }
-  void showQuickSnack(
-  BuildContext context,
-  String message, {
-  bool isError = false,
-}) {
-  showAppToast(context, message,
-      icon: isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
-      duration: const Duration(milliseconds: 950));
-}
 
+  void showQuickSnack(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
+    showAppToast(context, message,
+        icon: isError
+            ? Icons.error_outline_rounded
+            : Icons.check_circle_outline_rounded,
+        duration: const Duration(milliseconds: 950));
+  }
 
   Future<void> fetchCallList(String userId,
       {required int page, required BuildContext context}) async {
@@ -593,8 +571,6 @@ final FocusNode _focusNode = FocusNode();
     );
   }
 
-
-
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
@@ -617,7 +593,8 @@ final FocusNode _focusNode = FocusNode();
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                  border:
+                      Border.all(color: Colors.black.withValues(alpha: 0.06)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.09),
@@ -648,9 +625,9 @@ final FocusNode _focusNode = FocusNode();
                                   child: GestureDetector(
                                     onTap: _showMyReviews,
                                     child: UserStarWidget(
-                                      rating: (_reviewSummary?['avg_rating'] ??
-                                              0)
-                                          .toDouble(),
+                                      rating:
+                                          (_reviewSummary?['avg_rating'] ?? 0)
+                                              .toDouble(),
                                       reviewCount:
                                           _reviewSummary?['total'] ?? 0,
                                     ),
@@ -664,251 +641,273 @@ final FocusNode _focusNode = FocusNode();
                                     children: [
                                       GestureDetector(
                                         onTap: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (dialogCtx) => StatefulBuilder(
-                                        builder: (dialogCtx, setDialogState) {
-                                          Future<void> updatePhoto() async {
-                                            setDialogState(() =>
-                                                _isUpdatingProfilePhoto =
-                                                    true);
-                                            final success =
-                                                await _pickAndUpdateProfilePhoto();
-                                            setDialogState(() =>
-                                                _isUpdatingProfilePhoto =
-                                                    false);
-                                            if (!dialogCtx.mounted) return;
-                                            showAppToast(
-                                              dialogCtx,
-                                              success
-                                                  ? 'Profile photo updated'
-                                                  : 'Failed to update photo',
-                                              icon: success
-                                                  ? Icons
-                                                      .check_circle_outline_rounded
-                                                  : Icons
-                                                      .error_outline_rounded,
-                                            );
-                                          }
+                                          showDialog(
+                                            context: context,
+                                            builder: (dialogCtx) =>
+                                                StatefulBuilder(
+                                              builder:
+                                                  (dialogCtx, setDialogState) {
+                                                Future<void>
+                                                    updatePhoto() async {
+                                                  setDialogState(() =>
+                                                      _isUpdatingProfilePhoto =
+                                                          true);
+                                                  final success =
+                                                      await _pickAndUpdateProfilePhoto();
+                                                  setDialogState(() =>
+                                                      _isUpdatingProfilePhoto =
+                                                          false);
+                                                  if (!dialogCtx.mounted)
+                                                    return;
+                                                  showAppToast(
+                                                    dialogCtx,
+                                                    success
+                                                        ? 'Profile photo updated'
+                                                        : 'Failed to update photo',
+                                                    icon: success
+                                                        ? Icons
+                                                            .check_circle_outline_rounded
+                                                        : Icons
+                                                            .error_outline_rounded,
+                                                  );
+                                                }
 
-                                          return Dialog(
-                                            backgroundColor:
-                                                Colors.transparent,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Stack(
-                                              clipBehavior: Clip.none,
-                                              alignment: Alignment.center,
-                                              children: [
-                                                ClipOval(
-                                                  child: SizedBox(
-                                                    height: 300,
-                                                    width: 300,
-                                                    child: Stack(
-                                                      fit: StackFit.expand,
-                                                      children: [
-                                                        profile_pic.isNotEmpty
-                                                            ? Image.network(
-                                                                profile_pic,
-                                                                fit: BoxFit
-                                                                    .cover)
-                                                            : Container(
-                                                                color: const Color(
-                                                                    0xFF1A56DB),
-                                                                child: const Icon(
-                                                                    Icons
-                                                                        .person,
-                                                                    size: 120,
-                                                                    color: Colors
-                                                                        .white),
-                                                              ),
-                                                        if (_isUpdatingProfilePhoto)
-                                                          Container(
-                                                            color: Colors.black
-                                                                .withValues(
-                                                                    alpha:
-                                                                        0.45),
-                                                            child: const Center(
-                                                              child:
-                                                                  CircularProgressIndicator(
+                                                return Dialog(
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                  ),
+                                                  child: Stack(
+                                                    clipBehavior: Clip.none,
+                                                    alignment: Alignment.center,
+                                                    children: [
+                                                      ClipOval(
+                                                        child: SizedBox(
+                                                          height: 300,
+                                                          width: 300,
+                                                          child: Stack(
+                                                            fit:
+                                                                StackFit.expand,
+                                                            children: [
+                                                              profile_pic
+                                                                      .isNotEmpty
+                                                                  ? Image.network(
+                                                                      profile_pic,
+                                                                      fit: BoxFit
+                                                                          .cover)
+                                                                  : Container(
+                                                                      color: const Color(
+                                                                          0xFF1A56DB),
+                                                                      child: const Icon(
+                                                                          Icons
+                                                                              .person,
+                                                                          size:
+                                                                              120,
+                                                                          color:
+                                                                              Colors.white),
+                                                                    ),
+                                                              if (_isUpdatingProfilePhoto)
+                                                                Container(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.45),
+                                                                  child:
+                                                                      const Center(
+                                                                    child:
+                                                                        CircularProgressIndicator(
+                                                                      color: Colors
+                                                                          .white,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Positioned(
+                                                        bottom: 6,
+                                                        right: 6,
+                                                        child: GestureDetector(
+                                                          onTap:
+                                                              _isUpdatingProfilePhoto
+                                                                  ? null
+                                                                  : updatePhoto,
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(10),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: const Color(
+                                                                  0xFF1A56DB),
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  width: 2.5),
+                                                              boxShadow: [
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.25),
+                                                                  blurRadius: 8,
+                                                                  offset:
+                                                                      const Offset(
+                                                                          0, 3),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            child: const Icon(
+                                                                Icons
+                                                                    .camera_alt_rounded,
                                                                 color: Colors
                                                                     .white,
-                                                              ),
-                                                            ),
+                                                                size: 20),
                                                           ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                Positioned(
-                                                  bottom: 6,
-                                                  right: 6,
-                                                  child: GestureDetector(
-                                                    onTap:
-                                                        _isUpdatingProfilePhoto
-                                                            ? null
-                                                            : updatePhoto,
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets
-                                                              .all(10),
-                                                      decoration:
-                                                          BoxDecoration(
-                                                        color: const Color(
-                                                            0xFF1A56DB),
-                                                        shape:
-                                                            BoxShape.circle,
-                                                        border: Border.all(
-                                                            color:
-                                                                Colors.white,
-                                                            width: 2.5),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors
-                                                                .black
-                                                                .withValues(
-                                                                    alpha:
-                                                                        0.25),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                const Offset(
-                                                                    0, 3),
-                                                          ),
-                                                        ],
+                                                        ),
                                                       ),
-                                                      child: const Icon(
-                                                          Icons
-                                                              .camera_alt_rounded,
-                                                          color: Colors.white,
-                                                          size: 20),
-                                                    ),
+                                                    ],
                                                   ),
-                                                ),
-                                              ],
+                                                );
+                                              },
                                             ),
                                           );
                                         },
-                                      ),
-                                    );
-                                  },
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      Container(
-                                        width: 84,
-                                        height: 84,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: const Color(0xFFE8ECF4),
-                                              width: 2),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black
-                                                  .withValues(alpha: 0.10),
-                                              blurRadius: 14,
-                                              offset: const Offset(0, 6),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipOval(
-                                          child: profile_pic.isNotEmpty
-                                              ? Image.network(profile_pic,
-                                                  fit: BoxFit.cover)
-                                              : Container(
-                                                  color:
-                                                      const Color(0xFF1A56DB),
-                                                  child: const Icon(
-                                                      Icons.person,
-                                                      size: 40,
-                                                      color: Colors.white),
-                                                ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: verifiedWidgetIcon(
-                                            subscriptionType:
-                                                subscription_type,
-                                            lastPayString: last_pay,
-                                            context: context,
-                                            userId:
-                                                int.tryParse(user_id) ?? 0,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        userName,
-                                        style: const TextStyle(
-                                          fontSize: 21,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF111827),
-                                          letterSpacing: -0.4,
-                                          height: 1.1,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      // Category pill
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1A56DB)
-                                              .withValues(alpha: 0.08),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          border: Border.all(
-                                              color: const Color(0xFF1A56DB)
-                                                  .withValues(alpha: 0.18)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
+                                        child: Stack(
+                                          clipBehavior: Clip.none,
                                           children: [
-                                            const Icon(
-                                                Icons.category_rounded,
-                                                size: 12,
-                                                color: Color(0xFF1A56DB)),
-                                            const SizedBox(width: 5),
-                                            Flexible(
-                                              child: Text(
-                                                userCategory,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF1A56DB),
+                                            Container(
+                                              width: 84,
+                                              height: 84,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                    color:
+                                                        const Color(0xFFE8ECF4),
+                                                    width: 2),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(
+                                                            alpha: 0.10),
+                                                    blurRadius: 14,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipOval(
+                                                child: profile_pic.isNotEmpty
+                                                    ? Image.network(profile_pic,
+                                                        fit: BoxFit.cover)
+                                                    : Container(
+                                                        color: const Color(
+                                                            0xFF1A56DB),
+                                                        child: const Icon(
+                                                            Icons.person,
+                                                            size: 40,
+                                                            color:
+                                                                Colors.white),
+                                                      ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              bottom: 0,
+                                              right: 0,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(3),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
                                                 ),
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                child: verifiedWidgetIcon(
+                                                  subscriptionType:
+                                                      subscription_type,
+                                                  lastPayString: last_pay,
+                                                  context: context,
+                                                  userId:
+                                                      int.tryParse(user_id) ??
+                                                          0,
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              userName,
+                                              style: const TextStyle(
+                                                fontSize: 21,
+                                                fontWeight: FontWeight.w900,
+                                                color: Color(0xFF111827),
+                                                letterSpacing: -0.4,
+                                                height: 1.1,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            // Category pill
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF1A56DB)
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color:
+                                                        const Color(0xFF1A56DB)
+                                                            .withValues(
+                                                                alpha: 0.18)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                      Icons.category_rounded,
+                                                      size: 12,
+                                                      color: Color(0xFF1A56DB)),
+                                                  const SizedBox(width: 5),
+                                                  Flexible(
+                                                    child: Text(
+                                                      userCategory,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            Color(0xFF1A56DB),
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -924,8 +923,8 @@ final FocusNode _focusNode = FocusNode();
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                    color: Colors.black
-                                        .withValues(alpha: 0.07)),
+                                    color:
+                                        Colors.black.withValues(alpha: 0.07)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.06),
@@ -944,8 +943,7 @@ final FocusNode _focusNode = FocusNode();
                                             call_status == 'active'
                                                 ? 'inactive'
                                                 : 'active';
-                                        setState(
-                                            () => call_status = newStatus);
+                                        setState(() => call_status = newStatus);
                                         updateUserStatus(
                                           userId: user_id,
                                           status: newStatus,
@@ -983,8 +981,7 @@ final FocusNode _focusNode = FocusNode();
                                             BoxShadow(
                                               color: (call_status == 'active'
                                                       ? const Color(0xFF16A34A)
-                                                      : const Color(
-                                                          0xFFDC2626))
+                                                      : const Color(0xFFDC2626))
                                                   .withValues(alpha: 0.34),
                                               blurRadius: 14,
                                               offset: const Offset(0, 5),
@@ -1001,7 +998,8 @@ final FocusNode _focusNode = FocusNode();
                                                 Container(
                                                   width: 8,
                                                   height: 8,
-                                                  decoration: const BoxDecoration(
+                                                  decoration:
+                                                      const BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     color: Colors.white,
                                                   ),
@@ -1045,11 +1043,11 @@ final FocusNode _focusNode = FocusNode();
                                             AnimatedSwitcher(
                                               duration: const Duration(
                                                   milliseconds: 240),
-                                              transitionBuilder: (child,
-                                                      anim) =>
-                                                  ScaleTransition(
-                                                      scale: anim,
-                                                      child: child),
+                                              transitionBuilder:
+                                                  (child, anim) =>
+                                                      ScaleTransition(
+                                                          scale: anim,
+                                                          child: child),
                                               child: Icon(
                                                 call_status == 'active'
                                                     ? Icons
@@ -1238,22 +1236,20 @@ final FocusNode _focusNode = FocusNode();
                                                       horizontal: 12,
                                                       vertical: 10),
                                               decoration: BoxDecoration(
-                                                color:
-                                                    const Color(0xFFFFF3E8),
+                                                color: const Color(0xFFFFF3E8),
                                                 borderRadius:
                                                     BorderRadius.circular(10),
                                                 border: Border.all(
-                                                    color: const Color(
-                                                            0xFFF57C00)
-                                                        .withValues(
-                                                            alpha: 0.25)),
+                                                    color:
+                                                        const Color(0xFFF57C00)
+                                                            .withValues(
+                                                                alpha: 0.25)),
                                               ),
                                               child: Row(
                                                 children: [
                                                   Container(
                                                     padding:
-                                                        const EdgeInsets.all(
-                                                            5),
+                                                        const EdgeInsets.all(5),
                                                     decoration: BoxDecoration(
                                                       color: const Color(
                                                               0xFFF57C00)
@@ -1267,8 +1263,8 @@ final FocusNode _focusNode = FocusNode();
                                                         Icons
                                                             .remove_red_eye_rounded,
                                                         size: 15,
-                                                        color: Color(
-                                                            0xFFF57C00)),
+                                                        color:
+                                                            Color(0xFFF57C00)),
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
@@ -1294,7 +1290,8 @@ final FocusNode _focusNode = FocusNode();
                                                           'Views',
                                                           style: TextStyle(
                                                             fontSize: 10.5,
-                                                            color: Colors.grey.shade600,
+                                                            color: Colors
+                                                                .grey.shade600,
                                                           ),
                                                         ),
                                                       ],
@@ -1331,11 +1328,11 @@ final FocusNode _focusNode = FocusNode();
                                               if (!context.mounted) return;
                                               showCallHistoryBottomSheet(
                                                 context: context,
-                                                incomingCallList: incomingCallList
-                                                    .cast<
+                                                incomingCallList:
+                                                    incomingCallList.cast<
                                                         Map<String, dynamic>>(),
-                                                outgoingCallList: outgoingCallList
-                                                    .cast<
+                                                outgoingCallList:
+                                                    outgoingCallList.cast<
                                                         Map<String, dynamic>>(),
                                                 loadMore: () => fetchCallList(
                                                     user_id.toString(),
@@ -1350,22 +1347,20 @@ final FocusNode _focusNode = FocusNode();
                                                       horizontal: 12,
                                                       vertical: 10),
                                               decoration: BoxDecoration(
-                                                color:
-                                                    const Color(0xFFEDF4FF),
+                                                color: const Color(0xFFEDF4FF),
                                                 borderRadius:
                                                     BorderRadius.circular(10),
                                                 border: Border.all(
-                                                    color: const Color(
-                                                            0xFF1976D2)
-                                                        .withValues(
-                                                            alpha: 0.25)),
+                                                    color:
+                                                        const Color(0xFF1976D2)
+                                                            .withValues(
+                                                                alpha: 0.25)),
                                               ),
                                               child: Row(
                                                 children: [
                                                   Container(
                                                     padding:
-                                                        const EdgeInsets.all(
-                                                            5),
+                                                        const EdgeInsets.all(5),
                                                     decoration: BoxDecoration(
                                                       color: const Color(
                                                               0xFF1976D2)
@@ -1378,8 +1373,8 @@ final FocusNode _focusNode = FocusNode();
                                                     child: const Icon(
                                                         Icons.call_rounded,
                                                         size: 15,
-                                                        color: Color(
-                                                            0xFF1976D2)),
+                                                        color:
+                                                            Color(0xFF1976D2)),
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
@@ -1405,7 +1400,8 @@ final FocusNode _focusNode = FocusNode();
                                                           'Calls',
                                                           style: TextStyle(
                                                             fontSize: 10.5,
-                                                            color: Colors.grey.shade600,
+                                                            color: Colors
+                                                                .grey.shade600,
                                                           ),
                                                         ),
                                                       ],
@@ -1429,309 +1425,314 @@ final FocusNode _focusNode = FocusNode();
                                   Divider(
                                       height: 1,
                                       thickness: 1,
-                                      color: Colors.black
-                                          .withValues(alpha: 0.07)),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.07)),
                                   const SizedBox(height: 10),
-
-                                  // Pure stat chips (Posts + Shares — not interactive)
-                                  // Row(
-                                  //   mainAxisAlignment:
-                                  //       MainAxisAlignment.spaceEvenly,
-                                  //   children: [
-                                  //     // Posts
-                                  //     Row(
-                                  //       mainAxisSize: MainAxisSize.min,
-                                  //       children: [
-                                  //         Container(
-                                  //           padding: const EdgeInsets.all(5),
-                                  //           decoration: BoxDecoration(
-                                  //             color: const Color(0xFFF0FDF4),
-                                  //             borderRadius:
-                                  //                 BorderRadius.circular(7),
-                                  //           ),
-                                  //           child: const Icon(
-                                  //               Icons.article_rounded,
-                                  //               size: 14,
-                                  //               color: Color(0xFF16A34A)),
-                                  //         ),
-                                  //         const SizedBox(width: 7),
-                                  //         Column(
-                                  //           crossAxisAlignment:
-                                  //               CrossAxisAlignment.start,
-                                  //           children: [
-                                  //             Text(
-                                  //               Config.formatLargeNumber(
-                                  //                   posts.length),
-                                  //               style: const TextStyle(
-                                  //                 fontWeight: FontWeight.w800,
-                                  //                 fontSize: 13,
-                                  //                 color: Color(0xFF111827),
-                                  //               ),
-                                  //             ),
-                                  //             Text(
-                                  //               l10n.profilePost,
-                                  //               style: TextStyle(
-                                  //                 fontSize: 10.5,
-                                  //                 color: Colors.grey.shade500,
-                                  //               ),
-                                  //             ),
-                                  //           ],
-                                  //         ),
-                                  //       ],
-                                  //     ),
-                                  //     Container(
-                                  //         width: 1,
-                                  //         height: 28,
-                                  //         color: Colors.black
-                                  //             .withValues(alpha: 0.08)),
-                                  //     // Shares
-                                  //     Row(
-                                  //       mainAxisSize: MainAxisSize.min,
-                                  //       children: [
-                                  //         Container(
-                                  //           padding: const EdgeInsets.all(5),
-                                  //           decoration: BoxDecoration(
-                                  //             color: const Color(0xFFF5F0FF),
-                                  //             borderRadius:
-                                  //                 BorderRadius.circular(7),
-                                  //           ),
-                                  //           child: const Icon(
-                                  //               Icons.share_rounded,
-                                  //               size: 14,
-                                  //               color: Color(0xFF7C3AED)),
-                                  //         ),
-                                  //         const SizedBox(width: 7),
-                                  //         Column(
-                                  //           crossAxisAlignment:
-                                  //               CrossAxisAlignment.start,
-                                  //           children: [
-                                  //             Text(
-                                  //               Config.formatLargeNumber(
-                                  //                   usershare),
-                                  //               style: const TextStyle(
-                                  //                 fontWeight: FontWeight.w800,
-                                  //                 fontSize: 13,
-                                  //                 color: Color(0xFF111827),
-                                  //               ),
-                                  //             ),
-                                  //             Text(
-                                  //               l10n.profileShare,
-                                  //               style: TextStyle(
-                                  //                 fontSize: 10.5,
-                                  //                 color: Colors.grey.shade500,
-                                  //               ),
-                                  //             ),
-                                  //           ],
-                                  //         ),
-                                  //       ],
-                                  //     ),
-                                  //   ],
-                                  // ),
-                                  // ── Share Thought CTA ─────────────────────────
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF0D2578),
-                                    Color(0xFF1040B0),
-                                    Color(0xFF1A56DB),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1040B0)
-                                        .withValues(alpha: 0.35),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(16),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  splashColor:
-                                      Colors.white.withValues(alpha: 0.12),
-                                  highlightColor:
-                                      Colors.white.withValues(alpha: 0.06),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              NeedBuilderPage()),
-                                    );
-                                  },
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Stack(
-                                      children: [
-                                        Positioned(
-                                          top: -20,
-                                          right: -20,
-                                          child: Container(
-                                            width: 110,
-                                            height: 110,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.07),
-                                            ),
-                                          ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0D2578),
+                                          Color(0xFF1040B0),
+                                          Color(0xFF1A56DB),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF1040B0)
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 8),
                                         ),
-                                        Positioned(
-                                          bottom: -18,
-                                          left: -18,
-                                          child: Container(
-                                            width: 80,
-                                            height: 80,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.04),
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: 0,
-                                          left: 0,
-                                          right: 0,
-                                          child: Container(
-                                            height: 1,
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  Colors.transparent,
-                                                  Colors.white
-                                                      .withValues(alpha: 0.25),
-                                                  Colors.transparent,
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                              14, 14, 12, 14),
-                                          child: Row(
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(16),
+                                        splashColor: Colors.white
+                                            .withValues(alpha: 0.12),
+                                        highlightColor: Colors.white
+                                            .withValues(alpha: 0.06),
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    NeedBuilderPage()),
+                                          );
+                                        },
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          child: Stack(
                                             children: [
-                                              Container(
-                                                height: 48,
-                                                width: 48,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.15),
-                                                  borderRadius:
-                                                      BorderRadius.circular(14),
-                                                  border: Border.all(
+                                              Positioned(
+                                                top: -20,
+                                                right: -20,
+                                                child: Container(
+                                                  width: 110,
+                                                  height: 110,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
                                                     color: Colors.white
-                                                        .withValues(alpha: 0.28),
-                                                    width: 1.5,
+                                                        .withValues(
+                                                            alpha: 0.07),
                                                   ),
                                                 ),
-                                                child: const Icon(
-                                                  Icons.edit_note_rounded,
-                                                  color: Colors.white,
-                                                  size: 28,
+                                              ),
+                                              Positioned(
+                                                bottom: -18,
+                                                left: -18,
+                                                child: Container(
+                                                  width: 80,
+                                                  height: 80,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.white
+                                                        .withValues(
+                                                            alpha: 0.04),
+                                                  ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      'Share a Need',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 15,
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                        letterSpacing: -0.2,
-                                                      ),
+                                              Positioned(
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                child: Container(
+                                                  height: 1,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        Colors.transparent,
+                                                        Colors.white.withValues(
+                                                            alpha: 0.25),
+                                                        Colors.transparent,
+                                                      ],
                                                     ),
-                                                    const SizedBox(height: 3),
-                                                    Text(
-                                                      'Write thoughts • Discuss • Explore',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
+                                                  ),
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                        14, 14, 12, 14),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      height: 48,
+                                                      width: 48,
+                                                      decoration: BoxDecoration(
                                                         color: Colors.white
                                                             .withValues(
-                                                                alpha: 0.72),
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                                alpha: 0.15),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(14),
+                                                        border: Border.all(
+                                                          color: Colors.white
+                                                              .withValues(
+                                                                  alpha: 0.28),
+                                                          width: 1.5,
+                                                        ),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.auto_awesome_rounded,
+                                                        color: Colors.white,
+                                                        size: 25,
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 9),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black
-                                                          .withValues(
-                                                              alpha: 0.15),
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      'Open',
-                                                      style: const TextStyle(
-                                                        color:
-                                                            Color(0xFF1040B0),
-                                                        fontSize: 11.5,
-                                                        fontWeight:
-                                                            FontWeight.w800,
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              const Flexible(
+                                                                child: Text(
+                                                                  'Share a Need',
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    fontSize:
+                                                                        15,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w900,
+                                                                    letterSpacing:
+                                                                        -0.2,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                  width: 6),
+                                                              Container(
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        6,
+                                                                    vertical:
+                                                                        2.5),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: Colors
+                                                                      .white
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.16),
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              999),
+                                                                  border: Border
+                                                                      .all(
+                                                                    color: Colors
+                                                                        .white
+                                                                        .withValues(
+                                                                            alpha:
+                                                                                0.3),
+                                                                  ),
+                                                                ),
+                                                                child: Row(
+                                                                  mainAxisSize:
+                                                                      MainAxisSize
+                                                                          .min,
+                                                                  children: [
+                                                                    Container(
+                                                                      width: 5,
+                                                                      height:
+                                                                          5,
+                                                                      decoration:
+                                                                          const BoxDecoration(
+                                                                        color: Color(
+                                                                            0xFF4ADE80),
+                                                                        shape: BoxShape
+                                                                            .circle,
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(
+                                                                        width:
+                                                                            4),
+                                                                    const Text(
+                                                                      'LIVE',
+                                                                      style:
+                                                                          TextStyle(
+                                                                        color:
+                                                                            Colors.white,
+                                                                        fontSize:
+                                                                            9,
+                                                                        fontWeight:
+                                                                            FontWeight.w800,
+                                                                        letterSpacing:
+                                                                            0.4,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 3),
+                                                          Text(
+                                                            'Pick a category & tap suggested words',
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color: Colors
+                                                                  .white
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.72),
+                                                              fontSize: 11,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 4),
-                                                    const Icon(
-                                                        Icons
-                                                            .arrow_forward_rounded,
-                                                        color: Color(0xFF1040B0),
-                                                        size: 12),
+                                                    const SizedBox(width: 10),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 9),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(10),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.15),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 3),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            'Open',
+                                                            style:
+                                                                const TextStyle(
+                                                              color: Color(
+                                                                  0xFF1040B0),
+                                                              fontSize: 11.5,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          const Icon(
+                                                              Icons
+                                                                  .arrow_forward_rounded,
+                                                              color: Color(
+                                                                  0xFF1040B0),
+                                                              size: 12),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ),
                                 ],
                               ),
                             ),
-
                           ],
                         ),
                       ),
@@ -1763,7 +1764,8 @@ final FocusNode _focusNode = FocusNode();
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A56DB).withValues(alpha: 0.08),
+                          color:
+                              const Color(0xFF1A56DB).withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(13),
                         ),
                         child: const Icon(Icons.data_object_rounded,
@@ -1850,8 +1852,8 @@ final FocusNode _focusNode = FocusNode();
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: Colors.black.withValues(alpha: 0.06)),
+                  border:
+                      Border.all(color: Colors.black.withValues(alpha: 0.06)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.06),
@@ -1986,13 +1988,13 @@ final FocusNode _focusNode = FocusNode();
               if (posts.isEmpty && !_postLoading)
                 Container(
                   margin: const EdgeInsets.fromLTRB(14, 4, 14, 16),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 32),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: Colors.black.withValues(alpha: 0.06)),
+                    border:
+                        Border.all(color: Colors.black.withValues(alpha: 0.06)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.06),
@@ -2009,8 +2011,8 @@ final FocusNode _focusNode = FocusNode();
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.08),
+                            color:
+                                const Color(0xFF1A56DB).withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: const Icon(Icons.article_outlined,
@@ -2058,8 +2060,7 @@ final FocusNode _focusNode = FocusNode();
                       final String mainDescription =
                           post['main_description'] ?? '';
                       final createdAt = post['post_time'];
-                      final formattedTime =
-                          Config.getTimeDifference(createdAt);
+                      final formattedTime = Config.getTimeDifference(createdAt);
                       final bool hasMedia = postImages.isNotEmpty;
                       final String postId = post['post_id'].toString();
                       final PageController pageCtrl =
@@ -2210,8 +2211,7 @@ final FocusNode _focusNode = FocusNode();
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 13, vertical: 9),
                                   decoration: BoxDecoration(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.97),
+                                    color: Colors.white.withValues(alpha: 0.97),
                                     border: Border(
                                       top: BorderSide(
                                         color: Colors.black
@@ -2221,10 +2221,8 @@ final FocusNode _focusNode = FocusNode();
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(
-                                          Icons.remove_red_eye_outlined,
-                                          size: 14,
-                                          color: Color(0xFF1A56DB)),
+                                      const Icon(Icons.remove_red_eye_outlined,
+                                          size: 14, color: Color(0xFF1A56DB)),
                                       const SizedBox(width: 4),
                                       Text(
                                         Config.formatLargeNumber(
@@ -2304,8 +2302,8 @@ final FocusNode _focusNode = FocusNode();
                                   color: Colors.transparent,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.95),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.95),
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
@@ -2319,14 +2317,18 @@ final FocusNode _focusNode = FocusNode();
                                     child: PopupMenuButton<String>(
                                       tooltip: 'Options',
                                       splashRadius: 20,
-                                      elevation: 12,
+                                      elevation: 10,
                                       color: Colors.white,
-                                      shadowColor: Colors.black26,
+                                      shadowColor:
+                                          Colors.black.withValues(alpha: 0.18),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(18),
+                                        side: BorderSide(
+                                            color: const Color(0xFFEEF1F8)),
                                       ),
-                                      offset: const Offset(0, 44),
+                                      constraints:
+                                          const BoxConstraints(minWidth: 168),
+                                      offset: const Offset(0, 46),
                                       icon: const Icon(Icons.more_vert,
                                           color: Color(0xFF374151), size: 20),
                                       onSelected: (value) async {
@@ -2334,68 +2336,11 @@ final FocusNode _focusNode = FocusNode();
                                           final confirmDelete =
                                               await showDialog<bool>(
                                             context: context,
-                                            builder: (context) => AlertDialog(
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                              ),
-                                              title: const Text('Confirm Delete'),
-                                              content: const Text(
-                                                  'Are you sure you want to delete this post?'),
-                                              actionsPadding:
-                                                  const EdgeInsets.only(
-                                                      left: 12,
-                                                      right: 12,
-                                                      bottom: 10),
-                                              actions: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: OutlinedButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(false),
-                                                        style: OutlinedButton
-                                                            .styleFrom(
-                                                          shape:
-                                                              RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12),
-                                                          ),
-                                                        ),
-                                                        child: const Text('Cancel'),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: ElevatedButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(true),
-                                                        style: ElevatedButton
-                                                            .styleFrom(
-                                                          backgroundColor:
-                                                              Colors.redAccent,
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                          shape:
-                                                              RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12),
-                                                          ),
-                                                        ),
-                                                        child: const Text('Delete'),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
+                                            builder: (context) =>
+                                                const ConfirmDeleteDialog(
+                                              title: 'Delete this post?',
+                                              message:
+                                                  "This action can't be undone. The post and its comments will be permanently removed.",
                                             ),
                                           );
                                           if (confirmDelete == true) {
@@ -2421,16 +2366,14 @@ final FocusNode _focusNode = FocusNode();
                                             }
                                           }
                                         } else if (value == 'modify') {
-                                          final mediaUrls =
-                                              post['post_media'] is String
-                                                  ? (post['post_media']
-                                                          as String)
-                                                      .split(',')
-                                                      .map((e) => e.trim())
-                                                      .where(
-                                                          (e) => e.isNotEmpty)
-                                                      .toList()
-                                                  : <String>[];
+                                          final mediaUrls = post['post_media']
+                                                  is String
+                                              ? (post['post_media'] as String)
+                                                  .split(',')
+                                                  .map((e) => e.trim())
+                                                  .where((e) => e.isNotEmpty)
+                                                  .toList()
+                                              : <String>[];
                                           final mediaCaptions =
                                               post['post_des'] is String
                                                   ? (post['post_des'] as String)
@@ -2441,8 +2384,7 @@ final FocusNode _focusNode = FocusNode();
                                           final mainText =
                                               post['post_main_description'] ??
                                                   '';
-                                          final result =
-                                              await Navigator.push(
+                                          final result = await Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) => Editpost(
@@ -2467,30 +2409,54 @@ final FocusNode _focusNode = FocusNode();
                                       itemBuilder: (context) => [
                                         PopupMenuItem<String>(
                                           value: 'modify',
-                                          height: 44,
+                                          height: 48,
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.edit_outlined,
-                                                  size: 20,
-                                                  color: Color(0xFF1A56DB)),
-                                              const SizedBox(width: 10),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(7),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                          0xFF1A56DB)
+                                                      .withValues(alpha: 0.10),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                    Icons.edit_outlined,
+                                                    size: 16,
+                                                    color: Color(0xFF1A56DB)),
+                                              ),
+                                              const SizedBox(width: 12),
                                               const Text('Modify',
                                                   style: TextStyle(
                                                       fontSize: 14,
-                                                      fontWeight: FontWeight.w600)),
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color:
+                                                          Color(0xFF111827))),
                                             ],
                                           ),
                                         ),
-                                        const PopupMenuDivider(height: 8),
+                                        const PopupMenuDivider(height: 6),
                                         PopupMenuItem<String>(
                                           value: 'delete',
-                                          height: 44,
+                                          height: 48,
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.delete_outline,
-                                                  size: 20,
-                                                  color: Colors.redAccent),
-                                              const SizedBox(width: 10),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(7),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.redAccent
+                                                      .withValues(alpha: 0.10),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                    Icons.delete_outline,
+                                                    size: 16,
+                                                    color: Colors.redAccent),
+                                              ),
+                                              const SizedBox(width: 12),
                                               const Text(
                                                 'Delete',
                                                 style: TextStyle(

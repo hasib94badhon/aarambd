@@ -1,5 +1,6 @@
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/widgets/app_toast.dart';
+import 'package:aaram_bd/widgets/confirm_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -9,6 +10,9 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 
 final String host = Config.host;
+
+const Color _brand = Color(0xFF1A56DB);
+const Color _brandDark = Color(0xFF1040B0);
 
 class Editpost extends StatefulWidget {
   final String postId;
@@ -36,6 +40,9 @@ class _EditpostState extends State<Editpost> {
   bool _isLoading = true;
   bool _isUpdating = false; // Track update state
 
+  final FocusNode _mainTextFocus = FocusNode();
+  bool _mainTextFocused = false;
+
   final picker = ImagePicker();
 
   @override
@@ -47,6 +54,19 @@ class _EditpostState extends State<Editpost> {
     _captionControllers = widget.mediaCaptions
         .map((caption) => TextEditingController(text: caption))
         .toList();
+    _mainTextFocus.addListener(() {
+      if (mounted) setState(() => _mainTextFocused = _mainTextFocus.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _mainTextController.dispose();
+    _mainTextFocus.dispose();
+    for (final c in _captionControllers) {
+      c.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _pickNewMedia() async {
@@ -288,271 +308,426 @@ class _EditpostState extends State<Editpost> {
     }
   }
 
+  Future<void> _confirmAndDeleteExisting(int i) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => const ConfirmDeleteDialog(
+        title: 'Delete this image?',
+        message: 'The image and its caption will be removed from this post.',
+      ),
+    );
+    if (confirmed != true) return;
+
+    final removedMedia = _existingMedia[i];
+    await _deleteSingleMediaFromServer(widget.postId, removedMedia);
+    if (!mounted) return;
+
+    setState(() {
+      _existingMedia.removeAt(i);
+      _captionControllers.removeAt(i);
+    });
+
+    showAppToast(context, 'Media deleted successfully',
+        icon: Icons.check_circle_outline_rounded);
+  }
+
+  void _removeNewMedia(int localIndex) {
+    final captionIndex = _existingMedia.length + localIndex;
+    setState(() {
+      _newMedia.removeAt(localIndex);
+      _captionControllers.removeAt(captionIndex);
+    });
+  }
+
+  // ─── Gradient header: back button + page title ───────────────────────────
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_brandDark, _brand],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x331A56DB), blurRadius: 18, offset: Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.edit_note_rounded,
+                color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Edit Post',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white)),
+                SizedBox(height: 2),
+                Text('Update text, photos & captions',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white70)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 16,
+          decoration: BoxDecoration(
+              color: _brand, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 8),
+        Icon(icon, size: 15, color: _brand),
+        const SizedBox(width: 6),
+        Text(text,
+            style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827))),
+      ],
+    );
+  }
+
+  // ─── Main post text, focus-animated border ────────────────────────────────
+  Widget _buildMainTextCard() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _mainTextFocused ? _brand : const Color(0xFFE5E9F2),
+          width: _mainTextFocused ? 1.6 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _mainTextFocused
+                ? _brand.withValues(alpha: 0.14)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: _mainTextFocused ? 16 : 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(4),
+      child: TextField(
+        controller: _mainTextController,
+        focusNode: _mainTextFocus,
+        maxLines: 5,
+        minLines: 3,
+        style: const TextStyle(
+            fontSize: 15, color: Color(0xFF1A2340), height: 1.5),
+        decoration: const InputDecoration(
+          hintText: "What's on your mind?",
+          hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14.5),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _captionField(TextEditingController controller, String hint) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+      ),
+      child: TextField(
+        controller: controller,
+        style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A2340)),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      ),
+    );
+  }
+
+  Widget _deleteBadge(VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        child: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 17),
+      ),
+    );
+  }
+
+  Widget _existingMediaCard(int i) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.network(
+                    _existingMedia[i],
+                    width: double.infinity,
+                    height: 180,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _deleteBadge(_isUpdating
+                      ? null
+                      : () => _confirmAndDeleteExisting(i)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _captionField(_captionControllers[i], 'Caption for this image'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _newMediaCard(int localIndex, XFile file) {
+    final captionIndex = _existingMedia.length + localIndex;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _brand.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+              color: _brand.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.file(
+                    File(file.path),
+                    width: double.infinity,
+                    height: 180,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _deleteBadge(
+                      _isUpdating ? null : () => _removeNewMedia(localIndex)),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: _brand, borderRadius: BorderRadius.circular(20)),
+                    child: const Text('New',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _captionField(
+                _captionControllers[captionIndex], 'Caption for new image'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _addMoreButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _isUpdating ? null : _pickNewMedia,
+        icon: const Icon(Icons.add_photo_alternate_outlined, color: _brand),
+        label: const Text('Add More Media',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _brand,
+          backgroundColor: _brand.withValues(alpha: 0.06),
+          side: BorderSide(color: _brand.withValues(alpha: 0.35)),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+    );
+  }
+
+  Widget _updateButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isUpdating ? null : _updatePost,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _brand,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: _isUpdating
+            ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.2, color: Colors.white),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Updating…',
+                      style: TextStyle(
+                          fontSize: 15.5, fontWeight: FontWeight.w700)),
+                ],
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text('Update Post',
+                      style: TextStyle(
+                          fontSize: 15.5, fontWeight: FontWeight.w700)),
+                ],
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Edit Post"),
-        backgroundColor: const Color(0xFF1A56DB),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 🟩 Main Post Description
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: TextField(
-                        controller: _mainTextController,
-                        maxLines: 4,
-                        style: TextStyle(fontSize: 16),
-                        decoration: InputDecoration(
-                          hintText: "What's on your mind?",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-
-                  // 🟨 Existing Media List
-                  Text(
-                    "Your Uploaded Images",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 10),
-                  ...List.generate(_existingMedia.length, (i) {
-                    return Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    _existingMedia[i],
-                                    width: double.infinity,
-                                    height: 180,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 10,
-                                  right: 10,
-                                  child: Material(
-                                    elevation: 4,
-                                    color: Colors.white,
-                                    shape: CircleBorder(),
-                                    child: IconButton(
-                                      icon:
-                                          Icon(Icons.close, color: Colors.red),
-                                      splashRadius: 20,
-                                      onPressed: _isUpdating
-                                          ? null
-                                          : () async {
-                                              final confirmed =
-                                                  await showDialog(
-                                                context: context,
-                                                builder: (context) =>
-                                                    AlertDialog(
-                                                  title: Text("Confirm Delete"),
-                                                  content: Text(
-                                                      "Do you want to delete this image and caption?"),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(context)
-                                                              .pop(false),
-                                                      child: Text("Cancel"),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.of(context)
-                                                              .pop(true),
-                                                      child: Text("Delete",
-                                                          style: TextStyle(
-                                                              color:
-                                                                  Colors.red)),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-
-                                              if (confirmed == true) {
-                                                final removedMedia =
-                                                    _existingMedia[i];
-
-                                                await _deleteSingleMediaFromServer(
-                                                    widget.postId,
-                                                    removedMedia);
-
-                                                setState(() {
-                                                  _existingMedia.removeAt(i);
-                                                  _captionControllers
-                                                      .removeAt(i);
-                                                });
-
-                                                showAppToast(context,
-                                                    'Media deleted successfully',
-                                                    icon: Icons
-                                                        .check_circle_outline_rounded);
-                                              }
-                                            },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 10),
-                            TextField(
-                              controller: _captionControllers[i],
-                              decoration: InputDecoration(
-                                hintText: "Caption for this image",
-                                filled: true,
-                                fillColor: Colors.grey[100],
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                  // 🟦 New Media Files
-                  if (_newMedia.isNotEmpty) ...[
-                    SizedBox(height: 20),
-                    Text(
-                      "Newly Added Images",
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    SizedBox(height: 10),
-                    ..._newMedia.map((file) {
-                      final index =
-                          _existingMedia.length + _newMedia.indexOf(file);
-                      return Card(
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  File(file.path),
-                                  width: double.infinity,
-                                  height: 180,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              SizedBox(height: 10),
-                              TextField(
-                                controller: _captionControllers[index],
-                                decoration: InputDecoration(
-                                  hintText: 'Caption for new image',
-                                  filled: true,
-                                  fillColor: Colors.grey[100],
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ],
-
-                  SizedBox(height: 20),
-
-                  // 🟪 Add More Button
-                  Center(
-                    child: ElevatedButton.icon(
-                      onPressed: _isUpdating ? null : _pickNewMedia,
-                      icon: Icon(Icons.add_photo_alternate_outlined),
-                      label: Text("Add More Media"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A56DB),
-                        foregroundColor: Colors.white,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-
-                  // 🟥 Submit Button with spinner
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isUpdating ? null : _updatePost,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A56DB),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.update, size: 24),
-                          SizedBox(width: 8),
-                          Text('Update Post', style: TextStyle(fontSize: 18)),
-                          if (_isUpdating) ...[
-                            SizedBox(width: 15),
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+      backgroundColor: const Color(0xFFF4F6FB),
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: _brand))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMainTextCard(),
+                        const SizedBox(height: 22),
+                        if (_existingMedia.isNotEmpty) ...[
+                          _sectionLabel(Icons.photo_library_outlined,
+                              'Your Uploaded Images'),
+                          const SizedBox(height: 10),
+                          ...List.generate(_existingMedia.length,
+                              (i) => _existingMediaCard(i)),
                         ],
-                      ),
+                        if (_newMedia.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _sectionLabel(Icons.add_photo_alternate_outlined,
+                              'Newly Added Images'),
+                          const SizedBox(height: 10),
+                          ..._newMedia.asMap().entries.map(
+                              (e) => _newMediaCard(e.key, e.value)),
+                        ],
+                        const SizedBox(height: 22),
+                        _addMoreButton(),
+                        const SizedBox(height: 14),
+                        _updateButton(),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 30),
-                ],
-              ),
-            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
 import 'package:aaram_bd/widgets/app_toast.dart';
+import 'package:aaram_bd/widgets/thoughtsection.dart' show CatTheme, themeFor;
 
 class ThoughtDetails extends StatefulWidget {
   final String desId;
@@ -175,7 +176,15 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
   Map<String, dynamic>? thought;
   List<dynamic> comments = [];
 
+  // Same per-category color/icon system used by description_landing_page.dart's
+  // feed and thoughtsection.dart's composer, so a post carries its color
+  // through from feed → detail instead of falling back to plain blue.
+  CatTheme get _theme =>
+      themeFor((thought?['des_cat_id'] as num?)?.toInt());
+
   TextEditingController commentController = TextEditingController();
+  final FocusNode _commentFocus = FocusNode();
+  bool _commentFieldFocused = false;
 
   String? currentUserId;
   String? editingCommentId;
@@ -197,6 +206,9 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     super.initState();
     _commentsScrollController = ScrollController();
     _commentsScrollController.addListener(_onCommentsScroll);
+    _commentFocus.addListener(() {
+      if (mounted) setState(() => _commentFieldFocused = _commentFocus.hasFocus);
+    });
 
     Config.getLoggedInUser().then((id) async {
       setState(() => currentUserId = id);
@@ -222,6 +234,7 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     _commentsScrollController.dispose();
     commentController.dispose();
     editingController.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -430,115 +443,188 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     return _avatarWithPreview(url, radius: radius);
   }
 
-  Widget _headerCard(BuildContext context) {
+  Color _darken(Color c, [double amount = 0.16]) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+  }
+
+  void _openPosterProfile() {
+    final int serviceId = thought!['service_id'] as int? ?? 0;
+    final int shopId = thought!['shop_id'] as int? ?? 0;
+    final String userId = thought!['user_id'].toString();
+
+    late final Map<String, String> additionalData;
+    late final bool isService;
+    late final String targetId;
+
+    if (serviceId != 0) {
+      isService = true;
+      targetId = serviceId.toString();
+      additionalData = {'service_id': targetId};
+    } else if (shopId != 0) {
+      isService = false;
+      targetId = shopId.toString();
+      additionalData = {'shop_id': targetId};
+    } else {
+      isService = false;
+      targetId = userId;
+      additionalData = {'user_only': targetId};
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdvertScreen(
+          userId: targetId,
+          isService: isService,
+          advertData: AdvertData(
+            userId: targetId,
+            isService: isService,
+            additionalData: additionalData,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Hero header: back button + poster info on a themed gradient ─────────
+  Widget _buildHeroHeader(BuildContext context) {
     if (thought == null) return const SizedBox.shrink();
 
     final userPhoto = thought!["user_photo"]?.toString() ?? '';
     final userName = thought!["user_name"]?.toString() ?? 'User';
     final catName = thought!["cat_name"]?.toString() ?? '';
+    final t = _theme;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () {
-        final int serviceId = thought!['service_id'] as int? ?? 0;
-        final int shopId = thought!['shop_id'] as int? ?? 0;
-        final String userId = thought!['user_id'].toString();
-
-        late final Map<String, String> additionalData;
-        late final bool isService;
-        late final String targetId;
-
-        if (serviceId != 0) {
-          isService = true;
-          targetId = serviceId.toString();
-          additionalData = {'service_id': targetId};
-        } else if (shopId != 0) {
-          isService = false;
-          targetId = shopId.toString();
-          additionalData = {'shop_id': targetId};
-        } else {
-          isService = false;
-          targetId = userId;
-          additionalData = {'user_only': targetId};
-        }
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AdvertScreen(
-              userId: targetId,
-              isService: isService,
-              advertData: AdvertData(
-                userId: targetId,
-                isService: isService,
-                additionalData: additionalData,
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          14, MediaQuery.of(context).padding.top + 12, 14, 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_darken(t.primary), t.primary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(26),
+          bottomRight: Radius.circular(26),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: t.primary.withValues(alpha: 0.30),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _openPosterProfile,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          width: 1.6),
+                    ),
+                    child: _buildAvatar(userPhoto, radius: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            if (catName.isNotEmpty) ...[
+                              Flexible(
+                                child: Text(
+                                  catName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.78),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(t.emoji,
+                                        style: const TextStyle(fontSize: 9.5)),
+                                    const SizedBox(width: 3),
+                                    Flexible(
+                                      child: Text(
+                                        t.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 22, color: Colors.white.withValues(alpha: 0.85)),
+                ],
               ),
             ),
           ),
-        );
-      },
-      child: Container(
-  padding: const EdgeInsets.all(12),
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.06),
-        blurRadius: 14,
-        offset: const Offset(0, 5),
+        ],
       ),
-    ],
-    border: Border.all(color: const Color(0xFFF0F3FA)),
-  ),
-  child: Row(
-    children: [
-      _buildAvatar(userPhoto, radius: 28),
-      const SizedBox(width: 14),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              userName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: Color(0xFF111827), // rich dark
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              catName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: const Color(0xFF1A56DB),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-      Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.chevron_right,
-          size: 20,
-          color: Colors.black45,
-        ),
-      ),
-    ],
-  ),
-),
-
     );
   }
 
@@ -553,10 +639,12 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
     final heroTag = 'thought-image-${imageUrl.hashCode}';
 
     return Container(
+      margin: const EdgeInsets.only(top: 5),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        border: Border(left: BorderSide(color: _theme.primary, width: 4)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.07),
@@ -610,9 +698,9 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                 ),
                 moreLabel: 'Read more',
                 lessLabel: 'Show less',
-                linkStyle: const TextStyle(
+                linkStyle: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF1A56DB),
+                  color: _theme.primary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -625,7 +713,7 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
   // ─── Stats bar ───────────────────────────────────────────────────────────
   Widget _buildStatsBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -645,7 +733,7 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
             'views',
             const Color(0xFF3B82F6),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           _statChip(
             Icons.chat_bubble_outline_rounded,
             Config.formatLargeNumber(thought!['des_com'] ?? 0),
@@ -675,61 +763,28 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
 
   Widget _statChip(
       IconData icon, String value, String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 5),
-        Text(value,
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w700, color: color)),
-        const SizedBox(width: 3),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF94A3B8),
-                fontWeight: FontWeight.w400)),
-      ],
-    );
-  }
-
-  // ─── Discussion section header ────────────────────────────────────────────
-  Widget _buildDiscussionHeader() {
-    final count = thought!['des_com'] ?? 0;
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 18,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A56DB),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 8),
-        const Text(
-          'Discussion',
-          style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF111827)),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A56DB).withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '$count',
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A56DB)),
-          ),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(width: 3),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 
@@ -752,8 +807,8 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.chat_bubble_outline_rounded,
-                  size: 34, color: Color(0xFF1A56DB)),
+              child: Icon(Icons.chat_bubble_outline_rounded,
+                  size: 34, color: _theme.primary),
             ),
             const SizedBox(height: 14),
             const Text('No comments yet',
@@ -788,12 +843,12 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: _theme.primary.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.blue.shade100),
+            border: Border.all(color: _theme.primary.withValues(alpha: 0.18)),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.shade100.withValues(alpha: 0.5),
+                color: _theme.primary.withValues(alpha: 0.14),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -814,6 +869,14 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _theme.primary, width: 1.6),
                   ),
                 ),
               ),
@@ -837,7 +900,7 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                       _refreshComments();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A56DB),
+                      backgroundColor: _theme.primary,
                       foregroundColor: Colors.white,
                       elevation: 2,
                       padding: const EdgeInsets.symmetric(
@@ -907,11 +970,19 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _avatarWithPreview(
-                    comment['photo'],
-                    radius: 22,
-                    heroTag:
-                        'comment-avatar-${comment['photo']}-${comment['com_id']}',
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border:
+                          Border.all(color: _theme.primary.withValues(alpha: 0.22)),
+                    ),
+                    child: _avatarWithPreview(
+                      comment['photo'],
+                      radius: 20,
+                      heroTag:
+                          'comment-avatar-${comment['photo']}-${comment['com_id']}',
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -929,9 +1000,9 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                         if ((comment['cat_name'] ?? '').isNotEmpty)
                           Text(
                             comment['cat_name'],
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF1A56DB),
+                                color: _theme.primary,
                                 fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -972,11 +1043,11 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0F4FF),
+                              color: _theme.primary.withValues(alpha: 0.08),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.edit_rounded,
-                                size: 15, color: Color(0xFF1A56DB)),
+                            child: Icon(Icons.edit_rounded,
+                                size: 15, color: _theme.primary),
                           ),
                         ),
                       ],
@@ -994,9 +1065,9 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                     color: Color(0xFF374151)),
                 moreLabel: 'See more',
                 lessLabel: 'See less',
-                linkStyle: const TextStyle(
+                linkStyle: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF1A56DB),
+                    color: _theme.primary,
                     fontWeight: FontWeight.w600),
               ),
             ],
@@ -1024,21 +1095,43 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
         child: Row(
           children: [
             Expanded(
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F6FB),
+                  color: _commentFieldFocused
+                      ? Colors.white
+                      : const Color(0xFFF4F6FB),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(
+                    color: _commentFieldFocused
+                        ? _theme.primary
+                        : const Color(0xFFE2E8F0),
+                    width: _commentFieldFocused ? 1.6 : 1.0,
+                  ),
+                  boxShadow: _commentFieldFocused
+                      ? [
+                          BoxShadow(
+                            color: _theme.primary.withValues(alpha: 0.16),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : [],
                 ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: TextField(
                   controller: commentController,
+                  focusNode: _commentFocus,
                   decoration: const InputDecoration(
                     hintText: 'Share your thoughts...',
                     hintStyle: TextStyle(
                         color: Color(0xFF94A3B8), fontSize: 14),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(vertical: 8),
                   ),
@@ -1060,11 +1153,11 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A56DB),
+                  color: _theme.primary,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1A56DB).withValues(alpha: 0.35),
+                      color: _theme.primary.withValues(alpha: 0.35),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -1084,7 +1177,6 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FB),
       resizeToAvoidBottomInset: true,
@@ -1105,50 +1197,8 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
               child: CustomScrollView(
                 controller: _commentsScrollController,
                 slivers: [
-                  // Back button + header card as a matched-height row
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(14, topPad + 8, 14, 10),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Back button — same card style as _headerCard
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                width: 52,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: 0.06),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                      color: const Color(0xFFF0F3FA)),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    size: 18,
-                                    color: Color(0xFF111827),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Poster info card
-                            Expanded(child: _headerCard(context)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Themed gradient hero: back button + poster info
+                  SliverToBoxAdapter(child: _buildHeroHeader(context)),
 
                   // Post content (image + description)
                   SliverToBoxAdapter(
@@ -1166,22 +1216,14 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                     ),
                   ),
 
-                  // Discussion heading
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      child: _buildDiscussionHeader(),
-                    ),
-                  ),
-
                   // Comment list
                   if (_commentsLoading && comments.isEmpty)
-                    const SliverToBoxAdapter(
+                    SliverToBoxAdapter(
                       child: Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32),
+                          padding: const EdgeInsets.all(32),
                           child: CircularProgressIndicator(
-                              color: Color(0xFF1A56DB)),
+                              color: _theme.primary),
                         ),
                       ),
                     )
@@ -1203,8 +1245,8 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
                                 const EdgeInsets.symmetric(vertical: 12),
                             child: Center(
                               child: _commentsLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Color(0xFF1A56DB),
+                                  ? CircularProgressIndicator(
+                                      color: _theme.primary,
                                       strokeWidth: 2.5,
                                     )
                                   : const SizedBox.shrink(),

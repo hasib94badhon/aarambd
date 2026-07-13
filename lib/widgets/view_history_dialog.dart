@@ -1,8 +1,29 @@
 // File: widgets/view_history_bottom_sheet.dart
 
-import 'package:aaram_bd/config.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
+
+/// Compact relative time ("13h", "5m", "2d") for tight list rows — unlike
+/// Config.getTimeDifference's spelled-out "13 hours ago", which is too wide
+/// to sit next to a name and category on the same line without overflowing.
+String _compactTimeAgo(String timeString) {
+  if (timeString.trim().isEmpty) return '';
+  try {
+    final format = DateFormat("EEE dd MMM yyyy HH:mm:ss", 'en_US');
+    final past = format.parse(timeString);
+    final diff = DateTime.now().difference(past);
+
+    if (diff.inSeconds < 60) return '${diff.inSeconds + 1}s';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 30) return '${diff.inDays}d';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo';
+    return '${(diff.inDays / 365).floor()}y';
+  } catch (_) {
+    return '';
+  }
+}
 
 void showViewHistoryDialog({
   required BuildContext context,
@@ -106,7 +127,7 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
       alignment: Alignment.bottomCenter,
       child: Container(
         height: widget.sheetHeight,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+       
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -146,37 +167,46 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.visibility_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Seen By',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18.5,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.visibility_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Seen By',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _CloseButton(onTap: () => Navigator.pop(context)),
+                      ],
                     ),
+                    const SizedBox(height: 10),
                     _HeaderPill(
                       icon: Icons.remove_red_eye_outlined,
                       label: '$totalViews views',
                     ),
-                    const SizedBox(width: 8),
-                    _CloseButton(onTap: () => Navigator.pop(context)),
                   ],
                 ),
               ),
@@ -200,7 +230,7 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
                                 (v['view_user_name'] ?? 'Unknown').toString();
                             final catName =
                                 (v['cat_name'] ?? '').toString().trim();
-                            final dtago = Config.getTimeDifference(
+                            final dtago = _compactTimeAgo(
                                 (v['last_view_time'] ?? '').toString());
                             final views =
                                 (v['total_views']?.toString() ?? '0');
@@ -358,7 +388,7 @@ class _ViewerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -375,16 +405,17 @@ class _ViewerTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Avatar with subtle ring
               Stack(
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFFE0E7FF), Color(0xFFF5F3FF)],
@@ -397,7 +428,7 @@ class _ViewerTile extends StatelessWidget {
                     ),
                   ),
                   CircleAvatar(
-                    radius: 21,
+                    radius: 20,
                     backgroundColor: const Color(0xFFE5E7EB),
                     backgroundImage:
                         photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
@@ -405,6 +436,7 @@ class _ViewerTile extends StatelessWidget {
                         ? Text(
                             _initials(name),
                             style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF374151),
                             ),
@@ -419,63 +451,63 @@ class _ViewerTile extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Name + time
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          timeAgo,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: Color(0xFF6B7280),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF111827),
+                        height: 1.2,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    // Category
+                    const SizedBox(height: 3),
+                    // Category icon + name, with time trailing
                     Row(
                       children: [
                         const Icon(Icons.label_outline,
-                            size: 16, color: Color(0xFF6366F1)),
-                        const SizedBox(width: 6),
+                            size: 14, color: Color(0xFF6366F1)),
+                        const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             category.isNotEmpty ? category : '—',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 13.5,
-                              color: Color(0xFF4B5563),
+                              fontSize: 12.5,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
+                        if (timeAgo.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '· $timeAgo',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF9CA3AF),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
               // Views count pill -- matches call_history_dialog's badge style
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
@@ -486,14 +518,14 @@ class _ViewerTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.remove_red_eye_rounded,
-                        size: 15, color: Color(0xFF4F46E5)),
+                        size: 14, color: Color(0xFF4F46E5)),
                     const SizedBox(width: 5),
                     Text(
                       views,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF4F46E5),
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ],

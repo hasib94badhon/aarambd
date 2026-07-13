@@ -194,7 +194,7 @@ Future<void> _setupLocalNotifications() async {
       navState.push(MaterialPageRoute(
         builder: (_) => PostDetails(postId: postId, userId: userId),
       ));
-    } else if (type == 'view' || type == 'call' || type == 'share') {
+    } else if (type == 'view' || type == 'call' || type == 'share' || type == 'review') {
       final isService = data['is_service'] == '1';
       final serviceId = int.tryParse((data['service_id'] ?? '0').toString()) ?? 0;
       final shopId = int.tryParse((data['shop_id'] ?? '0').toString()) ?? 0;

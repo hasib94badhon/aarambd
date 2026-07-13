@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/pages/AccountControlPage.dart';
 import 'package:aaram_bd/pages/AccountSettingsPage.dart';
+import 'package:aaram_bd/pages/NotificationSettingsPage.dart';
 import 'package:aaram_bd/screens/FavoriteProfilesPage.dart';
 import 'package:aaram_bd/screens/AboutAaramBDPage.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
@@ -281,6 +282,17 @@ class _AppDrawerState extends State<AppDrawer> {
           title: 'Account Settings',
           subtitle: 'Phone, email, password',
           onTap: () => _push(AccountSettingsPage()),
+        ),
+
+        // ── Notification Settings ────────────────────────────────────────
+        _DrawerItem(
+          icon: Icons.notifications_none_rounded,
+          iconColor: const Color(0xFFF97316),
+          bgColor: const Color(0xFFFFF7ED),
+          borderColor: const Color(0xFFFED7AA),
+          title: 'Notification Settings',
+          subtitle: 'Choose what you get notified about',
+          onTap: () => _push(const NotificationSettingsPage()),
         ),
 
         // ── Terms & Policies ─────────────────────────────────────────────

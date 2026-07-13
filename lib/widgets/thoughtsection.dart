@@ -220,8 +220,12 @@ class NeedBuilderPage extends StatefulWidget {
 
 // Fixed two-colour palette for this page only — description_landing_page.dart
 // keeps using CatTheme's per-category colours unchanged.
-const Color _kBlue     = Color(0xFF1A56DB);
-const Color _kBlueSoft = Color(0xFFEFF4FF);
+const Color _kBlue = Color(0xFF1A56DB);
+
+Color _darken(Color c, [double amount = 0.16]) {
+  final hsl = HSLColor.fromColor(c);
+  return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+}
 
 class _NeedBuilderPageState extends State<NeedBuilderPage>
     with TickerProviderStateMixin {
@@ -586,31 +590,13 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
 
   @override
   Widget build(BuildContext context) {
-    final t = _theme;
     return Scaffold(
       backgroundColor: const Color(0xFFF0F3F8),
-      appBar: AppBar(
-        title: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(t.emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 7),
-          Text(t.label,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-        ]),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: _kBlue,
-        surfaceTintColor: Colors.white,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFEAEDF2)),
-        ),
-      ),
       body: CustomScrollView(
         controller: _scrollCtrl,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
-          SliverToBoxAdapter(child: _buildCategoryPanel()),
+          SliverToBoxAdapter(child: _buildTopBar(context)),
           SliverToBoxAdapter(child: _buildComposerArea()),
           const SliverToBoxAdapter(child: SizedBox(height: 18)),
           SliverToBoxAdapter(child: _buildMyPostsHeader()),
@@ -636,6 +622,40 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
     );
   }
 
+  // ── Top bar: back button + Category panel, side by side ──────────────────
+
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          12, MediaQuery.of(context).padding.top + 10, 12, 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Nudged down to match the vertical center of the panel's header
+        // row (13px padding + 38px icon badge), which stays fixed whether
+        // or not the chip grid below it is expanded.
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.15),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.pop(context),
+              child: const Padding(
+                padding: EdgeInsets.all(9),
+                child: Icon(Icons.arrow_back_ios_new_rounded,
+                    color: _kBlue, size: 18),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: _buildCategoryPanel()),
+      ]),
+    );
+  }
+
   // ── Category panel ────────────────────────────────────────────────────────
 
   Widget _buildCategoryPanel() {
@@ -645,9 +665,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
           orElse: () => {},
         )['des_cat_name'] ?? '').toString();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Container(
+    return Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -753,9 +771,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
                   ])
                 : const SizedBox.shrink(),
           ),
-        ]),
-      ),
-    );
+        ]));
   }
 
   // ── Composer area: sub-cat picker → word chips + text + image ─────────────
@@ -783,48 +799,84 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
-          // ── Header bar ─────────────────────────────────────────────────
+          // ── Header bar: sub-cat picker ────────────────────────────────
           Container(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-            decoration: const BoxDecoration(
-              color: _kBlueSoft,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_darken(t.primary), t.primary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: t.primary.withValues(alpha: 0.28),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Row(children: [
-              Icon(t.icon, color: _kBlue, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(t.icon, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
               Expanded(child: Text('${t.emoji}  ${t.label}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: _kBlue,
+                    color: Colors.white,
                     fontWeight: FontWeight.w900, fontSize: 14.5,
                   ))),
-              if (_selectedSubCat != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _kBlue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(_selectedSubCat!.emoji,
-                        style: const TextStyle(fontSize: 12)),
-                    const SizedBox(width: 4),
-                    Text(_selectedSubCat!.nameBn,
-                        style: const TextStyle(
-                          color: _kBlue,
-                          fontSize: 11, fontWeight: FontWeight.w800,
-                        )),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () => setState(() {
-                        _selectedSubCat = null;
-                        _suggestions = [];
-                      }),
-                      child: const Icon(Icons.close_rounded, size: 13,
-                          color: _kBlue),
+              if (_selectedSubCat != null) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
                     ),
-                  ]),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(_selectedSubCat!.emoji,
+                          style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(_selectedSubCat!.nameBn,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11, fontWeight: FontWeight.w800,
+                            )),
+                      ),
+                      const SizedBox(width: 5),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedSubCat = null;
+                          _suggestions = [];
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, size: 11,
+                              color: Colors.white),
+                        ),
+                      ),
+                    ]),
+                  ),
                 ),
+              ],
             ]),
           ),
 

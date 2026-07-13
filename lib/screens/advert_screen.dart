@@ -12,7 +12,6 @@ import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/profile_picture_dialog.dart';
 import 'package:aaram_bd/widgets/app_toast.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -642,14 +641,17 @@ class _AdvertScreenState extends State<AdvertScreen> {
     required String userName,
     required String userCategory,
     required String userAddress,
+    required String userPhone,
     required BuildContext context,
   }) async {
     try {
       final type = isService ? 'Service' : 'Shop';
 
-      final appLink = defaultTargetPlatform == TargetPlatform.iOS
-          ? 'https://apps.apple.com/app/id1234567890' // replace with real App Store ID
-          : 'https://play.google.com/store/apps/details?id=com.aarambd.marketing';
+      // Same aarambd.com/u/<phone> App Link used by user_profile.dart's
+      // share — DeepLinkService resolves it straight to this AdvertScreen
+      // when the app is installed, instead of the old raw Play Store link
+      // (which also pointed at the wrong package id).
+      final profileLink = 'https://aarambd.com/u/$userPhone';
 
       final shareMessage = type +
           ' Profile\n' +
@@ -663,7 +665,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
           userAddress +
           '\n\n' +
           'Check it out on AaramBD!\n' +
-          appLink;
+          profileLink;
 
       final overlay =
           Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -1169,6 +1171,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     userName: user.businessName,
                     userCategory: user.category,
                     userAddress: user.location,
+                    userPhone: user.phone,
                     context: context,
                   ),
                   child: Container(

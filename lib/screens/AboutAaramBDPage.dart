@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/config.dart';
+import 'package:aaram_bd/widgets/contact_info_card.dart';
+
+const Color _brand = Color(0xFF1A56DB);
 
 class AboutAaramBDPage extends StatefulWidget {
   @override
@@ -9,6 +12,7 @@ class AboutAaramBDPage extends StatefulWidget {
 
 class _AboutAaramBDPageState extends State<AboutAaramBDPage> {
   Map<String, dynamic>? aboutData;
+  bool _failed = false;
 
   @override
   void initState() {
@@ -17,172 +21,211 @@ class _AboutAaramBDPageState extends State<AboutAaramBDPage> {
   }
 
   Future<void> fetchAboutInfo() async {
+    setState(() => _failed = false);
     final response = await Config.apiGet('/get_about_info', context);
     if (response != null && response.statusCode == 200) {
       setState(() => aboutData = json.decode(response.body));
     } else {
       debugPrint("Failed to load about info: ${response?.statusCode}");
+      if (mounted) setState(() => _failed = true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text("AaramBD"),
-        centerTitle: true,
+      backgroundColor: const Color(0xFFF3F7FF),
+      body: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          _buildHeader(context),
+          if (_failed)
+            SliverFillRemaining(child: _buildError())
+          else if (aboutData == null)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator(color: _brand)),
+            )
+          else
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                  16, 16, 16, 20 + MediaQuery.of(context).padding.bottom),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  const ContactInfoCard(),
+                  _Section(
+                    title: "Know AaramBD",
+                    icon: Icons.info_outline_rounded,
+                    color: _brand,
+                    content: aboutData!['about'],
+                  ),
+                  _Section(
+                    title: "Aim & Goals",
+                    icon: Icons.flag_rounded,
+                    color: const Color(0xFF16A34A),
+                    content: aboutData!['goals'],
+                  ),
+                  _Section(
+                    title: "Credits Go To",
+                    icon: Icons.groups_rounded,
+                    color: const Color(0xFF7C3AED),
+                    content: aboutData!['founders'],
+                  ),
+                  _Section(
+                    title: "Our Sponsors",
+                    icon: Icons.star_rounded,
+                    color: const Color(0xFFD97706),
+                    content: aboutData!['sponsors'],
+                  ),
+                  _Section(
+                    title: "Our Office",
+                    icon: Icons.location_city_rounded,
+                    color: const Color(0xFF0891B2),
+                    content: aboutData!['office_address'],
+                  ),
+                  _Section(
+                    title: "Quote We Follow",
+                    icon: Icons.format_quote_rounded,
+                    color: const Color(0xFFDB2777),
+                    content: aboutData!['quote'],
+                    asQuote: true,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "© ${DateTime.now().year} AaramBD. All rights reserved.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black.withValues(alpha: 0.38),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+        ],
       ),
-      body: aboutData == null
-          ? const _Loading()
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+            16, MediaQuery.of(context).padding.top + 14, 16, 24),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1040B0), _brand],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                _Section(
-                  title: "Know AaramBD",
-                  icon: Icons.info_outline,
-                  content: aboutData!['about'],
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.pop(context),
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white, size: 18),
+                  ),
                 ),
-                _Section(
-                  title: "Credits goes to",
-                  icon: Icons.person_outline,
-                  content: aboutData!['founders'],
-                ),
-                _Section(
-                  title: "Our Sponsors",
-                  icon: Icons.star_outline,
-                  content: aboutData!['sponsors'],
-                ),
-                _Section(
-                  title: "Platform",
-                  icon: Icons.location_city,
-                  content: aboutData!['office_address'],
-                ),
-                _Section(
-                  title: "Contact AaramBD",
-                  icon: Icons.contact_phone,
-                  content: aboutData!['contact'],
-                ),
-                _Section(
-                  title: "Aim & Goals",
-                  icon: Icons.flag_outlined,
-                  content: aboutData!['goals'],
-                ),
-                _Section(
-                  title: "Quote We Follow",
-                  icon: Icons.format_quote_outlined,
-                  content: aboutData!['quote'],
-                  asQuote: true,
-                ),
-                const SizedBox(height: 8),
-                Divider(color: theme.dividerColor),
-                const SizedBox(height: 10),
-                Text(
-                  "© 2025 AaramBD. All rights reserved.",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                const SizedBox(width: 4),
+                const Text(
+                  'About AaramBD',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
-    );
-  }
-}
-
-class _Loading extends StatelessWidget {
-  const _Loading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        height: 40,
-        width: 40,
-        child: CircularProgressIndicator(strokeWidth: 3),
-      ),
-    );
-  }
-}
-
-/// A simple, standard section:
-/// - Title row with icon
-/// - Subtle divider
-/// - Body text or bullet list
-class _Section extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String content;
-  final bool asQuote;
-
-  const _Section({
-    required this.title,
-    required this.icon,
-    required this.content,
-    this.asQuote = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final List<String> lines = (content ?? "")
-        .toString()
-        .split(RegExp(r'\r\n|\n'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    final bool isMultiLine = lines.length > 1;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        // border: Border.all(color: theme.dividerColor.withValues(alpha: 0.6), width: 0.8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title row
+            const SizedBox(height: 18),
             Row(
               children: [
-                Icon(icon, size: 22, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35), width: 1.4),
+                  ),
+                  child: const Icon(Icons.storefront_rounded,
+                      color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
                   child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    'In search for everything you need',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.4,
                     ),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 8),
-            Divider(height: 1, color: theme.dividerColor),
-            const SizedBox(height: 10),
-
-            // Body
-            if (asQuote)
-              _Quote(text: content.trim())
-            else if (isMultiLine)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: lines
-                    .map((line) => _BulletLine(text: line))
-                    .toList(),
-              )
-            else
-              Text(
-                content.trim(),
-                textAlign: TextAlign.start,
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEDF4FF),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.wifi_off_rounded, size: 40, color: _brand),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Unable to load this page',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Check your internet connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: fetchAboutInfo,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _brand,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ],
         ),
       ),
@@ -190,29 +233,130 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _BulletLine extends StatelessWidget {
-  final String text;
-  const _BulletLine({required this.text});
+/// A section card: colored icon bubble + title, then body text or a bullet
+/// list (multi-line content is split into bullets), or an italic quote block.
+class _Section extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String content;
+  final bool asQuote;
+
+  const _Section({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.content,
+    this.asQuote = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final List<String> lines = (content).toString()
+        .split(RegExp(r'\r\n|\n'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) return const SizedBox.shrink();
+    final bool isMultiLine = lines.length > 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (asQuote)
+            _Quote(text: content.trim(), color: color)
+          else if (isMultiLine)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: lines.map((line) => _BulletLine(text: line, color: color)).toList(),
+            )
+          else
+            Text(
+              content.trim(),
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.55,
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletLine extends StatelessWidget {
+  final String text;
+  final Color color;
+  const _BulletLine({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Simple standard bullet
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text("•", style: TextStyle(fontSize: 18)),
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              textAlign: TextAlign.start,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.55,
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -223,30 +367,33 @@ class _BulletLine extends StatelessWidget {
 
 class _Quote extends StatelessWidget {
   final String text;
-  const _Quote({required this.text});
+  final Color color;
+  const _Quote({required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.6), width: 0.8),
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.format_quote, size: 18, color: theme.colorScheme.primary),
+          Icon(Icons.format_quote_rounded, size: 18, color: color),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: TextStyle(
+                fontSize: 13.5,
                 fontStyle: FontStyle.italic,
                 height: 1.6,
+                color: color.withValues(alpha: 0.95),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

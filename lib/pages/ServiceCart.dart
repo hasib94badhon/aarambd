@@ -16,12 +16,14 @@ class CategoryCount {
   final String categoryName;
   final String cat_id;
   final dynamic photo;
+  final int catUsed;
 
   CategoryCount({
     required this.categoryCount,
     required this.categoryName,
     required this.cat_id,
     required this.photo,
+    required this.catUsed,
   });
 
   factory CategoryCount.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,9 @@ class CategoryCount {
       cat_id: json['cat_id'].toString(),
       categoryName: json['name']?.toString() ?? '',
       photo: json['photo'],
+      catUsed: json['cat_used'] is int
+          ? json['cat_used']
+          : int.tryParse(json['cat_used']?.toString() ?? '0') ?? 0,
     );
   }
 }
@@ -120,6 +125,7 @@ class CategoryImageTile extends StatelessWidget {
   final String imageUrl;
   final String title;
   final int count;
+  final int catUsed;
   final VoidCallback onTap;
 
   const CategoryImageTile({
@@ -127,6 +133,7 @@ class CategoryImageTile extends StatelessWidget {
     required this.imageUrl,
     required this.title,
     required this.count,
+    required this.catUsed,
     required this.onTap,
   });
 
@@ -154,7 +161,7 @@ class CategoryImageTile extends StatelessWidget {
           splashColor: _brand.withValues(alpha: 0.08),
           highlightColor: _brand.withValues(alpha: 0.04),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 18, 12, 13),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -218,38 +225,7 @@ class CategoryImageTile extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 11),
-
-                // ── SERVICE badge ──────────────────────────────────────
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _brand.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(7),
-                    border: Border.all(
-                        color: _brand.withValues(alpha: 0.18)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.verified_rounded,
-                          size: 10, color: _brand),
-                      SizedBox(width: 4),
-                      Text(
-                        'SERVICE',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: _brand,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 9),
+                const SizedBox(height: 10),
 
                 // ── Category name ──────────────────────────────────────
                 Text(
@@ -265,7 +241,7 @@ class CategoryImageTile extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 7),
+                const SizedBox(height: 6),
 
                 // ── Expert count ───────────────────────────────────────
                 Row(
@@ -285,12 +261,33 @@ class CategoryImageTile extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                Opacity(
+                  opacity: catUsed > 0 ? 1 : 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded,
+                          size: 12, color: Color(0xFFF97316)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$catUsed visits',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFF97316),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
 
                 // ── Find Expert button ─────────────────────────────────
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF1040B0), Color(0xFF1A56DB)],
@@ -578,6 +575,7 @@ class _ServiceCartState extends State<ServiceCart> {
                                   imageUrl: category.photo?.toString() ?? '',
                                   title: category.categoryName,
                                   count: category.categoryCount,
+                                  catUsed: category.catUsed,
                                   onTap: () {
                                     updateCategoryUsage(
                                         category.cat_id.toString(), context);
@@ -601,7 +599,7 @@ class _ServiceCartState extends State<ServiceCart> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              childAspectRatio: 0.70,
+                              childAspectRatio: 0.80,
                             ),
                           ),
                         ),

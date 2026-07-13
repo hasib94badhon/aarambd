@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aaram_bd/screens/signup_screen.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
 import 'package:aaram_bd/screens/navigation_screen.dart';
+import 'package:aaram_bd/services/update_check_service.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -32,6 +33,11 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigateBasedOnState() async {
+    if (mounted) {
+      await UpdateCheckService.checkForUpdate(context);
+    }
+    if (!mounted) return;
+
     final prefs = await SharedPreferences.getInstance();
     final isFirstTime = prefs.getBool('isFirstTime') ?? true;
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;

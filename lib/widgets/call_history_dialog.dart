@@ -2,8 +2,28 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
+
+/// Compact relative time ("13h", "5m", "2d") for tight list rows — unlike
+/// Config.getTimeDifference's spelled-out "13 hours ago", which is too wide
+/// to sit next to a name and category on the same line without overflowing.
+String _compactTimeAgo(String timeString) {
+  if (timeString.trim().isEmpty) return '';
+  try {
+    final format = DateFormat("EEE dd MMM yyyy HH:mm:ss", 'en_US');
+    final past = format.parse(timeString);
+    final diff = DateTime.now().difference(past);
+
+    if (diff.inSeconds < 60) return '${diff.inSeconds + 1}s';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 30) return '${diff.inDays}d';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo';
+    return '${(diff.inDays / 365).floor()}y';
+  } catch (_) {
+    return '';
+  }
+}
 
 void showCallHistoryBottomSheet({
   required BuildContext context,
@@ -110,7 +130,7 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
       alignment: Alignment.bottomCenter,
       child: Container(
         height: widget.sheetHeight,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -151,36 +171,49 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.history_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Call History',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18.5,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.history_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Call History',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _CloseButton(onTap: () => Navigator.pop(context)),
+                      ],
                     ),
-                    _Chip(label: 'In: $incomingCount', color: const Color(0xFF10B981)),
-                    const SizedBox(width: 8),
-                    _Chip(label: 'Out: $outgoingCount', color: const Color(0xFF3B82F6)),
-                    const SizedBox(width: 8),
-                    _CloseButton(onTap: () => Navigator.pop(context)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _Chip(label: 'In: $incomingCount', color: const Color(0xFF10B981)),
+                        const SizedBox(width: 8),
+                        _Chip(label: 'Out: $outgoingCount', color: const Color(0xFF3B82F6)),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -211,7 +244,7 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                                 incoming ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
                             final catName = c['cat_name'] as String? ?? '';
                             final dtago =
-                                Config.getTimeDifference(c['last_call_time']);
+                                _compactTimeAgo(c['last_call_time'] as String? ?? '');
                             final serviceId = c['service_id'] as int? ?? 0;
                             final shopId = c['shop_id'] as int? ?? 0;
                             final userId = (c['advert_id'] ?? '').toString();
@@ -374,7 +407,7 @@ class _CallTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -391,16 +424,17 @@ class _CallTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Avatar with ring
               Stack(
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [accentColor.withValues(alpha: 0.15), Colors.white],
@@ -412,7 +446,7 @@ class _CallTile extends StatelessWidget {
                     ),
                   ),
                   CircleAvatar(
-                    radius: 21,
+                    radius: 20,
                     backgroundColor: const Color(0xFFE5E7EB),
                     backgroundImage:
                         photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
@@ -420,6 +454,7 @@ class _CallTile extends StatelessWidget {
                         ? Text(
                             _initials(name),
                             style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF374151),
                             ),
@@ -434,74 +469,76 @@ class _CallTile extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Name + time
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          timeAgo,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: Color(0xFF6B7280),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF111827),
+                        height: 1.2,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    // Category + direction chip
+                    const SizedBox(height: 3),
+                    // Direction icon + category, with time trailing
                     Row(
                       children: [
-                        Icon(directionIcon, size: 16, color: accentColor),
-                        const SizedBox(width: 6),
+                        Icon(directionIcon, size: 14, color: accentColor),
+                        const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             category.isNotEmpty ? category : '—',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 13.5,
-                              color: Color(0xFF4B5563),
+                              fontSize: 12.5,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
+                        if (timeAgo.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '· $timeAgo',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF9CA3AF),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
               // Total calls badge
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.call_rounded, size: 16, color: accentColor),
-                    const SizedBox(width: 6),
+                    Icon(Icons.call_rounded, size: 14, color: accentColor),
+                    const SizedBox(width: 5),
                     Text(
                       total,
                       style: TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: accentColor,
                       ),

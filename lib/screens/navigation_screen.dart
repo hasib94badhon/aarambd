@@ -90,6 +90,8 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   late AnimationController _bellController;
   late Animation<double> _bellAnimation;
+  late AnimationController _bellGlowController;
+  late Animation<double> _bellGlow;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -135,16 +137,41 @@ class _NavigationScreenState extends State<NavigationScreen>
     pageIndex = widget.initialPage;
     WidgetsBinding.instance.addObserver(this);
 
+    // Decaying multi-swing shake — mimics a struck bell settling, rather than
+    // a plain back-and-forth wiggle.
     _bellController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 900),
     );
     _bellAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.1), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.1, end: -0.1), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -0.1, end: 0.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.32), weight: 8),
+      TweenSequenceItem(tween: Tween(begin: 0.32, end: -0.26), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: -0.26, end: 0.18), weight: 9),
+      TweenSequenceItem(tween: Tween(begin: 0.18, end: -0.11), weight: 8),
+      TweenSequenceItem(tween: Tween(begin: -0.11, end: 0.05), weight: 7),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 6),
     ]).animate(
-        CurvedAnimation(parent: _bellController, curve: Curves.easeInOut));
+        CurvedAnimation(parent: _bellController, curve: Curves.easeOutSine));
+    // Re-strike the bell every couple seconds while there's something unread,
+    // instead of shaking continuously.
+    _bellController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(milliseconds: 1700), () {
+          if (mounted && unreadCount > 0) _bellController.forward(from: 0);
+        });
+      }
+    });
+
+    // Slow ambient glow pulse behind the bell — keeps it eye-catching between
+    // the periodic shake bursts, same amber tone as before, just animated.
+    // Only runs while there's something unread (started/stopped alongside
+    // _bellController in getUnreadCount()).
+    _bellGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _bellGlow = CurvedAnimation(
+        parent: _bellGlowController, curve: Curves.easeInOut);
 
     initializePages();
     fetchPageData(pageIndex);
@@ -165,6 +192,7 @@ class _NavigationScreenState extends State<NavigationScreen>
     WidgetsBinding.instance.removeObserver(this);
     FCMService().onForegroundMessage = null;
     _bellController.dispose();
+    _bellGlowController.dispose();
     super.dispose();
   }
 
@@ -259,9 +287,13 @@ class _NavigationScreenState extends State<NavigationScreen>
       if (!mounted) return;
       setState(() => unreadCount = count);
       if (unreadCount > 0) {
-        if (!_bellController.isAnimating) _bellController.repeat(reverse: true);
+        if (!_bellController.isAnimating) _bellController.forward(from: 0);
+        if (!_bellGlowController.isAnimating) {
+          _bellGlowController.repeat(reverse: true);
+        }
       } else {
         _bellController.stop();
+        _bellGlowController.stop();
       }
     } catch (e) {
       debugPrint('Error loading notifications: $e');
@@ -498,6 +530,7 @@ class _NavigationScreenState extends State<NavigationScreen>
               if (!mounted) return;
               setState(() => unreadCount = 0);
               _bellController.stop();
+              _bellGlowController.stop();
             }
             if (!mounted) return;
             await _currentNavKey.currentState?.push(
@@ -509,31 +542,41 @@ class _NavigationScreenState extends State<NavigationScreen>
             clipBehavior: Clip.none,
             children: [
               AnimatedBuilder(
-                animation: _bellAnimation,
-                builder: (_, child) => Transform.rotate(
-                  angle: unreadCount > 0 ? _bellAnimation.value : 0.0,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    padding: const EdgeInsets.all(6),
-                    decoration: unreadCount > 0
-                        ? BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.amber.withValues(alpha: 0.35),
-                                spreadRadius: 2,
-                                blurRadius: 10,
-                              ),
-                            ],
-                          )
-                        : null,
-                    child: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: Colors.black87,
-                      size: 28,
+                animation: Listenable.merge([_bellAnimation, _bellGlow]),
+                builder: (_, child) {
+                  final angle = unreadCount > 0 ? _bellAnimation.value : 0.0;
+                  // Icon nudges slightly bigger at the peak of each swing —
+                  // reads as a real bell being struck, not just rotating.
+                  final scale = 1.0 + angle.abs() * 0.28;
+                  final glow = unreadCount > 0 ? _bellGlow.value : 0.0;
+                  return Transform.rotate(
+                    angle: angle,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: unreadCount > 0
+                            ? BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.amber
+                                        .withValues(alpha: 0.22 + glow * 0.28),
+                                    spreadRadius: 1.5 + glow * 2.5,
+                                    blurRadius: 8 + glow * 8,
+                                  ),
+                                ],
+                              )
+                            : null,
+                        child: const Icon(
+                          Icons.notifications_none_rounded,
+                          color: Colors.black87,
+                          size: 28,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
               if (unreadCount > 0)
                 Positioned(

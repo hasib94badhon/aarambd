@@ -187,10 +187,9 @@ CatTheme themeFor(int? catId) => _themes[catId] ?? const CatTheme(
 // ── Sub-category model ───────────────────────────────────────────────────────
 class _SubCat {
   final int id;
-  final String nameBn;
-  final String nameEn;
+  final String name;
   final String emoji;
-  const _SubCat(this.id, this.nameBn, this.nameEn, this.emoji);
+  const _SubCat(this.id, this.name, this.emoji);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -263,6 +262,9 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
   bool      _loadingSugg      = false;
   bool      _isPosting        = false;
   String    _subCatQuery      = '';
+  // Only browsing the un-searched grid is capped — once the user types a
+  // query, or explicitly asks to see the rest, every match shows.
+  bool      _subCatExpanded   = false;
 
   final Map<String, bool> _expandedMap = {};
 
@@ -272,9 +274,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
     final q = _subCatQuery.trim().toLowerCase();
     if (q.isEmpty) return _subCats;
     return _subCats
-        .where((s) =>
-            s.nameBn.toLowerCase().contains(q) ||
-            s.nameEn.toLowerCase().contains(q))
+        .where((s) => s.name.toLowerCase().contains(q))
         .toList();
   }
 
@@ -343,8 +343,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
       setState(() {
         _subCats = list.map((e) => _SubCat(
           e['des_sub_cat_id'] as int,
-          e['name_bn'] as String,
-          e['name_en'] as String? ?? '',
+          e['name'] as String? ?? '',
           e['emoji'] as String? ?? '',
         )).toList();
         _loadingSubCats = false;
@@ -559,6 +558,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
       _suggestions = [];
       _subCatSearchCtrl.clear();
       _subCatQuery = '';
+      _subCatExpanded = false;
     });
   }
 
@@ -597,6 +597,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           SliverToBoxAdapter(child: _buildTopBar(context)),
+          SliverToBoxAdapter(child: _buildCategoryChipsSection()),
           SliverToBoxAdapter(child: _buildComposerArea()),
           const SliverToBoxAdapter(child: SizedBox(height: 18)),
           SliverToBoxAdapter(child: _buildMyPostsHeader()),
@@ -628,37 +629,34 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
     return Padding(
       padding: EdgeInsets.fromLTRB(
           12, MediaQuery.of(context).padding.top + 10, 12, 8),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Nudged down to match the vertical center of the panel's header
-        // row (13px padding + 38px icon badge), which stays fixed whether
-        // or not the chip grid below it is expanded.
-        Padding(
-          padding: const EdgeInsets.only(top: 14),
-          child: Material(
-            color: Colors.white,
-            shape: const CircleBorder(),
-            elevation: 2,
-            shadowColor: Colors.black.withValues(alpha: 0.15),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => Navigator.pop(context),
-              child: const Padding(
-                padding: EdgeInsets.all(9),
-                child: Icon(Icons.arrow_back_ios_new_rounded,
-                    color: _kBlue, size: 18),
-              ),
+      // Both children now have fixed, comparable heights — the chip grid
+      // moved out to its own section below, so plain center alignment
+      // works without a manual offset.
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.15),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(9),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: _kBlue, size: 18),
             ),
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(child: _buildCategoryPanel()),
+        Expanded(child: _buildCategoryHeaderCard()),
       ]),
     );
   }
 
-  // ── Category panel ────────────────────────────────────────────────────────
+  // ── Category header card (shares the top row with the back button) ───────
 
-  Widget _buildCategoryPanel() {
+  Widget _buildCategoryHeaderCard() {
     final selName = _selectedCatId == null ? '' :
         (_categories.firstWhere(
           (c) => c['des_cat_id'].toString() == _selectedCatId,
@@ -666,112 +664,123 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
         )['des_cat_name'] ?? '').toString();
 
     return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(
-              color: Color(0x10000000), blurRadius: 16, offset: Offset(0, 6))],
-        ),
-        child: Column(children: [
-          InkWell(
-            onTap: () => setState(() => _catPanelExpanded = !_catPanelExpanded),
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-              child: Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: _kBlue.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.category_outlined, color: _kBlue, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Category', style: TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 13,
-                        color: Color(0xFF4A5568))),
-                    const SizedBox(height: 2),
-                    Text(
-                      selName.isNotEmpty ? selName : 'ক্যাটাগরি নির্বাচন করুন',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13.5,
-                        color: selName.isNotEmpty ? _kBlue : const Color(0xFFB0B7C3),
-                      ),
-                    ),
-                  ],
-                )),
-                if (selName.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: _kBlue.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(999)),
-                    child: const Text('✓ Selected', style: TextStyle(
-                        color: _kBlue, fontSize: 11, fontWeight: FontWeight.w800)),
-                  ),
-                const SizedBox(width: 6),
-                AnimatedRotation(
-                  turns: _catPanelExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF8A94A6)),
-                ),
-              ]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(
+            color: Color(0x10000000), blurRadius: 16, offset: Offset(0, 6))],
+      ),
+      child: InkWell(
+        onTap: () => setState(() => _catPanelExpanded = !_catPanelExpanded),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: _kBlue.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.category_outlined, color: _kBlue, size: 20),
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeInOut,
-            child: _catPanelExpanded
-                ? Column(children: [
-                    const Divider(height: 1, color: Color(0xFFF0F3F8)),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-                      child: _loadingCats
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
-                          : Wrap(
-                              spacing: 8, runSpacing: 8,
-                              children: _categories.map((cat) {
-                                final name = (cat['des_cat_name'] ?? '').toString();
-                                final id   = (cat['des_cat_id'] ?? '').toString();
-                                final sel  = _selectedCatId == id;
-                                final emoji = themeFor(int.tryParse(id)).emoji;
-                                return GestureDetector(
-                                  onTap: () { HapticFeedback.lightImpact(); _selectCategory(id); },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-                                    decoration: BoxDecoration(
-                                      color: sel ? _kBlue : _kBlue.withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: sel ? _kBlue : _kBlue.withValues(alpha: 0.25),
-                                        width: sel ? 1.5 : 1,
-                                      ),
-                                    ),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Text(emoji, style: const TextStyle(fontSize: 14)),
-                                      const SizedBox(width: 5),
-                                      Text(name, style: TextStyle(
-                                        color: sel ? Colors.white : _kBlue,
-                                        fontWeight: FontWeight.w800, fontSize: 13,
-                                      )),
-                                    ]),
-                                  ),
-                                );
-                              }).toList(),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Category', style: TextStyle(
+                    fontWeight: FontWeight.w800, fontSize: 13,
+                    color: Color(0xFF4A5568))),
+                const SizedBox(height: 2),
+                Text(
+                  selName.isNotEmpty ? selName : 'ক্যাটাগরি নির্বাচন করুন',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 13.5,
+                    color: selName.isNotEmpty ? _kBlue : const Color(0xFFB0B7C3),
+                  ),
+                ),
+              ],
+            )),
+            if (selName.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                    color: _kBlue.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(999)),
+                child: const Text('✓ Selected', style: TextStyle(
+                    color: _kBlue, fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            const SizedBox(width: 6),
+            AnimatedRotation(
+              turns: _catPanelExpanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 220),
+              child: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF8A94A6)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── Category chip grid — full width, own section below the top row ───────
+
+  Widget _buildCategoryChipsSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeInOut,
+        alignment: Alignment.topCenter,
+        child: _catPanelExpanded
+            ? Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [BoxShadow(
+                      color: Color(0x10000000), blurRadius: 16, offset: Offset(0, 6))],
+                ),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                child: _loadingCats
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                    : Wrap(
+                        spacing: 8, runSpacing: 8,
+                        children: _categories.map((cat) {
+                          final name = (cat['des_cat_name'] ?? '').toString();
+                          final id   = (cat['des_cat_id'] ?? '').toString();
+                          final sel  = _selectedCatId == id;
+                          final emoji = themeFor(int.tryParse(id)).emoji;
+                          return GestureDetector(
+                            onTap: () { HapticFeedback.lightImpact(); _selectCategory(id); },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: sel ? _kBlue : _kBlue.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: sel ? _kBlue : _kBlue.withValues(alpha: 0.25),
+                                  width: sel ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text(emoji, style: const TextStyle(fontSize: 14)),
+                                const SizedBox(width: 5),
+                                Text(name, style: TextStyle(
+                                  color: sel ? Colors.white : _kBlue,
+                                  fontWeight: FontWeight.w800, fontSize: 13,
+                                )),
+                              ]),
                             ),
-                    ),
-                  ])
-                : const SizedBox.shrink(),
-          ),
-        ]));
+                          );
+                        }).toList(),
+                      ),
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
   }
 
   // ── Composer area: sub-cat picker → word chips + text + image ─────────────
@@ -849,7 +858,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
                           style: const TextStyle(fontSize: 12)),
                       const SizedBox(width: 4),
                       Flexible(
-                        child: Text(_selectedSubCat!.nameBn,
+                        child: Text(_selectedSubCat!.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -908,6 +917,7 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
                 // suggestion flies it up to sit right before the cursor.
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1090,6 +1100,14 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
     }
 
     final results = _filteredSubCats;
+    final searching = _subCatQuery.trim().isNotEmpty;
+    // Only cap the plain browsing view — once there's a search query, or the
+    // user has tapped "more", every match shows regardless of count.
+    const collapsedLimit = 6;
+    final shouldCollapse =
+        !searching && !_subCatExpanded && results.length > collapsedLimit;
+    final visible = shouldCollapse ? results.take(collapsedLimit).toList() : results;
+    final hiddenCount = results.length - visible.length;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Search box — filters the grid below as you type
@@ -1145,37 +1163,63 @@ class _NeedBuilderPageState extends State<NeedBuilderPage>
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
           childAspectRatio: 2.5,
-          children: results.map((sub) {
-            return GestureDetector(
-              onTap: () => _selectSubCat(sub),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _kBlue.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _kBlue.withValues(alpha: 0.20)),
-                ),
-                child: Row(children: [
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 34, height: 34,
-                    decoration: BoxDecoration(
-                      color: _kBlue.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(child: Text(sub.emoji.isNotEmpty ? sub.emoji : '📌',
-                        style: const TextStyle(fontSize: 16))),
+          children: [
+            ...visible.map((sub) {
+              return GestureDetector(
+                onTap: () => _selectSubCat(sub),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _kBlue.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _kBlue.withValues(alpha: 0.20)),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(sub.nameBn,
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 12.5,
-                        color: _kBlue,
-                      ))),
-                ]),
+                  child: Row(children: [
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 34, height: 34,
+                      decoration: BoxDecoration(
+                        color: _kBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(child: Text(sub.emoji.isNotEmpty ? sub.emoji : '📌',
+                          style: const TextStyle(fontSize: 16))),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(sub.name,
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 12.5,
+                          color: _kBlue,
+                        ))),
+                  ]),
+                ),
+              );
+            }),
+            if (shouldCollapse)
+              GestureDetector(
+                onTap: () => setState(() => _subCatExpanded = true),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6FB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.unfold_more_rounded,
+                          size: 16, color: Color(0xFF6B7280)),
+                      const SizedBox(width: 6),
+                      Text('+$hiddenCount আরও',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 12.5,
+                            color: Color(0xFF6B7280),
+                          )),
+                    ],
+                  ),
+                ),
               ),
-            );
-          }).toList(),
+          ],
         ),
     ]);
   }
@@ -1330,7 +1374,7 @@ class _BillboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final desId     = item['des_id'].toString();
     final des       = (item['des'] ?? '').toString();
-    final subName   = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName   = (item['sub_cat_name'] ?? '').toString();
     final subEmoji  = (item['sub_cat_emoji'] ?? '').toString();
     final photoUrl  = (item['des_photo'] ?? '').toString();
     final isLive    = (item['status'] ?? 'live') == 'live';
@@ -1497,7 +1541,7 @@ class _ServiceCard extends StatelessWidget {
     final t        = theme;
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
-    final subName  = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName  = (item['sub_cat_name'] ?? '').toString();
     final subEmoji = (item['sub_cat_emoji'] ?? '').toString();
     final note     = (item['special_note'] ?? '').toString();
     final photoUrl = (item['des_photo'] ?? '').toString();
@@ -1661,7 +1705,7 @@ class _ShopsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
-    final subName  = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName  = (item['sub_cat_name'] ?? '').toString();
     final subEmoji = (item['sub_cat_emoji'] ?? '').toString();
     final note     = (item['special_note'] ?? '').toString();
     final photoUrl = (item['des_photo'] ?? '').toString();
@@ -1820,7 +1864,7 @@ class _HelpCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
-    final subName  = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName  = (item['sub_cat_name'] ?? '').toString();
     final subEmoji = (item['sub_cat_emoji'] ?? '').toString();
     final isLive   = (item['status'] ?? 'live') == 'live';
     final isHidden = item['is_hidden'] == true;
@@ -1968,7 +2012,7 @@ class _InfoCard extends StatelessWidget {
     final desId    = item['des_id'].toString();
     final des      = (item['des'] ?? '').toString();
     final note     = (item['special_note'] ?? '').toString();
-    final subName  = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName  = (item['sub_cat_name'] ?? '').toString();
     final subEmoji = (item['sub_cat_emoji'] ?? '').toString();
     final isLive   = (item['status'] ?? 'live') == 'live';
     final isHidden = item['is_hidden'] == true;
@@ -2125,3 +2169,12 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+

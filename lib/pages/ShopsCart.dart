@@ -572,7 +572,7 @@ class _ShopsCartState extends State<ShopsCart> {
   Widget _buildHeader(int total, int filtered) {
     final isFiltering = _searchQuery.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
       child: Row(
         children: [
           Container(
@@ -693,7 +693,7 @@ class _ShopsCartState extends State<ShopsCart> {
   Widget _buildSearchEmpty() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

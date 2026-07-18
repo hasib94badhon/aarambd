@@ -417,10 +417,11 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
   Widget _buildSearchField() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -530,7 +531,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   Widget _buildSortBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),

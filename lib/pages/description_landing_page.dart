@@ -364,7 +364,38 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
             ),
           ),
 
+          // ── Post prompt bar (replaces header) ────────────────────────
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: _PostPromptBar(
+              statusH: statusH,
+              onTap: catId == null
+                  ? null
+                  : () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  NeedBuilderPage(initialCatId: catId)));
+                    },
+            ),
+          ),
+
+          // ── Bottom category bar ───────────────────────────────────────
+          Positioned(
+            bottom: safeB, left: 0, right: 0, height: _catBarH,
+            child: _CatBar(
+              categories: _categories,
+              selectedCatId: _selectedCatId,
+              onSelect: _onCatTap,
+            ),
+          ),
+
           // ── Popup backdrop ────────────────────────────────────────────
+          // Painted after the prompt bar and category bar so it (and the
+          // popup below) always sit on top, no matter how tall the popup
+          // grows — a modal overlay must never end up behind other chrome.
           if (_popupOpen)
             Positioned(
               top: topH, left: 0, right: 0,
@@ -406,34 +437,6 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
                 ),
               ),
             ),
-
-          // ── Post prompt bar (replaces header) ────────────────────────
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: _PostPromptBar(
-              statusH: statusH,
-              onTap: catId == null
-                  ? null
-                  : () {
-                      HapticFeedback.mediumImpact();
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  NeedBuilderPage(initialCatId: catId)));
-                    },
-            ),
-          ),
-
-          // ── Bottom category bar ───────────────────────────────────────
-          Positioned(
-            bottom: safeB, left: 0, right: 0, height: _catBarH,
-            child: _CatBar(
-              categories: _categories,
-              selectedCatId: _selectedCatId,
-              onSelect: _onCatTap,
-            ),
-          ),
         ],
       ),
     );
@@ -444,7 +447,7 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
     if (loading && posts.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(top: topPad + 16, bottom: bottomPad),
+        padding: EdgeInsets.only(top: topPad + 6, bottom: bottomPad),
         children: [
           const SizedBox(height: 60),
           Center(
@@ -456,7 +459,7 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
     if (!loading && posts.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(20, topPad + 40, 20, bottomPad),
+        padding: EdgeInsets.fromLTRB(10, topPad + 2, 10, bottomPad),
         children: [
           Column(children: [
             Container(
@@ -818,9 +821,8 @@ class _SubCatPopupState extends State<_SubCatPopup> {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return widget.subCats;
     return widget.subCats.where((it) {
-      final bn = (it['name_bn'] ?? '').toString().toLowerCase();
-      final en = (it['name_en'] ?? '').toString().toLowerCase();
-      return bn.contains(q) || en.contains(q);
+      final name = (it['name'] ?? '').toString().toLowerCase();
+      return name.contains(q);
     }).toList();
   }
 
@@ -925,6 +927,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOutCubic,
+                  clipBehavior: Clip.antiAlias,
                   height: 44,
                   decoration: BoxDecoration(
                     color: _searchFocused
@@ -1038,7 +1041,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                         final id =
                             it['des_sub_cat_id']?.toString();
                         final name =
-                            it['name_bn']?.toString() ?? '';
+                            it['name']?.toString() ?? '';
                         return _SubChip(
                           label: name,
                           selected: id == widget.selectedSubCatId,
@@ -1148,7 +1151,7 @@ class _PostCard extends StatelessWidget {
     final photo    = (item['des_photo'] ?? '').toString();
     final userName = (item['user_name'] ?? 'Unknown').toString();
     final userPhoto = (item['photo'] ?? '').toString();
-    final subName  = (item['sub_cat_name_bn'] ?? '').toString();
+    final subName  = (item['sub_cat_name'] ?? '').toString();
     final subEmoji = (item['sub_cat_emoji'] ?? '').toString();
     final time     = Config.getTimeDifference(
             (item['time'] ?? '').toString())

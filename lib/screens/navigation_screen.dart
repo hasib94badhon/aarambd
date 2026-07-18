@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:aaram_bd/pages/Homepage.dart';
@@ -93,6 +94,10 @@ class _NavigationScreenState extends State<NavigationScreen>
   late AnimationController _bellGlowController;
   late Animation<double> _bellGlow;
 
+  // Powers the admin panel's "active now" count — a periodic ping while the
+  // app is in the foreground, distinct from the one-off login-time update.
+  Timer? _heartbeatTimer;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // ── One navigator key per tab (index 0–5) ─────────────────────────────────
@@ -185,6 +190,8 @@ class _NavigationScreenState extends State<NavigationScreen>
     FCMService().onForegroundMessage = () {
       if (mounted) getUnreadCount();
     };
+
+    _startHeartbeat();
   }
 
   @override
@@ -193,12 +200,38 @@ class _NavigationScreenState extends State<NavigationScreen>
     FCMService().onForegroundMessage = null;
     _bellController.dispose();
     _bellGlowController.dispose();
+    _heartbeatTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) refreshCurrentPage();
+    if (state == AppLifecycleState.resumed) {
+      refreshCurrentPage();
+      _startHeartbeat();
+    } else {
+      _heartbeatTimer?.cancel();
+    }
+  }
+
+  // ── Activity heartbeat ───────────────────────────────────────────────────
+  // Pings the backend every 60s while the app is foregrounded, so the admin
+  // panel can show a genuine "active now" count (not just last-login time).
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _sendHeartbeat();
+    _heartbeatTimer =
+        Timer.periodic(const Duration(seconds: 60), (_) => _sendHeartbeat());
+  }
+
+  Future<void> _sendHeartbeat() async {
+    if (!mounted) return;
+    try {
+      await Config.apiPost('/update_activity', {}, context);
+    } catch (_) {
+      // Best-effort — a missed heartbeat just means one fewer data point,
+      // never worth surfacing to the user.
+    }
   }
 
   @override

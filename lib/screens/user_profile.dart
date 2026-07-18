@@ -378,11 +378,11 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
 
   Future<void> shareProfile() async {
     try {
-      if (userPhone == null || userPhone!.isEmpty) {
-        throw Exception('userPhone is missing');
+      if (user_id.isEmpty) {
+        throw Exception('user_id is missing');
       }
 
-      final profileLink = 'https://aarambd.com/u/$userPhone';
+      final profileLink = 'https://aarambd.com/u/$user_id';
 
       final shareMessage = "👤 Name: $userName\n"
           "📂 Category: $userCategory\n"

@@ -52,7 +52,7 @@
                 <data android:scheme="myapp" android:host="get_user_by_phone"/>
             </intent-filter>
 
-            <!-- Android App Links: shared profile links (https://aarambd.com/u/<phone>) -->
+            <!-- Android App Links: shared profile links (https://aarambd.com/u/<user_id>) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

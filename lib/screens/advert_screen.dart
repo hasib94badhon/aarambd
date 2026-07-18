@@ -636,22 +636,21 @@ class _AdvertScreenState extends State<AdvertScreen> {
   }
 
   Future<void> shareAdvertProfile({
-    required int id,
+    required String userId,
     required bool isService,
     required String userName,
     required String userCategory,
     required String userAddress,
-    required String userPhone,
     required BuildContext context,
   }) async {
     try {
       final type = isService ? 'Service' : 'Shop';
 
-      // Same aarambd.com/u/<phone> App Link used by user_profile.dart's
+      // Same aarambd.com/u/<user_id> App Link used by user_profile.dart's
       // share — DeepLinkService resolves it straight to this AdvertScreen
       // when the app is installed, instead of the old raw Play Store link
       // (which also pointed at the wrong package id).
-      final profileLink = 'https://aarambd.com/u/$userPhone';
+      final profileLink = 'https://aarambd.com/u/$userId';
 
       final shareMessage = type +
           ' Profile\n' +
@@ -1166,12 +1165,11 @@ class _AdvertScreenState extends State<AdvertScreen> {
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => shareAdvertProfile(
-                    id: user.is_service ? user.serviceId : user.shopId,
+                    userId: user.user_id.toString(),
                     isService: user.is_service,
                     userName: user.businessName,
                     userCategory: user.category,
                     userAddress: user.location,
-                    userPhone: user.phone,
                     context: context,
                   ),
                   child: Container(

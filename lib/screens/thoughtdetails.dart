@@ -1098,6 +1098,7 @@ class _ThoughtDetailsState extends State<ThoughtDetails> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: _commentFieldFocused
                       ? Colors.white

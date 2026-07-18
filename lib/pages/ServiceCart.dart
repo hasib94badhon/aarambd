@@ -494,7 +494,7 @@ class _ServiceCartState extends State<ServiceCart> {
                       // ── Title ──────────────────────────────────────────
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+                          padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
                           child: Row(
                             children: [
                               Container(

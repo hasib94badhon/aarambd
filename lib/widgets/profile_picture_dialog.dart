@@ -21,13 +21,12 @@ class ProfilePictureDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(width: 4, color: Colors.tealAccent),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      spreadRadius: 5,
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      color: Colors.grey.withOpacity(0.4),
+                      spreadRadius: 2,
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),

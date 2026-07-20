@@ -170,8 +170,8 @@ class CategoryImageTile extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: [
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: 82,
+                      height: 82,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -206,8 +206,8 @@ class CategoryImageTile extends StatelessWidget {
                       right: 1,
                       bottom: 1,
                       child: Container(
-                        width: 16,
-                        height: 16,
+                        width: 18,
+                        height: 18,
                         decoration: BoxDecoration(
                           color: const Color(0xFF16A34A),
                           shape: BoxShape.circle,
@@ -333,7 +333,7 @@ class CategoryImageTile extends StatelessWidget {
     return Container(
       color: _brand.withValues(alpha: 0.08),
       child: const Center(
-        child: Icon(Icons.engineering_rounded, size: 32, color: _brand),
+        child: Icon(Icons.engineering_rounded, size: 36, color: _brand),
       ),
     );
   }

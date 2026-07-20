@@ -1,7 +1,7 @@
 // File: widgets/view_history_bottom_sheet.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
 
 /// Compact relative time ("13h", "5m", "2d") for tight list rows — unlike
@@ -10,9 +10,10 @@ import 'package:aaram_bd/screens/advert_screen.dart';
 String _compactTimeAgo(String timeString) {
   if (timeString.trim().isEmpty) return '';
   try {
-    final format = DateFormat("EEE dd MMM yyyy HH:mm:ss", 'en_US');
-    final past = format.parse(timeString);
-    final diff = DateTime.now().difference(past);
+    final past = Config.parseServerTime(timeString);
+    if (past == null) return '';
+    final rawDiff = DateTime.now().toUtc().difference(past);
+    final diff = rawDiff.isNegative ? Duration.zero : rawDiff;
 
     if (diff.inSeconds < 60) return '${diff.inSeconds + 1}s';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
@@ -241,7 +242,13 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
                             final shopId =
                                 int.tryParse((v['shop_id'] ?? 0).toString()) ??
                                     0;
-                            final advertId = (v['advert_id'] ?? '').toString();
+                            // The viewer's real user_id — must be used for
+                            // AdvertScreen's userId (review summary / view
+                            // tracking target). serviceId/shopId below are a
+                            // separate id space, only valid for additionalData
+                            // routing.
+                            final viewerUserId =
+                                (v['view_user_id'] ?? '').toString();
 
                             String targetId;
                             bool isService;
@@ -256,9 +263,8 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
                               isService = false;
                               additionalData = {'shop_id': targetId};
                             } else {
-                              targetId = advertId;
                               isService = false;
-                              additionalData = {'user_only': targetId};
+                              additionalData = {'user_only': viewerUserId};
                             }
 
                             return _ViewerTile(
@@ -271,10 +277,10 @@ class _ViewHistorySheetState extends State<_ViewHistorySheet> {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => AdvertScreen(
-                                      userId: targetId,
+                                      userId: viewerUserId,
                                       isService: isService,
                                       advertData: AdvertData(
-                                        userId: targetId,
+                                        userId: viewerUserId,
                                         isService: isService,
                                         additionalData: additionalData,
                                       ),

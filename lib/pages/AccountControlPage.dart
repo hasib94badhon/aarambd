@@ -331,23 +331,93 @@ class _AccountControlPageState extends State<AccountControlPage> {
     );
   }
 
+  // ── Gradient hero header — matches the drawer pages (AccountSettingsPage,
+  // NotificationSettingsPage, FavoriteProfilesPage): back button + icon
+  // bubble + title/subtitle on a rounded-bottom blue gradient.
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1040B0), Color(0xFF1A56DB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.delete_forever_rounded,
+                color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Account Control',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Deactivate or delete your account',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Account Control"),
-        backgroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            SizedBox(height: 8),
-            _buildDeactivateCard(),
-            SizedBox(height: 16),
-            _buildDeleteCard(),
-          ],
-        ),
+      backgroundColor: const Color(0xFFF3F7FF),
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                SizedBox(height: 8),
+                _buildDeactivateCard(),
+                SizedBox(height: 16),
+                _buildDeleteCard(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

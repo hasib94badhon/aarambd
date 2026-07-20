@@ -70,6 +70,30 @@ class _PostDetailsState extends State<PostDetails> {
   String? editingCommentId;
   final TextEditingController editingController = TextEditingController();
 
+  // Reply-to state — set when the user taps a comment's reply action,
+  // cleared on send/cancel.
+  String? _replyToId;
+  String? _replyToAuthor;
+  String? _replyToText;
+
+  void _startReply(dynamic comment) {
+    setState(() {
+      _replyToId = comment['com_id'].toString();
+      _replyToAuthor = (comment['commenter_name'] ?? 'Someone').toString();
+      _replyToText = (comment['com_text'] ?? '').toString();
+    });
+    _commentFocus.requestFocus();
+  }
+
+  void _cancelReply() {
+    if (_replyToId == null) return;
+    setState(() {
+      _replyToId = null;
+      _replyToAuthor = null;
+      _replyToText = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,7 +109,8 @@ class _PostDetailsState extends State<PostDetails> {
     _commentsScrollController = ScrollController();
     _commentsScrollController.addListener(_onCommentsScroll);
     _commentFocus.addListener(() {
-      if (mounted) setState(() => _commentFieldFocused = _commentFocus.hasFocus);
+      if (mounted)
+        setState(() => _commentFieldFocused = _commentFocus.hasFocus);
     });
 
     fetchPostData(context);
@@ -107,7 +132,7 @@ class _PostDetailsState extends State<PostDetails> {
   }
 
   Future<bool> submitComment(String commentText, BuildContext context,
-      {String? commentId}) async {
+      {String? commentId, String? replyToId}) async {
     print("Submitting comment: $commentText");
     try {
       final resp = await Config.apiPost(
@@ -117,6 +142,7 @@ class _PostDetailsState extends State<PostDetails> {
           'com_text': commentText,
           'com_user_id': userId,
           if (commentId != null) 'com_id': commentId,
+          if (replyToId != null) 'reply_to_com_id': replyToId,
         },
         context,
       );
@@ -293,7 +319,9 @@ class _PostDetailsState extends State<PostDetails> {
 
   Color _darken(Color c, [double amount = 0.16]) {
     final hsl = HSLColor.fromColor(c);
-    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+    return hsl
+        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+        .toColor();
   }
 
   void _openPosterProfile() {
@@ -497,11 +525,17 @@ class _PostDetailsState extends State<PostDetails> {
       ),
       child: Row(
         children: [
-          _statChip(Icons.visibility_outlined,
-              Config.formatLargeNumber(postViewed), 'views', const Color(0xFF3B82F6)),
+          _statChip(
+              Icons.visibility_outlined,
+              Config.formatLargeNumber(postViewed),
+              'views',
+              const Color(0xFF3B82F6)),
           const SizedBox(width: 10),
-          _statChip(Icons.chat_bubble_outline_rounded,
-              Config.formatLargeNumber(postComments), 'comments', const Color(0xFF10B981)),
+          _statChip(
+              Icons.chat_bubble_outline_rounded,
+              Config.formatLargeNumber(postComments),
+              'comments',
+              const Color(0xFF10B981)),
           const Spacer(),
           Row(
             children: [
@@ -590,11 +624,10 @@ class _PostDetailsState extends State<PostDetails> {
     );
   }
 
-  // ─── Fixed bottom comment input ───────────────────────────────────────────
+  // ─── Fixed bottom comment input, with a reply-preview strip when active ──
   Widget _buildCommentBar() {
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -605,105 +638,162 @@ class _PostDetailsState extends State<PostDetails> {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: _commentFieldFocused
-                      ? Colors.white
-                      : const Color(0xFFF4F6FB),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _commentFieldFocused
-                        ? _primary
-                        : const Color(0xFFE2E8F0),
-                    width: _commentFieldFocused ? 1.6 : 1.0,
-                  ),
-                  boxShadow: _commentFieldFocused
-                      ? [
-                          BoxShadow(
-                            color: _primary.withValues(alpha: 0.16),
-                            blurRadius: 12,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : [],
-                ),
+            if (_replyToId != null)
+              Container(
+                margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  controller: commentController,
-                  focusNode: _commentFocus,
-                  decoration: const InputDecoration(
-                    hintText: 'মন্তব্য লিখুন...',
-                    hintStyle:
-                        TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  maxLines: null,
-                  textInputAction: TextInputAction.newline,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF1A2340)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () async {
-                final text = commentController.text.trim();
-                if (text.isEmpty) return;
-
-                final ok = await submitComment(text, context);
-                if (!mounted) return;
-                if (ok) {
-                  handleAction(post_user, 'comment', int.parse(postId));
-                  commentController.clear();
-                  FocusScope.of(context).unfocus();
-                  _commentsPage = 0;
-                  _commentsHasMore = true;
-                  await fetchComments(page: 1, context: context);
-                  if (!mounted) return;
-                  await fetchPostData(context);
-                  if (!mounted) return;
-                  await Future.delayed(const Duration(milliseconds: 80));
-                  if (_commentsScrollController.hasClients) {
-                    _commentsScrollController.animateTo(
-                      0.0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  }
-                } else {
-                  if (!mounted) return;
-                  showAppToast(
-                      context, 'মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।',
-                      icon: Icons.error_outline_rounded);
-                }
-              },
-              child: Container(
-                width: 44,
-                height: 44,
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: _primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _primary.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+                  color: _primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border(left: BorderSide(color: _primary, width: 3)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'উত্তর দিচ্ছেন ${_replyToAuthor ?? ''}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _primary),
+                          ),
+                          Text(
+                            _replyToText ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: _cancelReply,
+                      child: Icon(Icons.close_rounded,
+                          size: 18, color: Colors.grey.shade500),
                     ),
                   ],
                 ),
-                child:
-                    const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: _commentFieldFocused
+                            ? Colors.white
+                            : const Color(0xFFF4F6FB),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _commentFieldFocused
+                              ? _primary
+                              : const Color(0xFFE2E8F0),
+                          width: _commentFieldFocused ? 1.6 : 1.0,
+                        ),
+                        boxShadow: _commentFieldFocused
+                            ? [
+                                BoxShadow(
+                                  color: _primary.withValues(alpha: 0.16),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: TextField(
+                        controller: commentController,
+                        focusNode: _commentFocus,
+                        decoration: InputDecoration(
+                          hintText: _replyToId != null
+                              ? 'উত্তর লিখুন...'
+                              : 'মন্তব্য লিখুন...',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFF94A3B8), fontSize: 14),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        maxLines: null,
+                        textInputAction: TextInputAction.newline,
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xFF1A2340)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () async {
+                      final text = commentController.text.trim();
+                      if (text.isEmpty) return;
+
+                      final replyId = _replyToId;
+                      final ok = await submitComment(text, context,
+                          replyToId: replyId);
+                      if (!mounted) return;
+                      if (ok) {
+                        handleAction(post_user, 'comment', int.parse(postId));
+                        commentController.clear();
+                        _cancelReply();
+                        FocusScope.of(context).unfocus();
+                        _commentsPage = 0;
+                        _commentsHasMore = true;
+                        await fetchComments(page: 1, context: context);
+                        if (!mounted) return;
+                        await fetchPostData(context);
+                        if (!mounted) return;
+                        await Future.delayed(const Duration(milliseconds: 80));
+                        if (_commentsScrollController.hasClients) {
+                          _commentsScrollController.animateTo(
+                            0.0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      } else {
+                        if (!mounted) return;
+                        showAppToast(
+                            context, 'মন্তব্য পাঠানো যায়নি। আবার চেষ্টা করুন।',
+                            icon: Icons.error_outline_rounded);
+                      }
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -847,8 +937,8 @@ class _PostDetailsState extends State<PostDetails> {
                   hintText: 'মন্তব্য সম্পাদনা করুন',
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -869,7 +959,8 @@ class _PostDetailsState extends State<PostDetails> {
                 children: [
                   TextButton(
                     onPressed: () => setState(() => editingCommentId = null),
-                    style: TextButton.styleFrom(foregroundColor: Colors.blueGrey),
+                    style:
+                        TextButton.styleFrom(foregroundColor: Colors.blueGrey),
                     child: const Text('বাতিল',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
@@ -1003,6 +1094,20 @@ class _PostDetailsState extends State<PostDetails> {
                               fontWeight: FontWeight.w500),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => _startReply(comment),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4F6FB),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.reply_rounded,
+                              size: 15, color: Colors.grey.shade600),
+                        ),
+                      ),
                       if (isOwn) ...[
                         const SizedBox(width: 8),
                         InkWell(
@@ -1030,6 +1135,40 @@ class _PostDetailsState extends State<PostDetails> {
                 ],
               ),
               const SizedBox(height: 8),
+              if (comment['reply_to_com_id'] != null &&
+                  (comment['reply_text'] ?? '').toString().isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border(left: BorderSide(color: _primary, width: 3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        (comment['reply_author_name'] ?? 'মন্তব্য').toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: _primary),
+                      ),
+                      Text(
+                        comment['reply_text'].toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11.5, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
               ExpandableText(
                 text: (comment['com_text'] ?? '').toString(),
                 maxLines: 3,
@@ -1113,7 +1252,8 @@ class _MediaSliderState extends State<MediaSlider> {
                               descriptionList: widget.descriptionList,
                             ),
                             transitionsBuilder: (_, animation, __, child) =>
-                                FadeTransition(opacity: animation, child: child),
+                                FadeTransition(
+                                    opacity: animation, child: child),
                           ),
                         );
                       },
@@ -1288,4 +1428,3 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
     );
   }
 }
-

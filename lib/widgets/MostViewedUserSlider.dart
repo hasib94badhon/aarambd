@@ -78,8 +78,14 @@ class MostViewedUserSlider extends StatelessWidget {
         final dataList = jsonResponse[dataKey];
 
         if (dataList is List && dataList.isNotEmpty) {
+          // The tapped profile's real user_id (not the viewer's own id, and
+          // not the service/shop record id) — needed so AdvertScreen's review
+          // summary / view tracking targets the right person.
+          final String profileUserId =
+              (dataList[0] as Map<String, dynamic>)['user_id']?.toString() ??
+                  '';
           final advertData = AdvertData(
-            userId: loginUserId ?? '',
+            userId: profileUserId,
             isService: user.is_service,
             additionalData: dataList[0] as Map<String, dynamic>,
           );
@@ -89,7 +95,7 @@ class MostViewedUserSlider extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => AdvertScreen(
                 advertData: advertData,
-                userId: loginUserId ?? '',
+                userId: profileUserId,
                 isService: user.is_service,
               ),
             ),

@@ -15,7 +15,6 @@ import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -223,8 +222,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
   void initState() {
     super.initState();
     _loadFavoriteUserIds();
-    fetchViewList(widget.userId, context);
-    _fetchReviewSummary(int.parse(widget.userId));
 
     _getUserId().then((id) {
       setState(() {
@@ -235,7 +232,20 @@ class _AdvertScreenState extends State<AdvertScreen> {
         userDetailsFuture =
             fetchUserDetails(widget.advertData, selectedSortValue);
         _loadPosts(reset: true);
-        _checkMyReview(int.parse(widget.userId));
+
+        // widget.userId is NOT reliably this profile's real user_id — several
+        // call sites across the app pass a service_id/shop_id (or even the
+        // viewer's own id) into it instead. Derive the true user_id from the
+        // profile row we just fetched (UserDetail.user_id, always the real
+        // `users.user_id`) so review summary / "my review" / view tracking
+        // always target the person actually being viewed.
+        userDetailsFuture!.then((details) {
+          if (!mounted || details.isEmpty) return;
+          final realUserId = details.first.user_id;
+          fetchViewList(realUserId.toString(), context);
+          _fetchReviewSummary(realUserId);
+          _checkMyReview(realUserId);
+        });
       }
     });
 
@@ -529,6 +539,7 @@ class _AdvertScreenState extends State<AdvertScreen> {
         reviewedPhoto: user.photo,
         myReviewId: _myReviewId,
         loginUserId: int.tryParse(loginUserId ?? ''),
+        initialAvgRating: (_reviewSummary?['avg_rating'] ?? 0).toDouble(),
         onReviewChanged: () {
           _fetchReviewSummary(user.user_id);
           _checkMyReview(user.user_id);
@@ -618,11 +629,10 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
   String getTimeDifference(String rawDateTime) {
     try {
-      rawDateTime =
-          rawDateTime.replaceAll(',', '').replaceAll('GMT', '').trim();
-      final DateFormat formatter = DateFormat('EEE dd MMM yyyy HH:mm:ss');
-      final DateTime notifTime = formatter.parseUtc(rawDateTime);
-      final Duration diff = DateTime.now().toUtc().difference(notifTime);
+      final notifTime = Config.parseServerTime(rawDateTime);
+      if (notifTime == null) return 'Just now';
+      final rawDiff = DateTime.now().toUtc().difference(notifTime);
+      final Duration diff = rawDiff.isNegative ? Duration.zero : rawDiff;
 
       if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
@@ -747,19 +757,6 @@ class _AdvertScreenState extends State<AdvertScreen> {
     return img;
   }
 
-  // ── Star count replication of UserStarWidget.calculateStars() ───────────────
-  int _calcUserStars(UserDetail user) {
-    int stars = 0;
-    if (user.phone.isNotEmpty &&
-        user.businessName.isNotEmpty &&
-        user.photo.isNotEmpty) stars++;
-    if ((user.tin ?? '').isNotEmpty || (user.nid ?? '').isNotEmpty) stars++;
-    if (user.user_viewed >= 1500 && user.user_called > 500) stars++;
-    if (user.posts.length >= 150) stars++;
-    if (user.sub_type == 'paid') stars++;
-    return stars;
-  }
-
   // Single star dot for the curved arc
   Widget _arcStarDot(bool lit) {
     return Container(
@@ -805,12 +802,9 @@ class _AdvertScreenState extends State<AdvertScreen> {
     const double avatarSz = 140.0;
     const double starRadius = 84.0;
     const double starSz = 20.0;
-    final int starCount = _calcUserStars(user);
-    final bool isOwn =
-        loginUserId != null && int.tryParse(loginUserId!) == user.user_id;
     final double avgRating = (_reviewSummary?['avg_rating'] ?? 0).toDouble();
     final int total = _reviewSummary?['total'] ?? 0;
-    final List<dynamic> topTags = _reviewSummary?['top_tags'] ?? [];
+    final int starCount = avgRating.round();
 
     // 5 stars in a 64° arc (122° → 58°, 16° steps) centred at 12 o'clock (90°)
     final List<Widget> arcStars = List.generate(5, (i) {
@@ -882,10 +876,10 @@ class _AdvertScreenState extends State<AdvertScreen> {
                                   ]
                                 : [],
                           ),
-                          padding: const EdgeInsets.all(3),
+                          padding: const EdgeInsets.all(4),
                           child: Icon(
                             Icons.verified_rounded,
-                            size: 18,
+                            size: 28,
                             color: user.sub_type == 'paid'
                                 ? const Color(0xFF1A56DB)
                                 : const Color(0xFFCBD5E1),
@@ -1119,190 +1113,157 @@ class _AdvertScreenState extends State<AdvertScreen> {
             ),
           ),
 
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F3FA)),
 
-          // ─── Reviews + Fav + Share ────────────────────────────────────────
+          // ─── Reviews button + Fav/Share (segmented rail, right) ────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
-                  'Reviews',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => toggleFavorite(user),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isFavorited(user)
-                          ? const Color(0xFFFEF2F2)
-                          : const Color(0xFFF8FAFC),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isFavorited(user)
-                            ? const Color(0xFFFECACA)
-                            : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Icon(
-                      isFavorited(user)
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_outline_rounded,
-                      size: 18,
-                      color: isFavorited(user)
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => shareAdvertProfile(
-                    userId: user.user_id.toString(),
-                    isService: user.is_service,
-                    userName: user.businessName,
-                    userCategory: user.category,
-                    userAddress: user.location,
-                    context: context,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: const Icon(Icons.share_outlined,
-                        size: 18, color: Color(0xFF94A3B8)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // ── Rating summary row ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    // Star score
-                    if (total > 0) ...[
-                      Text(
-                        avgRating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A2340),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Row(
-                        children: List.generate(5, (i) {
-                          final filled = i < avgRating.round();
-                          return Icon(
-                            filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                            size: 16,
-                            color: filled ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
-                          );
-                        }),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '($total)',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ] else
-                      const Text(
-                        'No reviews yet',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                      ),
-                    const Spacer(),
-                    if (!isOwn)
-                      GestureDetector(
-                        onTap: () => _showReviewSheet(user),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(99),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF1A56DB).withValues(alpha: 0.28),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _myReviewId != null
-                                    ? Icons.edit_outlined
-                                    : Icons.rate_review_outlined,
-                                size: 13,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                _myReviewId != null ? 'Edit Review' : 'Write Review',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                // Top tags
-                if (topTags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    children: topTags.take(4).map<Widget>((tag) {
-                      return Container(
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showReviewSheet(user),
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F4FF),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(color: const Color(0xFFBFD0FF)),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1A56DB).withValues(alpha: 0.28),
+                              blurRadius: 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          tag.toString(),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF1A56DB),
-                            fontWeight: FontWeight.w600,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.star_rounded,
+                                  color: Colors.white, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      if (total > 0) ...[
+                                        Text(
+                                          avgRating.toStringAsFixed(1),
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Flexible(
+                                        child: Text(
+                                          total > 0
+                                              ? '$total ${total == 1 ? 'Review' : 'Reviews'}'
+                                              : 'No reviews yet',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _myReviewId != null
+                                        ? 'Tap to view or edit your review'
+                                        : 'Tap to read reviews & write yours',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.white.withValues(alpha: 0.82),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: Colors.white.withValues(alpha: 0.85)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 54,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 167, 233, 227),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE9EDF5)),
+                    ),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => toggleFavorite(user),
+                            child: Center(
+                              child: Icon(
+                                isFavorited(user)
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_outline_rounded,
+                                size: 20,
+                                color: isFavorited(user)
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF64748B),
+                              ),
+                            ),
                           ),
                         ),
-                      );
-                    }).toList(),
+                        const Divider(
+                            height: 1, thickness: 1, color: Color(0xFFE9EDF5)),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => shareAdvertProfile(
+                              userId: user.user_id.toString(),
+                              isService: user.is_service,
+                              userName: user.businessName,
+                              userCategory: user.category,
+                              userAddress: user.location,
+                              context: context,
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.share_outlined,
+                                  size: 20, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ],
+              ),
             ),
           ),
 
@@ -1715,6 +1676,7 @@ class ReviewSheet extends StatefulWidget {
   final String reviewedPhoto;
   final int? myReviewId;
   final int? loginUserId;
+  final double initialAvgRating;
   final VoidCallback onReviewChanged;
 
   const ReviewSheet({
@@ -1723,6 +1685,7 @@ class ReviewSheet extends StatefulWidget {
     required this.reviewedPhoto,
     required this.myReviewId,
     required this.loginUserId,
+    required this.initialAvgRating,
     required this.onReviewChanged,
   });
 
@@ -1748,6 +1711,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
   bool _loading            = false;
   bool _hasMore            = true;
   bool _submitting         = false;
+  late double _avgRating;
 
   // Write-review form state
   int            _starRating  = 0;   // 0 = not set yet
@@ -1761,6 +1725,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
   void initState() {
     super.initState();
     _myReviewId = widget.myReviewId;
+    _avgRating = widget.initialAvgRating;
     _loadReviews();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
@@ -1768,6 +1733,21 @@ class _ReviewSheetState extends State<ReviewSheet> {
         if (_hasMore && !_loading) _loadReviews();
       }
     });
+  }
+
+  Future<void> _refreshAvgRating() async {
+    try {
+      final resp = await Config.apiGet(
+          '/review/summary?reviewed_id=${widget.reviewedId}', context);
+      if (resp != null && resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (mounted) {
+          setState(() => _avgRating = (data['avg_rating'] ?? 0).toDouble());
+        }
+      }
+    } catch (e) {
+      debugPrint("Error refreshing avg rating: $e");
+    }
   }
 
   @override
@@ -1836,6 +1816,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
         );
         setState(() => _myReviewId = mine?['review_id']);
         widget.onReviewChanged();
+        _refreshAvgRating();
         showAppToast(context, 'Review submitted! Thank you.',
             icon: Icons.check_circle_outline_rounded);
       } else {
@@ -1863,6 +1844,7 @@ class _ReviewSheetState extends State<ReviewSheet> {
         setState(() => _myReviewId = null);
         await _loadReviews(reset: true);
         widget.onReviewChanged();
+        _refreshAvgRating();
         showAppToast(context, 'Review deleted');
       }
     } catch (e) {
@@ -1873,18 +1855,15 @@ class _ReviewSheetState extends State<ReviewSheet> {
   }
 
   String _timeAgo(String raw) {
-    try {
-      raw = raw.replaceAll(',', '').replaceAll('GMT', '').trim();
-      final dt = DateFormat('EEE dd MMM yyyy HH:mm:ss').parseUtc(raw);
-      final diff = DateTime.now().toUtc().difference(dt);
-      if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      if (diff.inDays < 30) return '${diff.inDays}d ago';
-      return '${(diff.inDays / 30).floor()}mo ago';
-    } catch (_) {
-      return '';
-    }
+    final dt = Config.parseServerTime(raw);
+    if (dt == null) return '';
+    final rawDiff = DateTime.now().toUtc().difference(dt);
+    final diff = rawDiff.isNegative ? Duration.zero : rawDiff;
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 30) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 30).floor()}mo ago';
   }
 
   // ── Star picker row ────────────────────────────────────────────────────────
@@ -1994,18 +1973,18 @@ class _ReviewSheetState extends State<ReviewSheet> {
 
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
             child: Row(
               children: [
                 ClipOval(
                   child: Image.network(
                     widget.reviewedPhoto,
-                    width: 38,
-                    height: 38,
+                    width: 34,
+                    height: 34,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      width: 38,
-                      height: 38,
+                      width: 34,
+                      height: 34,
                       color: const Color(0xFFE2E8F0),
                       child: const Icon(Icons.person, color: Color(0xFF94A3B8)),
                     ),
@@ -2013,25 +1992,15 @@ class _ReviewSheetState extends State<ReviewSheet> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.reviewedName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: Color(0xFF1A2340),
-                        ),
-                      ),
-                      Text(
-                        '$_total review${_total == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    widget.reviewedName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Color(0xFF1A2340),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -2042,128 +2011,50 @@ class _ReviewSheetState extends State<ReviewSheet> {
             ),
           ),
 
-          const Divider(height: 1),
-
-          // Write review form (hidden for own profile or if already reviewed)
-          if (!isOwnProfile) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_myReviewId == null) ...[
-                    // Star rating
-                    const Text(
-                      'Rate this user',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A2340),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Center(child: _starPicker()),
-                    // Tags (show after star selected)
-                    if (_starRating > 0) ...[
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Select tags (optional)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _tagChips(),
-                      const SizedBox(height: 14),
-                      // Opinion text
-                      TextField(
-                        controller: _commentController,
-                        maxLines: 2,
-                        maxLength: 300,
-                        decoration: InputDecoration(
-                          hintText: 'Share your experience (optional)',
-                          hintStyle: const TextStyle(
-                              fontSize: 13, color: Color(0xFF94A3B8)),
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF1A56DB), width: 1.5),
-                          ),
-                          counterStyle: const TextStyle(
-                              fontSize: 11, color: Color(0xFF94A3B8)),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _submitting ? null : _submitReview,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A56DB),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            textStyle: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 14),
-                          ),
-                          child: _submitting
-                              ? const SizedBox(
-                                  width: 18, height: 18,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2))
-                              : const Text('Submit Review'),
-                        ),
-                      ),
-                    ],
-                  ] else ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.check_circle_rounded,
-                            size: 16, color: Color(0xFF16A34A)),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'You have already reviewed this user.',
-                            style: TextStyle(
-                                fontSize: 13, color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _submitting ? null : _deleteReview,
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFDC2626),
-                            textStyle: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+          // ── Average rating hero ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              children: [
+                Text(
+                  _avgRating > 0 ? _avgRating.toStringAsFixed(1) : '–',
+                  style: const TextStyle(
+                    fontSize: 38,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A2340),
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final filled = i < _avgRating.round();
+                    return Icon(
+                      filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 22,
+                      color: filled
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFFCBD5E1),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _total > 0
+                      ? '$_total review${_total == 1 ? '' : 's'}'
+                      : 'No reviews yet',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-          ],
+          ),
+
+          const Divider(height: 1),
 
           // Review list
           Flexible(
@@ -2330,6 +2221,127 @@ class _ReviewSheetState extends State<ReviewSheet> {
                         },
                       ),
           ),
+
+          // Write review composer — pinned at the bottom, hidden on your own
+          // profile (can't review yourself)
+          if (!isOwnProfile) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_myReviewId == null) ...[
+                    // Star rating
+                    const Text(
+                      'Rate this user',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A2340),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Center(child: _starPicker()),
+                    // Tags (show after star selected)
+                    if (_starRating > 0) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Select tags (optional)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _tagChips(),
+                      const SizedBox(height: 14),
+                      // Opinion text
+                      TextField(
+                        controller: _commentController,
+                        maxLines: 2,
+                        maxLength: 300,
+                        decoration: InputDecoration(
+                          hintText: 'Share your experience (optional)',
+                          hintStyle: const TextStyle(
+                              fontSize: 13, color: Color(0xFF94A3B8)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF1A56DB), width: 1.5),
+                          ),
+                          counterStyle: const TextStyle(
+                              fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _submitReview,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A56DB),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            textStyle: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
+                              : const Text('Submit Review'),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded,
+                            size: 16, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            'You have already reviewed this user.',
+                            style: TextStyle(
+                                fontSize: 13, color: Color(0xFF64748B)),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _submitting ? null : _deleteReview,
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            textStyle: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -337,6 +337,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
         reviewedPhoto: profile_pic,
         myReviewId: null,
         loginUserId: myId,
+        initialAvgRating: (_reviewSummary?['avg_rating'] ?? 0).toDouble(),
         onReviewChanged: () {},
       ),
     );
@@ -583,13 +584,13 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
         child: SingleChildScrollView(
           controller: _scrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ── Profile Hero Card ──────────────────────────────────────────
               Container(
-                margin: const EdgeInsets.fromLTRB(5, 5, 5, 5),
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(22),
@@ -672,105 +673,180 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                   );
                                                 }
 
-                                                return Dialog(
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                  ),
+                                                return Dialog.fullscreen(
+                                                  backgroundColor: Colors.black,
                                                   child: Stack(
-                                                    clipBehavior: Clip.none,
-                                                    alignment: Alignment.center,
                                                     children: [
-                                                      ClipOval(
-                                                        child: SizedBox(
-                                                          height: 300,
-                                                          width: 300,
-                                                          child: Stack(
-                                                            fit:
-                                                                StackFit.expand,
-                                                            children: [
-                                                              profile_pic
-                                                                      .isNotEmpty
-                                                                  ? Image.network(
-                                                                      profile_pic,
-                                                                      fit: BoxFit
-                                                                          .cover)
-                                                                  : Container(
-                                                                      color: const Color(
-                                                                          0xFF1A56DB),
-                                                                      child: const Icon(
-                                                                          Icons
-                                                                              .person,
-                                                                          size:
-                                                                              120,
-                                                                          color:
-                                                                              Colors.white),
-                                                                    ),
-                                                              if (_isUpdatingProfilePhoto)
-                                                                Container(
-                                                                  color: Colors
-                                                                      .black
-                                                                      .withValues(
-                                                                          alpha:
-                                                                              0.45),
-                                                                  child:
-                                                                      const Center(
-                                                                    child:
-                                                                        CircularProgressIndicator(
-                                                                      color: Colors
-                                                                          .white,
-                                                                    ),
+                                                      // Full photo, pinch-to-zoom, never cropped into a circle
+                                                      Center(
+                                                        child: Hero(
+                                                          tag:
+                                                              'own-profile-photo',
+                                                          child: profile_pic
+                                                                  .isNotEmpty
+                                                              ? InteractiveViewer(
+                                                                  minScale: 0.5,
+                                                                  maxScale: 5.0,
+                                                                  child: Image
+                                                                      .network(
+                                                                    profile_pic,
+                                                                    fit: BoxFit
+                                                                        .contain,
+                                                                    errorBuilder: (_,
+                                                                            __,
+                                                                            ___) =>
+                                                                        const Icon(
+                                                                            Icons
+                                                                                .broken_image,
+                                                                            size:
+                                                                                64,
+                                                                            color:
+                                                                                Colors.white38),
                                                                   ),
+                                                                )
+                                                              : Container(
+                                                                  width: 220,
+                                                                  height: 220,
+                                                                  decoration: const BoxDecoration(
+                                                                      color: Color(
+                                                                          0xFF1A56DB),
+                                                                      shape: BoxShape
+                                                                          .circle),
+                                                                  child: const Icon(
+                                                                      Icons
+                                                                          .person,
+                                                                      size: 120,
+                                                                      color: Colors
+                                                                          .white),
                                                                 ),
-                                                            ],
-                                                          ),
                                                         ),
                                                       ),
+                                                      if (_isUpdatingProfilePhoto)
+                                                        Container(
+                                                          color: Colors.black
+                                                              .withValues(
+                                                                  alpha: 0.55),
+                                                          child: const Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      // Close button
                                                       Positioned(
-                                                        bottom: 6,
-                                                        right: 6,
-                                                        child: GestureDetector(
-                                                          onTap:
-                                                              _isUpdatingProfilePhoto
-                                                                  ? null
-                                                                  : updatePhoto,
+                                                        top: MediaQuery.of(
+                                                                    dialogCtx)
+                                                                .padding
+                                                                .top +
+                                                            10,
+                                                        left: 12,
+                                                        child: InkWell(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(20),
+                                                          onTap: () =>
+                                                              Navigator.pop(
+                                                                  dialogCtx),
                                                           child: Container(
                                                             padding:
                                                                 const EdgeInsets
-                                                                    .all(10),
+                                                                    .all(8),
                                                             decoration:
                                                                 BoxDecoration(
-                                                              color: const Color(
-                                                                  0xFF1A56DB),
+                                                              color: Colors
+                                                                  .black
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.45),
                                                               shape: BoxShape
                                                                   .circle,
-                                                              border: Border.all(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  width: 2.5),
-                                                              boxShadow: [
-                                                                BoxShadow(
-                                                                  color: Colors
-                                                                      .black
-                                                                      .withValues(
-                                                                          alpha:
-                                                                              0.25),
-                                                                  blurRadius: 8,
-                                                                  offset:
-                                                                      const Offset(
-                                                                          0, 3),
-                                                                ),
-                                                              ],
                                                             ),
                                                             child: const Icon(
                                                                 Icons
-                                                                    .camera_alt_rounded,
+                                                                    .close_rounded,
                                                                 color: Colors
                                                                     .white,
                                                                 size: 20),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      // Change photo — bottom, pill-shaped for clarity
+                                                      Positioned(
+                                                        bottom: MediaQuery.of(
+                                                                    dialogCtx)
+                                                                .padding
+                                                                .bottom +
+                                                            24,
+                                                        left: 0,
+                                                        right: 0,
+                                                        child: Center(
+                                                          child:
+                                                              GestureDetector(
+                                                            onTap:
+                                                                _isUpdatingProfilePhoto
+                                                                    ? null
+                                                                    : updatePhoto,
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          18,
+                                                                      vertical:
+                                                                          12),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: const Color(
+                                                                    0xFF1A56DB),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            999),
+                                                                boxShadow: [
+                                                                  BoxShadow(
+                                                                    color: Colors
+                                                                        .black
+                                                                        .withValues(
+                                                                            alpha:
+                                                                                0.35),
+                                                                    blurRadius:
+                                                                        10,
+                                                                    offset:
+                                                                        const Offset(
+                                                                            0,
+                                                                            4),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              child: Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: const [
+                                                                  Icon(
+                                                                      Icons
+                                                                          .camera_alt_rounded,
+                                                                      color: Colors
+                                                                          .white,
+                                                                      size: 18),
+                                                                  SizedBox(
+                                                                      width: 8),
+                                                                  Text(
+                                                                    'Change Photo',
+                                                                    style: TextStyle(
+                                                                        color: Colors
+                                                                            .white,
+                                                                        fontWeight:
+                                                                            FontWeight
+                                                                                .w700,
+                                                                        fontSize:
+                                                                            14),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
                                                           ),
                                                         ),
                                                       ),
@@ -785,8 +861,8 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                           clipBehavior: Clip.none,
                                           children: [
                                             Container(
-                                              width: 84,
-                                              height: 84,
+                                              width: 108,
+                                              height: 108,
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
@@ -812,7 +888,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                             0xFF1A56DB),
                                                         child: const Icon(
                                                             Icons.person,
-                                                            size: 40,
+                                                            size: 52,
                                                             color:
                                                                 Colors.white),
                                                       ),
@@ -823,7 +899,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                               right: 0,
                                               child: Container(
                                                 padding:
-                                                    const EdgeInsets.all(3),
+                                                    const EdgeInsets.all(4),
                                                 decoration: const BoxDecoration(
                                                   color: Colors.white,
                                                   shape: BoxShape.circle,
@@ -1541,7 +1617,8 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                         ),
                                                       ),
                                                       child: const Icon(
-                                                        Icons.auto_awesome_rounded,
+                                                        Icons
+                                                            .auto_awesome_rounded,
                                                         color: Colors.white,
                                                         size: 25,
                                                       ),
@@ -1560,7 +1637,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                             children: [
                                                               const Flexible(
                                                                 child: Text(
-                                                                  'Share a Need',
+                                                                  'Go Live with Aaram',
                                                                   maxLines: 1,
                                                                   overflow:
                                                                       TextOverflow
@@ -1615,8 +1692,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                                   children: [
                                                                     Container(
                                                                       width: 5,
-                                                                      height:
-                                                                          5,
+                                                                      height: 5,
                                                                       decoration:
                                                                           const BoxDecoration(
                                                                         color: Color(
@@ -1632,8 +1708,8 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                                       'LIVE',
                                                                       style:
                                                                           TextStyle(
-                                                                        color:
-                                                                            Colors.white,
+                                                                        color: Colors
+                                                                            .white,
                                                                         fontSize:
                                                                             9,
                                                                         fontWeight:
@@ -1650,7 +1726,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                           const SizedBox(
                                                               height: 3),
                                                           Text(
-                                                            'Pick a category & tap suggested words',
+                                                            'Connect with your audience in real-time and boost your engagement.',
                                                             maxLines: 1,
                                                             overflow:
                                                                 TextOverflow
@@ -1744,7 +1820,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
               // Data collector card
               if (isDataCollector)
                 Container(
-                  margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                   padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -1848,7 +1924,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
 
               // ── Sorting + post count ────────────────────────────────────
               Container(
-                margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -1987,7 +2063,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
               // ── Posts grid ──────────────────────────────────────────────
               if (posts.isEmpty && !_postLoading)
                 Container(
-                  margin: const EdgeInsets.fromLTRB(14, 4, 14, 16),
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
                   decoration: BoxDecoration(
@@ -2033,7 +2109,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                 )
               else
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -2249,44 +2325,66 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFF1040B0),
-                                              Color(0xFF1A56DB),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
+                                      Material(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: InkWell(
                                           borderRadius:
                                               BorderRadius.circular(8),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(0xFF1A56DB)
-                                                  .withValues(alpha: 0.30),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 3),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'View',
-                                              style: TextStyle(
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    PostDetails(
+                                                  postId: post['post_id'],
+                                                  userId: user_id,
+                                                ),
                                               ),
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF1040B0),
+                                                  Color(0xFF1A56DB),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFF1A56DB)
+                                                      .withValues(alpha: 0.30),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
                                             ),
-                                            SizedBox(width: 4),
-                                            Icon(Icons.arrow_forward_rounded,
-                                                size: 11, color: Colors.white),
-                                          ],
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  'View',
+                                                  style: TextStyle(
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 4),
+                                                Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                    size: 11,
+                                                    color: Colors.white),
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -2416,8 +2514,7 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                                 padding:
                                                     const EdgeInsets.all(7),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(
-                                                          0xFF1A56DB)
+                                                  color: const Color(0xFF1A56DB)
                                                       .withValues(alpha: 0.10),
                                                   shape: BoxShape.circle,
                                                 ),

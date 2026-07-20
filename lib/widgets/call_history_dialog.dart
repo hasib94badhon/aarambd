@@ -1,7 +1,7 @@
 // File: widgets/call_history_bottom_sheet.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/advert_screen.dart';
 
 /// Compact relative time ("13h", "5m", "2d") for tight list rows — unlike
@@ -10,9 +10,10 @@ import 'package:aaram_bd/screens/advert_screen.dart';
 String _compactTimeAgo(String timeString) {
   if (timeString.trim().isEmpty) return '';
   try {
-    final format = DateFormat("EEE dd MMM yyyy HH:mm:ss", 'en_US');
-    final past = format.parse(timeString);
-    final diff = DateTime.now().difference(past);
+    final past = Config.parseServerTime(timeString);
+    if (past == null) return '';
+    final rawDiff = DateTime.now().toUtc().difference(past);
+    final diff = rawDiff.isNegative ? Duration.zero : rawDiff;
 
     if (diff.inSeconds < 60) return '${diff.inSeconds + 1}s';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
@@ -36,10 +37,11 @@ void showCallHistoryBottomSheet({
   merged.addAll(incomingCallList.map((c) => {...c, 'direction': 'incoming'}));
   merged.addAll(outgoingCallList.map((c) => {...c, 'direction': 'outgoing'}));
 
-  final parser = DateFormat('EEE dd MMM yyyy HH:mm:ss');
   merged.sort((a, b) {
-    final dtA = parser.parse(a['last_call_time'] as String);
-    final dtB = parser.parse(b['last_call_time'] as String);
+    final dtA = Config.parseServerTime(a['last_call_time'] as String) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final dtB = Config.parseServerTime(b['last_call_time'] as String) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
     return dtB.compareTo(dtA);
   });
 
@@ -247,7 +249,13 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                                 _compactTimeAgo(c['last_call_time'] as String? ?? '');
                             final serviceId = c['service_id'] as int? ?? 0;
                             final shopId = c['shop_id'] as int? ?? 0;
-                            final userId = (c['advert_id'] ?? '').toString();
+                            // The caller's real user_id — must be used for
+                            // AdvertScreen's userId (review summary / view
+                            // tracking target). serviceId/shopId are a
+                            // separate id space, only valid for
+                            // additionalData routing.
+                            final callerUserId =
+                                (c['call_user_id'] ?? '').toString();
 
                             String targetId;
                             bool isService;
@@ -262,9 +270,8 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                               isService = false;
                               additionalData = {'shop_id': targetId};
                             } else {
-                              targetId = userId;
                               isService = false;
-                              additionalData = {'user_only': targetId};
+                              additionalData = {'user_only': callerUserId};
                             }
 
                             return _CallTile(
@@ -279,10 +286,10 @@ class _CallHistorySheetState extends State<_CallHistorySheet> {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => AdvertScreen(
-                                      userId: targetId,
+                                      userId: callerUserId,
                                       isService: isService,
                                       advertData: AdvertData(
-                                        userId: targetId,
+                                        userId: callerUserId,
                                         isService: isService,
                                         additionalData: additionalData,
                                       ),

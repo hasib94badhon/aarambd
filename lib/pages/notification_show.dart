@@ -113,47 +113,37 @@ class _NotificationShowState extends State<NotificationShow> {
     getUnreadCount(); // Update badge count
   }
 
- void getUnreadCount() async {
-  final userId = await getLoggedInUser();
-  if (userId == null) return;
+  void getUnreadCount() async {
+    final userId = await getLoggedInUser();
+    if (userId == null) return;
 
-  final response = await Config.apiGet(
-    '/get_notifications?user_id=$userId&page=1&page_size=100',
-    context,
-  );
+    final response = await Config.apiGet(
+      '/get_notifications?user_id=$userId&page=1&page_size=100',
+      context,
+    );
 
-  if (response != null && response.statusCode == 200) {
-    final data = json.decode(response.body);
-    final list = (data['notifications'] as List?) ?? const [];
-    final count = list.where((n) => (n['is_read'] == 0)).length;
-    // TODO: pass this 'count' back up to whatever sets your badge
-    debugPrint('[Notif] Unread count: $count');
-  }
-}
-
-
- String getTimeDifference(String dateTime) {
-  DateTime? notifTime;
-  try {
-    notifTime = DateTime.parse(dateTime);
-  } catch (_) {
-    // Try trimming or replacing space with 'T'
-    try {
-      notifTime = DateTime.parse(dateTime.replaceFirst(' ', 'T'));
-    } catch (_) {
-      return 'now';
+    if (response != null && response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final list = (data['notifications'] as List?) ?? const [];
+      final count = list.where((n) => (n['is_read'] == 0)).length;
+      // TODO: pass this 'count' back up to whatever sets your badge
+      debugPrint('[Notif] Unread count: $count');
     }
   }
 
-  final diff = DateTime.now().difference(notifTime);
-  if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays < 30) return '${diff.inDays}d ago';
-  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}m ago';
-  return '${(diff.inDays / 365).floor()}y ago';
-}
+  String getTimeDifference(String dateTime) {
+    final notifTime = Config.parseServerTime(dateTime);
+    if (notifTime == null) return 'now';
 
+    final rawDiff = DateTime.now().toUtc().difference(notifTime);
+    final diff = rawDiff.isNegative ? Duration.zero : rawDiff;
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 30) return '${diff.inDays}d ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}m ago';
+    return '${(diff.inDays / 365).floor()}y ago';
+  }
 
   IconData getIconByType(String type) {
     switch (type) {
@@ -433,52 +423,132 @@ class _NotificationShowState extends State<NotificationShow> {
     );
   }
 
+  // ── Gradient hero header — matches the other pushed pages (AccountSettingsPage,
+  // NotificationSettingsPage, FavoriteProfilesPage, AccountControlPage):
+  // back button + icon bubble + title/subtitle on a rounded-bottom blue gradient.
+  Widget _buildHeader(BuildContext context) {
+    final unreadCount = notifications.where((n) => n['is_read'] == 0).length;
+    final subtitle = isLoading
+        ? 'Loading...'
+        : unreadCount > 0
+            ? '$unreadCount unread'
+            : 'You\'re all caught up';
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1040B0), Color(0xFF1A56DB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.notifications_rounded,
+                color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notifications',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
       backgroundColor: const Color(0xFFF7F8FA),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : notifications.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No Notifications Found',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => fetchNotifications(page: 1),
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics()),
-                    padding: const EdgeInsets.only(top: 6, bottom: 12),
-                    // itemCount: notifications.length,
-                    // itemBuilder: (context, index) {
-                    //   final notif = notifications[index];
-                    //   return _notificationCard(notif, index);
-                    // },
-                    itemCount: notifications.length + (_hasMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index < notifications.length) {
-                        final notif = notifications[index];
-                        return _notificationCard(notif, index);
-                      } else {
-                        // Bottom loader while next page is fetching
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                    },
-                  ),
-                ),
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
+  }
+
+  Widget _buildBody() {
+    return isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : notifications.isEmpty
+            ? const Center(
+                child: Text(
+                  'No Notifications Found',
+                  style: TextStyle(fontSize: 18),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: () => fetchNotifications(page: 1),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics()),
+                  padding: const EdgeInsets.only(top: 6, bottom: 12),
+                  // itemCount: notifications.length,
+                  // itemBuilder: (context, index) {
+                  //   final notif = notifications[index];
+                  //   return _notificationCard(notif, index);
+                  // },
+                  itemCount: notifications.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < notifications.length) {
+                      final notif = notifications[index];
+                      return _notificationCard(notif, index);
+                    } else {
+                      // Bottom loader while next page is fetching
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                  },
+                ),
+              );
   }
 }

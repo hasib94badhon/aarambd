@@ -16,6 +16,23 @@ class AppLocation {
   StreamSubscription<loc.LocationData>? _sub;
   bool _streaming = false;
 
+  // How many screens currently need the live stream (Service_favorite_screen,
+  // shops_favorite_screen, ...). Since those live in separate bottom-nav tabs
+  // that stay mounted in the background, a naive "stop on my dispose" would
+  // kill the stream out from under a sibling tab still using it — so we only
+  // actually stop once the last consumer has released it.
+  int _consumers = 0;
+
+  /// Call from a consuming screen's initState (paired with [removeConsumer]
+  /// in its dispose) to keep the stream alive for exactly as long as at
+  /// least one such screen is mounted.
+  void addConsumer() => _consumers++;
+
+  void removeConsumer() {
+    if (_consumers > 0) _consumers--;
+    if (_consumers == 0) stop();
+  }
+
   /// Returns true if we have a valid lat/lon after this call.
   Future<bool> init() async {
     // Already have a fix — just ensure stream is running

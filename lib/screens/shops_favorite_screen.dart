@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
-import 'package:intl/intl.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Models — unchanged
@@ -95,9 +94,7 @@ class UserFetchResult {
   final bool hasMore;
 
   UserFetchResult(this.users,
-      {this.message,
-      required this.locationAvailable,
-      required this.hasMore});
+      {this.message, required this.locationAvailable, required this.hasMore});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,10 +142,18 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   static const Color _bg = Color(0xFFF3F7FF);
 
   static const _sortOptions = [
-    {'value': 'nearby',      'label': 'Nearby',      'icon': Icons.near_me_rounded},
-    {'value': 'most_called', 'label': 'Most Called', 'icon': Icons.phone_rounded},
-    {'value': 'most_viewed', 'label': 'Most Viewed', 'icon': Icons.visibility_rounded},
-    {'value': 'recent',      'label': 'Recent',      'icon': Icons.schedule_rounded},
+    {'value': 'nearby', 'label': 'Nearby', 'icon': Icons.near_me_rounded},
+    {
+      'value': 'most_called',
+      'label': 'Most Called',
+      'icon': Icons.phone_rounded
+    },
+    {
+      'value': 'most_viewed',
+      'label': 'Most Viewed',
+      'icon': Icons.visibility_rounded
+    },
+    {'value': 'recent', 'label': 'Recent', 'icon': Icons.schedule_rounded},
   ];
 
   List<UserDetail> get _visibleUsers {
@@ -168,6 +173,9 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     _searchFocus.addListener(() {
       if (mounted) setState(() => _searchFocused = _searchFocus.hasFocus);
     });
+    // Keep AppLocation's live GPS stream alive for as long as this page is
+    // mounted; released in dispose() below.
+    AppLocation().addConsumer();
     _bootstrap();
   }
 
@@ -185,6 +193,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     _searchFocus.dispose();
     _debounce?.cancel();
     routeObserver.unsubscribe(this);
+    AppLocation().removeConsumer();
     super.dispose();
   }
 
@@ -200,7 +209,10 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     setState(() => _locationLoading = true);
     final ok = await AppLocation().init();
     if (mounted) {
-      setState(() { _locationReady = ok; _locationLoading = false; });
+      setState(() {
+        _locationReady = ok;
+        _locationLoading = false;
+      });
       fetchData();
     }
   }
@@ -219,8 +231,8 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
     setState(() => _isLoadingMore = true);
 
-    final res = await fetchUserDetails(widget.cat_id, 'shop', sortBy,
-        page: _page + 1);
+    final res =
+        await fetchUserDetails(widget.cat_id, 'shop', sortBy, page: _page + 1);
     if (res.users.isNotEmpty) {
       setState(() {
         combinedUsers.addAll(res.users);
@@ -237,8 +249,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   void fetchData() async {
     setState(() => isLoading = true);
 
-    final res =
-        await fetchUserDetails(widget.cat_id, 'shop', sortBy, page: 1);
+    final res = await fetchUserDetails(widget.cat_id, 'shop', sortBy, page: 1);
 
     setState(() {
       combinedUsers = res.users;
@@ -318,9 +329,9 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: _bg,
-        appBar: _buildAppBar(),
         body: Column(
           children: [
+            _buildHeader(context),
             if (sortBy != 'nearby') _buildSearchField(),
             _buildSortBar(),
             Expanded(child: _buildBody()),
@@ -330,86 +341,97 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
     );
   }
 
-  // ── AppBar ────────────────────────────────────────────────────────────────
-
-  PreferredSizeWidget _buildAppBar() {
+  // ── Gradient hero header — matches the rest of the app (AccountSettingsPage,
+  // FavoriteProfilesPage, notification_show.dart): back button + icon bubble +
+  // title/subtitle on a rounded-bottom blue gradient.
+  Widget _buildHeader(BuildContext context) {
     final count = _visibleUsers.length;
-    return AppBar(
-      backgroundColor: Colors.white,
-      foregroundColor: const Color(0xFF111827),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.white,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            size: 20, color: Color(0xFF111827)),
-        onPressed: () => Navigator.pop(context),
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1040B0), _brand],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
       ),
-      titleSpacing: 0,
-      title: Row(
+      child: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: _brand.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
             ),
-            child: const Icon(Icons.storefront_rounded, size: 17, color: _brand),
           ),
           const SizedBox(width: 10),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.storefront_rounded,
+                color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   widget.categoryName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827),
-                    height: 1.15,
+                    color: Colors.white,
                   ),
                 ),
-                if (!isLoading) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '$count shop${count != 1 ? 's' : ''} found',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF9CA3AF),
-                      fontWeight: FontWeight.w600,
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  isLoading
+                      ? 'Loading...'
+                      : '$count shop${count != 1 ? 's' : ''} found',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white70,
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        ],
-      ),
-      actions: [
-        if (_locationReady && sortBy == 'nearby')
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Container(
+          if (_locationReady && sortBy == 'nearby')
+            Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF22C55E).withValues(alpha: 0.10),
+                color: Colors.white.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                _PulseDot(color: const Color(0xFF22C55E)),
+                _PulseDot(color: const Color(0xFF4ADE80)),
                 const SizedBox(width: 5),
-                const Text('Live', style: TextStyle(
-                    fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w700)),
+                const Text('Live',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700)),
               ]),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -565,8 +587,8 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.32),
+                            color:
+                                const Color(0xFF1A56DB).withValues(alpha: 0.32),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -621,16 +643,20 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   Widget _buildBody() {
     if (sortBy == 'nearby') {
       if (_locationLoading) {
-        return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2),
+        return Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircularProgressIndicator(
+              color: Color(0xFF1A56DB), strokeWidth: 2),
           const SizedBox(height: 14),
           const Text('Getting your location…',
               style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
         ]));
       }
       if (!_locationReady) return _buildLocationError();
-      if (isLoading) return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2));
+      if (isLoading)
+        return const Center(
+            child: CircularProgressIndicator(
+                color: Color(0xFF1A56DB), strokeWidth: 2));
       return _MapView(
         services: _visibleUsers,
         userLat: AppLocation().lat!,
@@ -681,19 +707,12 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   // ── Shop visiting card ────────────────────────────────────────────────────
 
   bool _wasInteracted(UserDetail user) {
-    DateTime? lastSeenDt;
-    DateTime? lastCalledDt;
-    try {
-      if (user.lastSeen.isNotEmpty) {
-        lastSeenDt =
-            DateFormat("EEE dd MMM yyyy HH:mm:ss").parse(user.lastSeen);
-      }
-      if (user.lastCalled.isNotEmpty) {
-        lastCalledDt =
-            DateFormat("EEE dd MMM yyyy HH:mm:ss").parse(user.lastCalled);
-      }
-    } catch (_) {}
-    final now = DateTime.now();
+    final lastSeenDt =
+        user.lastSeen.isNotEmpty ? Config.parseServerTime(user.lastSeen) : null;
+    final lastCalledDt = user.lastCalled.isNotEmpty
+        ? Config.parseServerTime(user.lastCalled)
+        : null;
+    final now = DateTime.now().toUtc();
     final seenRecently =
         lastSeenDt != null && now.difference(lastSeenDt).inDays <= 7;
     final calledRecently =
@@ -708,14 +727,16 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
     void navigate() {
       handleAction(user.view_id, 'view', 0);
+      // user.view_id is this profile's real user_id — user.service_id is a
+      // different id space and must not be used as AdvertScreen's userId.
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => AdvertScreen(
-            userId: user.service_id.toString(),
+            userId: user.view_id.toString(),
             isService: user.is_service,
             advertData: AdvertData(
-              userId: user.service_id.toString(),
+              userId: user.view_id.toString(),
               isService: user.is_service,
               additionalData: user.service_id != 0
                   ? {'service_id': user.service_id}
@@ -819,8 +840,7 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
                               Row(
                                 children: [
                                   Icon(Icons.location_on_rounded,
-                                      size: 12,
-                                      color: Colors.grey.shade400),
+                                      size: 12, color: Colors.grey.shade400),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
@@ -854,17 +874,27 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
                       if (contacted) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
                             color: const Color(0xFFECFDF3),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.35)),
+                            border: Border.all(
+                                color: const Color(0xFF22C55E)
+                                    .withValues(alpha: 0.35)),
                           ),
-                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF16A34A)),
-                            SizedBox(width: 3),
-                            Text('Visited', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
-                          ]),
+                          child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded,
+                                    size: 11, color: Color(0xFF16A34A)),
+                                SizedBox(width: 3),
+                                Text('Visited',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF15803D))),
+                              ]),
                         ),
                       ],
                       const Spacer(),
@@ -995,7 +1025,9 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
         color: isActive ? const Color(0xFFECFDF3) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isActive ? liveGreen.withValues(alpha: 0.35) : const Color(0xFFE5E7EB),
+          color: isActive
+              ? liveGreen.withValues(alpha: 0.35)
+              : const Color(0xFFE5E7EB),
           width: 1,
         ),
       ),
@@ -1160,26 +1192,31 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
   // ── Location error ────────────────────────────────────────────────────────
 
   Widget _buildLocationError() {
-    return Center(child: Padding(
+    return Center(
+        child: Padding(
       padding: const EdgeInsets.all(32),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.location_off_rounded, size: 52,
-            color: _brand.withValues(alpha: 0.4)),
+        Icon(Icons.location_off_rounded,
+            size: 52, color: _brand.withValues(alpha: 0.4)),
         const SizedBox(height: 16),
         const Text('Location Access Needed',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
                 color: Color(0xFF111827))),
         const SizedBox(height: 8),
         const Text('Allow location access to use the map view.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
+            style:
+                TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
         const SizedBox(height: 20),
         ElevatedButton.icon(
           onPressed: _bootstrap,
           icon: const Icon(Icons.my_location_rounded, size: 16),
           label: const Text('Try Again'),
           style: ElevatedButton.styleFrom(
-              backgroundColor: _brand, foregroundColor: Colors.white,
+              backgroundColor: _brand,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12))),
         ),
@@ -1191,19 +1228,24 @@ class _ShopsFavoriteState extends State<ShopsFavorite> with RouteAware {
 
   void _navigateToProfile(UserDetail user) {
     handleAction(user.view_id, 'view', 0);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => AdvertScreen(
-      userId: user.service_id.toString(),
-      isService: user.is_service,
-      advertData: AdvertData(
-        userId: user.service_id.toString(),
-        isService: user.is_service,
-        additionalData: user.service_id != 0
-            ? {'service_id': user.service_id}
-            : user.shop_id != 0
-                ? {'shop_id': user.shop_id}
-                : {'user_only': user.view_id.toString()},
-      ),
-    )));
+    // user.view_id is this profile's real user_id — user.service_id is a
+    // different id space and must not be used as AdvertScreen's userId.
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AdvertScreen(
+                  userId: user.view_id.toString(),
+                  isService: user.is_service,
+                  advertData: AdvertData(
+                    userId: user.view_id.toString(),
+                    isService: user.is_service,
+                    additionalData: user.service_id != 0
+                        ? {'service_id': user.service_id}
+                        : user.shop_id != 0
+                            ? {'shop_id': user.shop_id}
+                            : {'user_only': user.view_id.toString()},
+                  ),
+                )));
   }
 }
 
@@ -1232,7 +1274,8 @@ class _MapView extends StatefulWidget {
   State<_MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin {
+class _MapViewState extends State<_MapView>
+    with SingleTickerProviderStateMixin {
   UserDetail? _selected;
   final MapController _mapController = MapController();
   late AnimationController _pulseCtrl;
@@ -1262,31 +1305,32 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
   void _closeSearch() {
     _searchCtrl.clear();
     _searchFocus.unfocus();
-    setState(() { _searchOpen = false; _mapQuery = ''; });
+    setState(() {
+      _searchOpen = false;
+      _mapQuery = '';
+    });
   }
 
   static Color _rimColor(double? distKm) {
     if (distKm == null) return const Color(0xFF3B82F6);
-    if (distKm < 2)    return const Color(0xFFEF4444);
-    if (distKm < 5)    return const Color(0xFFF97316);
-    if (distKm < 15)   return const Color(0xFF3B82F6);
+    if (distKm < 2) return const Color(0xFFEF4444);
+    if (distKm < 5) return const Color(0xFFF97316);
+    if (distKm < 15) return const Color(0xFF3B82F6);
     return const Color(0xFF8B5CF6);
   }
 
   @override
   Widget build(BuildContext context) {
-    final mappable = widget.services
-        .where((s) => s.lat != null && s.lon != null)
-        .toList();
-    final noGps  = widget.services.length - mappable.length;
+    final mappable =
+        widget.services.where((s) => s.lat != null && s.lon != null).toList();
+    final noGps = widget.services.length - mappable.length;
     final userLL = LatLng(widget.userLat, widget.userLon);
 
     final searchResults = _mapQuery.trim().isEmpty
         ? <UserDetail>[]
         : mappable
-            .where((s) => s.business_name
-                .toLowerCase()
-                .contains(_mapQuery.toLowerCase()))
+            .where((s) =>
+                s.business_name.toLowerCase().contains(_mapQuery.toLowerCase()))
             .toList();
     final visibleMappable = _mapQuery.trim().isEmpty ? mappable : searchResults;
 
@@ -1345,8 +1389,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     height: 52,
                     child: AnimatedBuilder(
                       animation: _pulseCtrl,
-                      builder: (_, __) =>
-                          _UserDot(accent: widget.accent, pulse: _pulseCtrl.value),
+                      builder: (_, __) => _UserDot(
+                          accent: widget.accent, pulse: _pulseCtrl.value),
                     ),
                   ),
                 ],
@@ -1356,7 +1400,9 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
           // ── Floating search bar ─────────────────────────────────────────
           Positioned(
-            top: 14, left: 14, right: 14,
+            top: 14,
+            left: 14,
+            right: 14,
             child: Material(
               color: Colors.transparent,
               elevation: 0,
@@ -1378,7 +1424,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     borderRadius: BorderRadius.circular(999),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: _searchOpen ? 0.18 : 0.13),
+                        color: Colors.black
+                            .withValues(alpha: _searchOpen ? 0.18 : 0.13),
                         blurRadius: _searchOpen ? 28 : 18,
                         spreadRadius: _searchOpen ? 2 : 0,
                         offset: const Offset(0, 5),
@@ -1393,8 +1440,11 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                   ),
                   child: Row(children: [
                     const SizedBox(width: 16),
-                    Icon(Icons.search_rounded, size: 22,
-                        color: _searchOpen ? widget.accent : const Color(0xFF9CA3AF)),
+                    Icon(Icons.search_rounded,
+                        size: 22,
+                        color: _searchOpen
+                            ? widget.accent
+                            : const Color(0xFF9CA3AF)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _searchOpen
@@ -1451,13 +1501,15 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     else
                       Container(
                         margin: const EdgeInsets.only(right: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
                         decoration: BoxDecoration(
                           color: widget.accent.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.place_rounded, size: 13, color: widget.accent),
+                          Icon(Icons.place_rounded,
+                              size: 13, color: widget.accent),
                           const SizedBox(width: 4),
                           Text('${mappable.length}',
                               style: TextStyle(
@@ -1475,36 +1527,45 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
           // ── GPS / Refresh pill ──────────────────────────────────────────
           if (!_searchOpen)
             Positioned(
-              top: 80, left: 14,
+              top: 80,
+              left: 14,
               child: GestureDetector(
                 onTap: widget.onRefresh,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2))
+                    ],
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 7, height: 7,
+                    Container(
+                        width: 7,
+                        height: 7,
                         decoration: const BoxDecoration(
                             color: Color(0xFF22C55E), shape: BoxShape.circle)),
                     const SizedBox(width: 6),
                     Text(
-                      noGps > 0
-                          ? 'GPS active  •  $noGps no-GPS'
-                          : 'GPS active',
-                      style: const TextStyle(fontSize: 11,
-                          color: Color(0xFF4B5563), fontWeight: FontWeight.w600),
+                      noGps > 0 ? 'GPS active  •  $noGps no-GPS' : 'GPS active',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF4B5563),
+                          fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 8),
                     Icon(Icons.refresh_rounded, size: 13, color: widget.accent),
                     const SizedBox(width: 3),
-                    Text('Refresh', style: TextStyle(
-                        fontSize: 11, color: widget.accent,
-                        fontWeight: FontWeight.w700)),
+                    Text('Refresh',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: widget.accent,
+                            fontWeight: FontWeight.w700)),
                   ]),
                 ),
               ),
@@ -1513,7 +1574,9 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
           // ── Search results dropdown ────────────────────────────────────
           if (_searchOpen && _mapQuery.trim().isNotEmpty)
             Positioned(
-              top: 78, left: 14, right: 14,
+              top: 78,
+              left: 14,
+              right: 14,
               child: Material(
                 color: Colors.transparent,
                 child: Container(
@@ -1524,7 +1587,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 18, offset: const Offset(0, 4)),
+                          blurRadius: 18,
+                          offset: const Offset(0, 4)),
                     ],
                   ),
                   child: searchResults.isEmpty
@@ -1544,7 +1608,7 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                           separatorBuilder: (_, __) =>
                               const Divider(height: 1, indent: 42),
                           itemBuilder: (_, i) {
-                            final s   = searchResults[i];
+                            final s = searchResults[i];
                             final rim = _rimColor(s.distanceKm);
                             final dist = s.distanceKm;
                             final distStr = dist == null
@@ -1572,7 +1636,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                                     horizontal: 14, vertical: 10),
                                 child: Row(children: [
                                   Container(
-                                    width: 10, height: 10,
+                                    width: 10,
+                                    height: 10,
                                     decoration: BoxDecoration(
                                         color: rim, shape: BoxShape.circle),
                                   ),
@@ -1610,8 +1675,7 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                                   ],
                                   const SizedBox(width: 4),
                                   Icon(Icons.arrow_forward_ios_rounded,
-                                      size: 11,
-                                      color: Colors.grey.shade300),
+                                      size: 11, color: Colors.grey.shade300),
                                 ]),
                               ),
                             );
@@ -1623,7 +1687,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
           // Center-on-me FAB
           Positioned(
-            bottom: 16, right: 16,
+            bottom: 16,
+            right: 16,
             child: FloatingActionButton.small(
               heroTag: 'shopMapLocateMe',
               onPressed: () => _mapController.move(userLL, 14.0),
@@ -1636,7 +1701,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
           // OSM attribution
           Positioned(
-            bottom: 4, left: 6,
+            bottom: 4,
+            left: 6,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
@@ -1652,8 +1718,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
       // ── Bottom profile panel ───────────────────────────────────────────
       _ProfilePanel(
-        service:   _selected,
-        accent:    widget.accent,
+        service: _selected,
+        accent: widget.accent,
         onConnect: () => widget.onConnect(_selected!),
         onDismiss: () => setState(() => _selected = null),
       ),
@@ -1667,8 +1733,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
 class _ShopPinWidget extends StatelessWidget {
   final UserDetail service;
-  final Color      rimColor;
-  final bool       selected;
+  final Color rimColor;
+  final bool selected;
 
   const _ShopPinWidget({
     required this.service,
@@ -1679,8 +1745,8 @@ class _ShopPinWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = (service.call_status ?? '').toLowerCase() == 'active';
-    final dist     = service.distanceKm;
-    final distStr  = dist == null
+    final dist = service.distanceKm;
+    final distStr = dist == null
         ? null
         : dist < 1
             ? '${(dist * 1000).round()}m'
@@ -1699,20 +1765,28 @@ class _ShopPinWidget extends StatelessWidget {
               color: selected ? rimColor : rimColor.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(6),
               boxShadow: selected
-                  ? [BoxShadow(color: rimColor.withValues(alpha: 0.45),
-                        blurRadius: 6, offset: const Offset(0, 2))]
+                  ? [
+                      BoxShadow(
+                          color: rimColor.withValues(alpha: 0.45),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ]
                   : [],
             ),
-            child: Text(distStr, style: const TextStyle(
-                fontSize: 8, fontWeight: FontWeight.w800,
-                color: Colors.white, letterSpacing: 0.2)),
+            child: Text(distStr,
+                style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.2)),
           ),
 
         // Circle photo + active dot
         Stack(clipBehavior: Clip.none, children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1730,7 +1804,8 @@ class _ShopPinWidget extends StatelessWidget {
             child: ClipOval(
               child: Stack(fit: StackFit.expand, children: [
                 service.photo.isNotEmpty
-                    ? Image.network(service.photo, fit: BoxFit.cover,
+                    ? Image.network(service.photo,
+                        fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _fallback())
                     : _fallback(),
                 DecoratedBox(
@@ -1750,32 +1825,37 @@ class _ShopPinWidget extends StatelessWidget {
           ),
           if (isActive)
             Positioned(
-              top: 0, right: 0,
+              top: 0,
+              right: 0,
               child: Container(
-                width: 11, height: 11,
+                width: 11,
+                height: 11,
                 decoration: BoxDecoration(
                   color: const Color(0xFF22C55E),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: [BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.45),
-                      blurRadius: 4)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.green.withValues(alpha: 0.45),
+                        blurRadius: 4)
+                  ],
                 ),
               ),
             ),
         ]),
 
         // Pin tail
-        CustomPaint(size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
+        CustomPaint(
+            size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
       ],
     );
   }
 
   Widget _fallback() => Container(
-    color: rimColor.withValues(alpha: 0.15),
-    child: Center(child: Icon(Icons.storefront_rounded,
-        color: rimColor, size: 18)),
-  );
+        color: rimColor.withValues(alpha: 0.15),
+        child: Center(
+            child: Icon(Icons.storefront_rounded, color: rimColor, size: 18)),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1805,7 +1885,7 @@ class _PinTailPainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _UserDot extends StatelessWidget {
-  final Color  accent;
+  final Color accent;
   final double pulse;
   const _UserDot({required this.accent, required this.pulse});
 
@@ -1816,27 +1896,33 @@ class _UserDot extends StatelessWidget {
       Opacity(
         opacity: (1 - pulse).clamp(0.0, 1.0),
         child: Container(
-          width: ringSize, height: ringSize,
+          width: ringSize,
+          height: ringSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-                color: accent.withValues(alpha: 0.45), width: 1.5),
+            border:
+                Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
           ),
         ),
       ),
       Container(
-        width: 22, height: 22,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           color: accent,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [BoxShadow(
-              color: accent.withValues(alpha: 0.45),
-              blurRadius: 10, spreadRadius: 1)],
+          boxShadow: [
+            BoxShadow(
+                color: accent.withValues(alpha: 0.45),
+                blurRadius: 10,
+                spreadRadius: 1)
+          ],
         ),
         child: Center(
           child: Container(
-            width: 7, height: 7,
+            width: 7,
+            height: 7,
             decoration: const BoxDecoration(
                 color: Colors.white, shape: BoxShape.circle),
           ),
@@ -1851,8 +1937,8 @@ class _UserDot extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfilePanel extends StatelessWidget {
-  final UserDetail?  service;
-  final Color        accent;
+  final UserDetail? service;
+  final Color accent;
   final VoidCallback onConnect;
   final VoidCallback onDismiss;
 
@@ -1906,8 +1992,8 @@ class _ProfilePanel extends StatelessWidget {
 
   Widget _card(UserDetail s) {
     final isActive = (s.call_status ?? '').toLowerCase() == 'active';
-    final views    = int.tryParse(s.user_viewed) ?? 0;
-    final calls    = int.tryParse(s.user_called) ?? 0;
+    final views = int.tryParse(s.user_viewed) ?? 0;
+    final calls = int.tryParse(s.user_called) ?? 0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
@@ -1930,7 +2016,8 @@ class _ProfilePanel extends StatelessWidget {
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   // Avatar with gradient ring
                   Container(
-                    width: 58, height: 58,
+                    width: 58,
+                    height: 58,
                     padding: const EdgeInsets.all(2.5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -1939,40 +2026,53 @@ class _ProfilePanel extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      boxShadow: [BoxShadow(
-                          color: accent.withValues(alpha: 0.22),
-                          blurRadius: 10, offset: const Offset(0, 3))],
+                      boxShadow: [
+                        BoxShadow(
+                            color: accent.withValues(alpha: 0.22),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3))
+                      ],
                     ),
                     child: Stack(children: [
                       ClipOval(
                         child: Container(
                           color: Colors.white,
                           child: s.photo.isNotEmpty
-                              ? Image.network(s.photo, fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _avatarFallback(s))
+                              ? Image.network(s.photo,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _avatarFallback(s))
                               : _avatarFallback(s),
                         ),
                       ),
                       if (isActive)
-                        Positioned(bottom: 0, right: 0,
-                          child: Container(width: 13, height: 13,
-                              decoration: BoxDecoration(
-                                  color: const Color(0xFF22C55E),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: Colors.white, width: 1.8)))),
+                        Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                                width: 13,
+                                height: 13,
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.8)))),
                     ]),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(child: Column(
+                  Expanded(
+                      child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Expanded(child: Text(s.business_name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A)))),
+                        Expanded(
+                            child: Text(s.business_name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A)))),
                         const SizedBox(width: 6),
                         _connectivityPill(isActive),
                       ]),
@@ -2006,16 +2106,20 @@ class _ProfilePanel extends StatelessWidget {
                                   fontWeight: FontWeight.w600)),
                         ],
                       ]),
-                      if (s.address.isNotEmpty && s.address != 'No Address') ...[
+                      if (s.address.isNotEmpty &&
+                          s.address != 'No Address') ...[
                         const SizedBox(height: 5),
                         Row(children: [
                           Icon(Icons.location_on_rounded,
                               size: 11, color: Colors.grey.shade400),
                           const SizedBox(width: 3),
-                          Expanded(child: Text(s.address,
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 10.5, color: Colors.grey.shade500))),
+                          Expanded(
+                              child: Text(s.address,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.grey.shade500))),
                         ]),
                       ],
                     ],
@@ -2026,14 +2130,17 @@ class _ProfilePanel extends StatelessWidget {
                 const SizedBox(height: 10),
                 // Bottom row: stat chips + Visit button — mirrors the list card
                 Row(children: [
-                  _miniStat(Icons.visibility_outlined, Config.formatLargeNumber(views)),
+                  _miniStat(Icons.visibility_outlined,
+                      Config.formatLargeNumber(views)),
                   const SizedBox(width: 8),
-                  _miniStat(Icons.phone_outlined, Config.formatLargeNumber(calls)),
+                  _miniStat(
+                      Icons.phone_outlined, Config.formatLargeNumber(calls)),
                   const Spacer(),
                   GestureDetector(
                     onTap: onConnect,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [accent, accent.withValues(alpha: 0.82)],
@@ -2041,16 +2148,24 @@ class _ProfilePanel extends StatelessWidget {
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(
-                            color: accent.withValues(alpha: 0.32),
-                            blurRadius: 10, offset: const Offset(0, 3))],
+                        boxShadow: [
+                          BoxShadow(
+                              color: accent.withValues(alpha: 0.32),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3))
+                        ],
                       ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('Visit', style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700,
-                            color: Colors.white, letterSpacing: 0.3)),
+                      child:
+                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Visit',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.3)),
                         SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded, size: 13, color: Colors.white),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 13, color: Colors.white),
                       ]),
                     ),
                   ),
@@ -2061,19 +2176,25 @@ class _ProfilePanel extends StatelessWidget {
         ),
         // Floating close button
         Positioned(
-          top: 8, right: 8,
+          top: 8,
+          right: 8,
           child: GestureDetector(
             onTap: onDismiss,
             child: Container(
-              width: 26, height: 26,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 6, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ],
               ),
-              child: Icon(Icons.close_rounded, size: 15, color: Colors.grey.shade600),
+              child: Icon(Icons.close_rounded,
+                  size: 15, color: Colors.grey.shade600),
             ),
           ),
         ),
@@ -2089,20 +2210,27 @@ class _ProfilePanel extends StatelessWidget {
         color: isActive ? const Color(0xFFECFDF3) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isActive ? liveGreen.withValues(alpha: 0.35) : const Color(0xFFE5E7EB),
+          color: isActive
+              ? liveGreen.withValues(alpha: 0.35)
+              : const Color(0xFFE5E7EB),
         ),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (isActive)
           const _PulseDot(color: liveGreen)
         else
-          Container(width: 6, height: 6, decoration: BoxDecoration(
-              shape: BoxShape.circle, color: Colors.grey.shade400)),
+          Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: Colors.grey.shade400)),
         const SizedBox(width: 4),
         Text(isActive ? 'Active' : 'Offline',
             style: TextStyle(
-                fontSize: 9, fontWeight: FontWeight.w800,
-                color: isActive ? const Color(0xFF15803D) : Colors.grey.shade500)),
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color:
+                    isActive ? const Color(0xFF15803D) : Colors.grey.shade500)),
       ]),
     );
   }
@@ -2117,8 +2245,9 @@ class _ProfilePanel extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 11, color: accent),
         const SizedBox(width: 4),
-        Text(value, style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
       ]),
     );
   }
@@ -2126,8 +2255,8 @@ class _ProfilePanel extends StatelessWidget {
   Widget _avatarFallback(UserDetail s) {
     return Container(
       color: accent.withValues(alpha: 0.10),
-      child: Center(child: Icon(Icons.storefront_rounded,
-          color: accent, size: 22)),
+      child: Center(
+          child: Icon(Icons.storefront_rounded, color: accent, size: 22)),
     );
   }
 }
@@ -2153,21 +2282,28 @@ class _PulseDotState extends State<_PulseDot>
         vsync: this, duration: const Duration(milliseconds: 1100))
       ..repeat(reverse: true);
   }
+
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, __) => Container(
-        width: 8, height: 8,
+        width: 8,
+        height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: widget.color,
           boxShadow: [
             BoxShadow(
                 color: widget.color.withValues(alpha: 0.5 * _ctrl.value),
-                blurRadius: 6, spreadRadius: 2)
+                blurRadius: 6,
+                spreadRadius: 2)
           ],
         ),
       ),

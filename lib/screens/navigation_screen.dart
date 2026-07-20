@@ -113,7 +113,8 @@ class _NavigationScreenState extends State<NavigationScreen>
   int pageIndex = 0;
   int unreadCount = 0;
   bool isDescLoading = true;
-  bool isInactive = false; // admin marked this account inactive (users.status = 0)
+  bool isInactive =
+      false; // admin marked this account inactive (users.status = 0)
 
   late List<Widget> pages;
 
@@ -125,11 +126,11 @@ class _NavigationScreenState extends State<NavigationScreen>
 
   // ── Bottom nav config (6 items) ────────────────────────────────────────────
   static const _navIcons = [
-    Icons.cell_tower_rounded,     // 0  Live
-    Icons.public_rounded,         // 1  Social
-    Icons.photo_library_rounded,  // 2  Gallery
-    Icons.storefront_rounded,     // 3  Shops
-    Icons.handyman_rounded,       // 4  Services
+    Icons.cell_tower_rounded, // 0  Live
+    Icons.public_rounded, // 1  Social
+    Icons.photo_library_rounded, // 2  Gallery
+    Icons.storefront_rounded, // 3  Shops
+    Icons.handyman_rounded, // 4  Services
     Icons.account_circle_rounded, // 5  My Acc
   ];
 
@@ -175,8 +176,8 @@ class _NavigationScreenState extends State<NavigationScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    _bellGlow = CurvedAnimation(
-        parent: _bellGlowController, curve: Curves.easeInOut);
+    _bellGlow =
+        CurvedAnimation(parent: _bellGlowController, curve: Curves.easeInOut);
 
     initializePages();
     fetchPageData(pageIndex);
@@ -380,23 +381,33 @@ class _NavigationScreenState extends State<NavigationScreen>
   Future<void> fetchPageData(int index) async {
     final ctx = context;
     switch (index) {
-      case 0: break; // DescriptionLandingPage loads itself
-      case 1: break; // Homepage loads itself
-      case 2: break; // ShopsCart loads itself
-      case 3: break; // UpdatePost loads itself
+      case 0:
+        break; // DescriptionLandingPage loads itself
+      case 1:
+        break; // Homepage loads itself
+      case 2:
+        break; // ShopsCart loads itself
+      case 3:
+        break; // UpdatePost loads itself
       case 4:
         final resp = await Config.apiGet('/get_service_data', ctx);
         if (resp != null && resp.statusCode == 200) {
           if (!mounted) return;
-          setState(() { serviceData = resp.body; initializePages(); });
+          setState(() {
+            serviceData = resp.body;
+            initializePages();
+          });
         }
         break;
       case 5:
-        final resp = await Config.apiGet(
-          '/get_user_by_phone?phone=$userPhone', ctx);
+        final resp =
+            await Config.apiGet('/get_user_by_phone?phone=$userPhone', ctx);
         if (resp != null && resp.statusCode == 200) {
           if (!mounted) return;
-          setState(() { userData = resp.body; initializePages(); });
+          setState(() {
+            userData = resp.body;
+            initializePages();
+          });
         }
         break;
     }
@@ -407,12 +418,18 @@ class _NavigationScreenState extends State<NavigationScreen>
   /// Returns the [NavigatorState] key for the currently visible tab (0–5).
   GlobalKey<NavigatorState> get _currentNavKey {
     switch (pageIndex) {
-      case 0: return _tab0Key;
-      case 1: return _tab1Key;
-      case 2: return _tab2Key;
-      case 3: return _tab3Key;
-      case 4: return _tab4Key;
-      default: return _tab5Key;
+      case 0:
+        return _tab0Key;
+      case 1:
+        return _tab1Key;
+      case 2:
+        return _tab2Key;
+      case 3:
+        return _tab3Key;
+      case 4:
+        return _tab4Key;
+      default:
+        return _tab5Key;
     }
   }
 
@@ -431,19 +448,26 @@ class _NavigationScreenState extends State<NavigationScreen>
   /// drawer destinations (Favorites, Account Settings, etc.) render inside
   /// this Scaffold's body — keeping the outer AppBar and bottom nav dock
   /// visible — instead of replacing the whole NavigationScreen shell.
+  ///
+  /// The drawer auto-closes the instant a destination is tapped (AppDrawer's
+  /// own _push does that), so by the time this push happens the drawer is
+  /// already gone. Re-opening it once the pushed page is popped (the Future
+  /// below resolves on pop) is what makes "back" from a drawer destination
+  /// land back on an open drawer instead of the bare tab underneath.
   void _pushInCurrentTab(Widget page) {
     _currentNavKey.currentState
-        ?.push(MaterialPageRoute(builder: (_) => page));
+        ?.push(MaterialPageRoute(builder: (_) => page))
+        .then((_) {
+      if (mounted) _scaffoldKey.currentState?.openDrawer();
+    });
   }
 
   // ── AppBar actions — all push into the active tab's nested navigator ────────
 
   /// Opens ThoughtSectionPage on the ROOT navigator (full-screen compose flow).
 
-
   /// Opens ShopsCart inside the active tab's navigator so the bottom nav
   /// remains visible while the user browses categories and shops.
-
 
   // ── Shared simple AppBar for nested-navigator screens ─────────────────────
   AppBar _buildSimpleAppBar(String title, IconData titleIcon) {
@@ -548,8 +572,6 @@ class _NavigationScreenState extends State<NavigationScreen>
 
         const Spacer(),
 
-
-
         const SizedBox(width: 6),
 
         // ── Notification bell ──
@@ -591,14 +613,6 @@ class _NavigationScreenState extends State<NavigationScreen>
                         decoration: unreadCount > 0
                             ? BoxDecoration(
                                 shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.amber
-                                        .withValues(alpha: 0.22 + glow * 0.28),
-                                    spreadRadius: 1.5 + glow * 2.5,
-                                    blurRadius: 8 + glow * 8,
-                                  ),
-                                ],
                               )
                             : null,
                         child: const Icon(
@@ -692,7 +706,8 @@ class _NavigationScreenState extends State<NavigationScreen>
                       colors: [
                         Color(0xFF4B80FF), // lighter at top-left (light source)
                         Color(0xFF1A56DB), // mid brand blue
-                        Color(0xFF1240BE), // deeper at bottom-right (shadow side)
+                        Color(
+                            0xFF1240BE), // deeper at bottom-right (shadow side)
                       ],
                       stops: [0.0, 0.55, 1.0],
                     ),
@@ -749,9 +764,8 @@ class _NavigationScreenState extends State<NavigationScreen>
             style: TextStyle(
               fontFamily: 'Poppins',
               fontSize: isActive ? 9.5 : 9.0,
-              color: isActive
-                  ? const Color(0xFF1A56DB)
-                  : const Color(0xFFA0AABF),
+              color:
+                  isActive ? const Color(0xFF1A56DB) : const Color(0xFFA0AABF),
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: isActive ? 0.30 : 0.15,
               inherit: false,
@@ -766,7 +780,14 @@ class _NavigationScreenState extends State<NavigationScreen>
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    const navLabels = ['Live', 'Social', 'Gallery', 'Shops', 'Services', 'My Acc'];
+    const navLabels = [
+      'Live',
+      'Social',
+      'Gallery',
+      'Shops',
+      'Services',
+      'My Acc'
+    ];
     // PopScope intercepts hardware back / iOS swipe-back and delegates to the
     // active tab's nested navigator.  If there is nothing to pop on the nested
     // navigator (user is at the tab root) the back event is swallowed so the
@@ -881,7 +902,6 @@ class _NavigationScreenState extends State<NavigationScreen>
               ),
           ],
         ),
-
 
         // ── Floating dock nav bar ─────────────────────────────────────────────
         // Wrapped in Padding to detach it from the screen edges — creates the

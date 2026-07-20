@@ -11,8 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
-import 'package:intl/intl.dart';
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  Model
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +92,8 @@ class UserFetchResult {
   final List<UserDetail> users;
   final bool locationAvailable;
   final bool hasMore;
-  UserFetchResult(this.users, {required this.locationAvailable, required this.hasMore});
+  UserFetchResult(this.users,
+      {required this.locationAvailable, required this.hasMore});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,33 +118,41 @@ class ServiceFavorite extends StatefulWidget {
 
 class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   final _searchController = TextEditingController();
-  final _searchFocus      = FocusNode();
-  String _query     = '';
+  final _searchFocus = FocusNode();
+  String _query = '';
   Timer? _debounce;
   bool _searchFocused = false;
 
-  int  _page           = 1;
-  final int _limit     = 10;
-  bool _hasMore        = true;
-  bool _isLoadingMore  = false;
+  int _page = 1;
+  final int _limit = 10;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
   late final ScrollController _scrollController = ScrollController();
 
-  List<UserDetail> combinedUsers   = [];
-  bool locationAvailable           = true;
-  String sortBy                    = 'nearby';
-  bool isLoading                   = true;
-  bool _locationReady              = false;
-  bool _locationLoading            = false;
+  List<UserDetail> combinedUsers = [];
+  bool locationAvailable = true;
+  String sortBy = 'nearby';
+  bool isLoading = true;
+  bool _locationReady = false;
+  bool _locationLoading = false;
 
-  static const Color _accent      = Color(0xFF1D4ED8);
+  static const Color _accent = Color(0xFF1D4ED8);
   static const Color _accentLight = Color(0xFF3B82F6);
-  static const Color _bg          = Color(0xFFF4F8FF);
+  static const Color _bg = Color(0xFFF4F8FF);
 
   static const _sortOptions = [
-    {'value': 'nearby',      'label': 'Nearby',      'icon': Icons.near_me_rounded},
-    {'value': 'most_viewed', 'label': 'Most Viewed', 'icon': Icons.visibility_rounded},
-    {'value': 'most_called', 'label': 'Most Booked', 'icon': Icons.phone_rounded},
-    {'value': 'recent',      'label': 'Recent',       'icon': Icons.schedule_rounded},
+    {'value': 'nearby', 'label': 'Nearby', 'icon': Icons.near_me_rounded},
+    {
+      'value': 'most_viewed',
+      'label': 'Most Viewed',
+      'icon': Icons.visibility_rounded
+    },
+    {
+      'value': 'most_called',
+      'label': 'Most Booked',
+      'icon': Icons.phone_rounded
+    },
+    {'value': 'recent', 'label': 'Recent', 'icon': Icons.schedule_rounded},
   ];
 
   bool get _isNearby => sortBy == 'nearby';
@@ -153,7 +160,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   List<UserDetail> get _visibleUsers {
     if (_query.trim().isEmpty) return combinedUsers;
     final q = _query.toLowerCase();
-    return combinedUsers.where((u) => u.business_name.toLowerCase().contains(q)).toList();
+    return combinedUsers
+        .where((u) => u.business_name.toLowerCase().contains(q))
+        .toList();
   }
 
   @override
@@ -163,6 +172,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
     _searchFocus.addListener(() {
       if (mounted) setState(() => _searchFocused = _searchFocus.hasFocus);
     });
+    // Keep AppLocation's live GPS stream alive for as long as this page is
+    // mounted; released in dispose() below.
+    AppLocation().addConsumer();
     _bootstrap();
   }
 
@@ -174,11 +186,14 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
 
   @override
   void dispose() {
-    _scrollController..removeListener(_onScroll)..dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     _debounce?.cancel();
     routeObserver.unsubscribe(this);
+    AppLocation().removeConsumer();
     super.dispose();
   }
 
@@ -189,14 +204,19 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
     setState(() => _locationLoading = true);
     final ok = await AppLocation().init();
     if (mounted) {
-      setState(() { _locationReady = ok; _locationLoading = false; });
+      setState(() {
+        _locationReady = ok;
+        _locationLoading = false;
+      });
       fetchData();
     }
   }
 
   void _onScroll() {
     if (_isLoadingMore || !mounted) return;
-    if (_scrollController.position.maxScrollExtent - _scrollController.position.pixels <= 200) {
+    if (_scrollController.position.maxScrollExtent -
+            _scrollController.position.pixels <=
+        200) {
       _loadMoreIfNeeded();
     }
   }
@@ -204,9 +224,14 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   void _loadMoreIfNeeded() async {
     if (_isLoadingMore || !_hasMore) return;
     setState(() => _isLoadingMore = true);
-    final res = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: _page + 1);
+    final res = await fetchUserDetails(widget.cat_id, 'service', sortBy,
+        page: _page + 1);
     if (res.users.isNotEmpty) {
-      setState(() { combinedUsers.addAll(res.users); _page++; _hasMore = res.hasMore; });
+      setState(() {
+        combinedUsers.addAll(res.users);
+        _page++;
+        _hasMore = res.hasMore;
+      });
     } else {
       setState(() => _hasMore = false);
     }
@@ -215,14 +240,15 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
 
   void fetchData() async {
     setState(() => isLoading = true);
-    final res = await fetchUserDetails(widget.cat_id, 'service', sortBy, page: 1);
+    final res =
+        await fetchUserDetails(widget.cat_id, 'service', sortBy, page: 1);
     if (!mounted) return;
     setState(() {
-      combinedUsers     = res.users;
+      combinedUsers = res.users;
       locationAvailable = res.locationAvailable;
-      _hasMore          = res.hasMore;
-      _page             = res.users.isNotEmpty ? 1 : 0;
-      isLoading         = false;
+      _hasMore = res.hasMore;
+      _page = res.users.isNotEmpty ? 1 : 0;
+      isLoading = false;
     });
   }
 
@@ -234,37 +260,45 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   }
 
   Future<UserFetchResult> fetchUserDetails(
-      String cat_id, String dataType, String sortBy, {int page = 1}) async {
-    final ctx    = context;
+      String cat_id, String dataType, String sortBy,
+      {int page = 1}) async {
+    final ctx = context;
     final userId = await Config.getLoggedInUser();
 
     if (sortBy == 'nearby') {
       final lat = AppLocation().lat;
       final lon = AppLocation().lon;
-      if (lat == null || lon == null) return UserFetchResult([], locationAvailable: false, hasMore: false);
-      final url = '/get_data_by_category?cat_id=$cat_id&data_type=$dataType&sort_by=nearby'
+      if (lat == null || lon == null)
+        return UserFetchResult([], locationAvailable: false, hasMore: false);
+      final url =
+          '/get_data_by_category?cat_id=$cat_id&data_type=$dataType&sort_by=nearby'
           '&user_location=$lat,$lon&user_id=$userId&page=$page';
       try {
         final res = await Config.apiGet(url, ctx);
         if (res != null && res.statusCode == 200) {
-          final body  = jsonDecode(res.body);
+          final body = jsonDecode(res.body);
           final users = (body['${dataType}_information'] as List? ?? [])
-              .map((d) => UserDetail.fromJson(d as Map<String, dynamic>)).toList();
-          return UserFetchResult(users, locationAvailable: true, hasMore: users.length == _limit);
+              .map((d) => UserDetail.fromJson(d as Map<String, dynamic>))
+              .toList();
+          return UserFetchResult(users,
+              locationAvailable: true, hasMore: users.length == _limit);
         }
       } catch (_) {}
       return UserFetchResult([], locationAvailable: true, hasMore: false);
     }
 
-    final url = '/get_data_by_category?cat_id=$cat_id&data_type=$dataType&sort_by=$sortBy'
+    final url =
+        '/get_data_by_category?cat_id=$cat_id&data_type=$dataType&sort_by=$sortBy'
         '&user_id=$userId&page=$page';
     try {
       final res = await Config.apiGet(url, ctx);
       if (res != null && res.statusCode == 200) {
-        final body  = jsonDecode(res.body);
+        final body = jsonDecode(res.body);
         final users = (body['${dataType}_information'] as List? ?? [])
-            .map((d) => UserDetail.fromJson(d as Map<String, dynamic>)).toList();
-        return UserFetchResult(users, locationAvailable: true, hasMore: users.length == _limit);
+            .map((d) => UserDetail.fromJson(d as Map<String, dynamic>))
+            .toList();
+        return UserFetchResult(users,
+            locationAvailable: true, hasMore: users.length == _limit);
       }
     } catch (_) {}
     return UserFetchResult([], locationAvailable: true, hasMore: false);
@@ -277,24 +311,31 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   }
 
   void handleAction(int userId, String actionType, int detailPostId) async {
-    await NotificationService().sendNotificationWithLoggedInUser(userId, actionType, detailPostId, context);
+    await NotificationService().sendNotificationWithLoggedInUser(
+        userId, actionType, detailPostId, context);
   }
 
   void _navigateToProfile(UserDetail user) {
     handleAction(user.view_id, 'view', 0);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => AdvertScreen(
-      userId: user.service_id.toString(),
-      isService: user.isService,
-      advertData: AdvertData(
-        userId: user.service_id.toString(),
-        isService: user.isService,
-        additionalData: user.service_id != 0
-            ? {'service_id': user.service_id}
-            : user.shop_id != 0
-                ? {'shop_id': user.shop_id}
-                : {'user_only': user.view_id.toString()},
-      ),
-    )));
+    // user.view_id is this profile's real user_id (UserDetail.fromJson maps
+    // it from json['user_id']) — user.service_id is a different id space
+    // (the service record) and must not be used as AdvertScreen's userId.
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AdvertScreen(
+                  userId: user.view_id.toString(),
+                  isService: user.isService,
+                  advertData: AdvertData(
+                    userId: user.view_id.toString(),
+                    isService: user.isService,
+                    additionalData: user.service_id != 0
+                        ? {'service_id': user.service_id}
+                        : user.shop_id != 0
+                            ? {'shop_id': user.shop_id}
+                            : {'user_only': user.view_id.toString()},
+                  ),
+                )));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -305,8 +346,8 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: _bg,
-        appBar: _buildAppBar(),
         body: Column(children: [
+          _buildHeader(context),
           if (!_isNearby) _buildSearchField(),
           _buildSortBar(),
           Expanded(child: _buildBody()),
@@ -315,70 +356,90 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      foregroundColor: const Color(0xFF111827),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF374151)),
-        onPressed: () => Navigator.pop(context),
+  // ── Gradient hero header — matches the rest of the app (AccountSettingsPage,
+  // FavoriteProfilesPage, notification_show.dart): back button + icon bubble +
+  // title/subtitle on a rounded-bottom blue gradient.
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_accent, _accentLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
       ),
-      titleSpacing: 0,
-      title: Row(children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: _accent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10),
+      child: Row(children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.pop(context),
+          child: const Padding(
+            padding: EdgeInsets.all(6),
+            child: Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 18),
           ),
-          child: const Icon(Icons.person_search_rounded, size: 17, color: _accent),
         ),
         const SizedBox(width: 10),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.16),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.person_search_rounded,
+              color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(widget.category_name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 16.5,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
-                      height: 1.15)),
-              if (!isLoading) ...[
-                const SizedBox(height: 2),
-                Text('${_visibleUsers.length} specialist${_visibleUsers.length != 1 ? 's' : ''}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600)),
-              ],
+                      color: Colors.white)),
+              const SizedBox(height: 2),
+              Text(
+                isLoading
+                    ? 'Loading...'
+                    : '${_visibleUsers.length} specialist${_visibleUsers.length != 1 ? 's' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white70),
+              ),
             ],
           ),
         ),
-      ]),
-      actions: [
         if (_locationReady && _isNearby)
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E).withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                _PulseDot(color: const Color(0xFF22C55E)),
-                const SizedBox(width: 5),
-                const Text('Live', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w700)),
-              ]),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(20),
             ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              _PulseDot(color: const Color(0xFF4ADE80)),
+              const SizedBox(width: 5),
+              const Text('Live',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700)),
+            ]),
           ),
-      ],
+      ]),
     );
   }
 
@@ -397,8 +458,11 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
               width: _searchFocused ? 1.6 : 1.0),
           boxShadow: [
             BoxShadow(
-                color: _searchFocused ? _accent.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.05),
-                blurRadius: _searchFocused ? 16 : 10, offset: const Offset(0, 4)),
+                color: _searchFocused
+                    ? _accent.withValues(alpha: 0.18)
+                    : Colors.black.withValues(alpha: 0.05),
+                blurRadius: _searchFocused ? 16 : 10,
+                offset: const Offset(0, 4)),
           ],
         ),
         child: Row(
@@ -409,7 +473,8 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
               margin: const EdgeInsets.all(7),
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: _searchFocused ? _accent : _accent.withValues(alpha: 0.10),
+                color:
+                    _searchFocused ? _accent : _accent.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.person_search_rounded,
@@ -421,14 +486,17 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
                 focusNode: _searchFocus,
                 onChanged: (val) {
                   _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 200), () => setState(() => _query = val));
+                  _debounce = Timer(const Duration(milliseconds: 200),
+                      () => setState(() => _query = val));
                 },
-                style: const TextStyle(fontSize: 15, color: Color(0xFF111827), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF111827),
+                    fontWeight: FontWeight.w500),
                 decoration: const InputDecoration(
                   hintText: 'Search specialists by name…',
                   hintStyle: TextStyle(color: Color(0xFFADB5C7), fontSize: 14),
                   border: InputBorder.none,
-                  
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   isDense: true,
@@ -460,10 +528,14 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
                             borderRadius: BorderRadius.circular(11),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(11),
-                              onTap: () { _searchController.clear(); setState(() => _query = ''); },
+                              onTap: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
                               child: const Padding(
                                 padding: EdgeInsets.all(7),
-                                child: Icon(Icons.close_rounded, color: Color(0xFFDC2626), size: 16),
+                                child: Icon(Icons.close_rounded,
+                                    color: Color(0xFFDC2626), size: 16),
                               ),
                             ),
                           ),
@@ -488,9 +560,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
         clipBehavior: Clip.none,
         child: Row(
           children: _sortOptions.map((opt) {
-            final val      = opt['value'] as String;
-            final label    = opt['label'] as String;
-            final icon     = opt['icon'] as IconData;
+            final val = opt['value'] as String;
+            final label = opt['label'] as String;
+            final icon = opt['icon'] as IconData;
             final selected = sortBy == val;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -498,14 +570,22 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
                 duration: const Duration(milliseconds: 220),
                 decoration: BoxDecoration(
                   gradient: selected
-                      ? const LinearGradient(colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight)
+                      ? const LinearGradient(
+                          colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight)
                       : null,
                   color: selected ? null : const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: selected ? _accent : const Color(0xFFBFDBFE)),
+                  border: Border.all(
+                      color: selected ? _accent : const Color(0xFFBFDBFE)),
                   boxShadow: selected
-                      ? [BoxShadow(color: _accent.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))]
+                      ? [
+                          BoxShadow(
+                              color: _accent.withValues(alpha: 0.28),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4))
+                        ]
                       : [],
                 ),
                 child: Material(
@@ -514,13 +594,18 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
                     borderRadius: BorderRadius.circular(24),
                     onTap: () => updateSorting(val),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(icon, size: 14, color: selected ? Colors.white : _accent),
+                        Icon(icon,
+                            size: 14, color: selected ? Colors.white : _accent),
                         const SizedBox(width: 6),
-                        Text(label, style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700,
-                            color: selected ? Colors.white : _accent, letterSpacing: 0.2)),
+                        Text(label,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: selected ? Colors.white : _accent,
+                                letterSpacing: 0.2)),
                       ]),
                     ),
                   ),
@@ -536,7 +621,8 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   Widget _buildBody() {
     if (_isNearby) {
       if (_locationLoading) {
-        return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        return Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
           CircularProgressIndicator(color: _accent, strokeWidth: 2),
           const SizedBox(height: 14),
           const Text('Getting your location…',
@@ -544,7 +630,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
         ]));
       }
       if (!_locationReady) return _buildLocationError();
-      if (isLoading) return Center(child: CircularProgressIndicator(color: _accent, strokeWidth: 2));
+      if (isLoading)
+        return Center(
+            child: CircularProgressIndicator(color: _accent, strokeWidth: 2));
       return _MapView(
         services: _visibleUsers,
         userLat: AppLocation().lat!,
@@ -559,7 +647,8 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
       );
     }
 
-    if (isLoading) return Center(child: CircularProgressIndicator(color: _accent));
+    if (isLoading)
+      return Center(child: CircularProgressIndicator(color: _accent));
     if (_visibleUsers.isEmpty) return _buildEmptyState();
 
     return RefreshIndicator(
@@ -573,7 +662,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
           if (i >= _visibleUsers.length) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator(color: _accent, strokeWidth: 2.5)),
+              child: Center(
+                  child: CircularProgressIndicator(
+                      color: _accent, strokeWidth: 2.5)),
             );
           }
           return _buildProviderCard(_visibleUsers[i]);
@@ -583,25 +674,33 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   }
 
   Widget _buildLocationError() {
-    return Center(child: Padding(
+    return Center(
+        child: Padding(
       padding: const EdgeInsets.all(32),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.location_off_rounded, size: 52, color: _accent.withValues(alpha: 0.4)),
+        Icon(Icons.location_off_rounded,
+            size: 52, color: _accent.withValues(alpha: 0.4)),
         const SizedBox(height: 16),
         const Text('Location Access Needed',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827))),
         const SizedBox(height: 8),
         const Text('Allow location access to use the map view.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
+            style:
+                TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
         const SizedBox(height: 20),
         ElevatedButton.icon(
           onPressed: _bootstrap,
           icon: const Icon(Icons.my_location_rounded, size: 16),
           label: const Text('Try Again'),
           style: ElevatedButton.styleFrom(
-              backgroundColor: _accent, foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              backgroundColor: _accent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12))),
         ),
       ]),
     ));
@@ -610,15 +709,14 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   // ── List-view card ────────────────────────────────────────────────────────
 
   bool _wasInteracted(UserDetail user) {
-    DateTime? lastSeenDt;
-    DateTime? lastCalledDt;
-    try {
-      if (user.lastSeen.isNotEmpty)   lastSeenDt   = DateFormat("EEE dd MMM yyyy HH:mm:ss").parse(user.lastSeen);
-      if (user.lastCalled.isNotEmpty) lastCalledDt = DateFormat("EEE dd MMM yyyy HH:mm:ss").parse(user.lastCalled);
-    } catch (_) {}
-    final now = DateTime.now();
-    return (lastSeenDt  != null && now.difference(lastSeenDt).inDays  <= 7) ||
-           (lastCalledDt != null && now.difference(lastCalledDt).inDays <= 7);
+    final lastSeenDt =
+        user.lastSeen.isNotEmpty ? Config.parseServerTime(user.lastSeen) : null;
+    final lastCalledDt = user.lastCalled.isNotEmpty
+        ? Config.parseServerTime(user.lastCalled)
+        : null;
+    final now = DateTime.now().toUtc();
+    return (lastSeenDt != null && now.difference(lastSeenDt).inDays <= 7) ||
+        (lastCalledDt != null && now.difference(lastCalledDt).inDays <= 7);
   }
 
   Widget _buildProviderCard(UserDetail user) {
@@ -634,8 +732,14 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
           borderRadius: BorderRadius.circular(16),
           border: Border(left: BorderSide(color: accent, width: 5)),
           boxShadow: [
-            BoxShadow(color: accent.withValues(alpha: 0.10), blurRadius: 16, offset: const Offset(0, 5)),
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1)),
+            BoxShadow(
+                color: accent.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 5)),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 1)),
           ],
         ),
         child: Material(
@@ -646,73 +750,120 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
             onTap: () => _navigateToProfile(user),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _buildAvatar(user, accent),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAvatar(user, accent),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Row(children: [
+                                  Expanded(
+                                      child: Text(user.business_name,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF0F172A),
+                                              height: 1.2),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis)),
+                                  const SizedBox(width: 8),
+                                  _availPill(isAvailable),
+                                ]),
+                                const SizedBox(height: 6),
+                                _specialtyTag(user.category, accent),
+                                if (user.address.isNotEmpty &&
+                                    user.address != 'No Address') ...[
+                                  const SizedBox(height: 4),
+                                  Row(children: [
+                                    Icon(Icons.location_on_rounded,
+                                        size: 12, color: Colors.grey.shade400),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                        child: Text(user.address,
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade500),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis)),
+                                  ]),
+                                ],
+                              ])),
+                        ]),
+                    const SizedBox(height: 10),
+                    Container(height: 1, color: const Color(0xFFF0F3FA)),
+                    const SizedBox(height: 10),
                     Row(children: [
-                      Expanded(child: Text(user.business_name,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), height: 1.2),
-                          maxLines: 2, overflow: TextOverflow.ellipsis)),
-                      const SizedBox(width: 8),
-                      _availPill(isAvailable),
+                      _statChip(user, accent),
+                      if (contacted) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF3),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFF22C55E)
+                                    .withValues(alpha: 0.35)),
+                          ),
+                          child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded,
+                                    size: 11, color: Color(0xFF16A34A)),
+                                SizedBox(width: 3),
+                                Text('Contacted',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF15803D))),
+                              ]),
+                        ),
+                      ],
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _navigateToProfile(user),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                                colors: [
+                                  accent,
+                                  accent.withValues(alpha: 0.82)
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: accent.withValues(alpha: 0.32),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3))
+                            ],
+                          ),
+                          child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Connect',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white)),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_rounded,
+                                    size: 13, color: Colors.white),
+                              ]),
+                        ),
+                      ),
                     ]),
-                    const SizedBox(height: 6),
-                    _specialtyTag(user.category, accent),
-                    if (user.address.isNotEmpty && user.address != 'No Address') ...[
-                      const SizedBox(height: 4),
-                      Row(children: [
-                        Icon(Icons.location_on_rounded, size: 12, color: Colors.grey.shade400),
-                        const SizedBox(width: 4),
-                        Expanded(child: Text(user.address,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                            maxLines: 1, overflow: TextOverflow.ellipsis)),
-                      ]),
-                    ],
-                  ])),
-                ]),
-                const SizedBox(height: 10),
-                Container(height: 1, color: const Color(0xFFF0F3FA)),
-                const SizedBox(height: 10),
-                Row(children: [
-                  _statChip(user, accent),
-                  if (contacted) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF3),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.35)),
-                      ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF16A34A)),
-                        SizedBox(width: 3),
-                        Text('Contacted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
-                      ]),
-                    ),
-                  ],
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _navigateToProfile(user),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.82)],
-                            begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.32), blurRadius: 10, offset: const Offset(0, 3))],
-                      ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('Connect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded, size: 13, color: Colors.white),
-                      ]),
-                    ),
-                  ),
-                ]),
-              ]),
+                  ]),
             ),
           ),
         ),
@@ -723,38 +874,68 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
   Widget _buildAvatar(UserDetail user, Color accent) {
     return Stack(children: [
       Container(
-        width: 68, height: 68,
-        decoration: BoxDecoration(shape: BoxShape.circle,
-            border: Border.all(color: accent.withValues(alpha: 0.28), width: 2.5),
-            boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 2))]),
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border:
+                Border.all(color: accent.withValues(alpha: 0.28), width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                  color: accent.withValues(alpha: 0.14),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))
+            ]),
         child: ClipOval(
           child: user.photo.isNotEmpty
-              ? Image.network(user.photo, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _noImage(accent))
+              ? Image.network(user.photo,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _noImage(accent))
               : _noImage(accent),
         ),
       ),
       if (user.sub_type != null)
-        Positioned(bottom: 0, right: 0,
-          child: Container(
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
-                boxShadow: user.sub_type == 'paid' ? [BoxShadow(color: _accentLight.withValues(alpha: 0.5), blurRadius: 6, spreadRadius: 1)] : []),
-            padding: const EdgeInsets.all(2.5),
-            child: Icon(Icons.verified_rounded, size: 15,
-                color: user.sub_type == 'paid' ? _accentLight : Colors.grey.shade400),
-          )),
+        Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: user.sub_type == 'paid'
+                      ? [
+                          BoxShadow(
+                              color: _accentLight.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                              spreadRadius: 1)
+                        ]
+                      : []),
+              padding: const EdgeInsets.all(2.5),
+              child: Icon(Icons.verified_rounded,
+                  size: 15,
+                  color: user.sub_type == 'paid'
+                      ? _accentLight
+                      : Colors.grey.shade400),
+            )),
     ]);
   }
 
   Widget _specialtyTag(String category, Color accent) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.work_rounded, size: 11, color: accent.withValues(alpha: 0.85)),
+        Icon(Icons.work_rounded,
+            size: 11, color: accent.withValues(alpha: 0.85)),
         const SizedBox(width: 4),
-        Flexible(child: Text(category,
-            style: TextStyle(fontSize: 11, color: accent, fontWeight: FontWeight.w700),
-            maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Flexible(
+            child: Text(category,
+                style: TextStyle(
+                    fontSize: 11, color: accent, fontWeight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
@@ -767,7 +948,9 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
         color: isAvailable ? const Color(0xFFECFDF3) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isAvailable ? liveGreen.withValues(alpha: 0.35) : const Color(0xFFE5E7EB),
+          color: isAvailable
+              ? liveGreen.withValues(alpha: 0.35)
+              : const Color(0xFFE5E7EB),
           width: 1,
         ),
       ),
@@ -775,62 +958,98 @@ class _ServiceFavoriteState extends State<ServiceFavorite> with RouteAware {
         if (isAvailable)
           const _PulseDot(color: liveGreen)
         else
-          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.shade400)),
+          Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: Colors.grey.shade400)),
         const SizedBox(width: 5),
         Text(isAvailable ? 'Available' : 'Offline',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.1,
-                color: isAvailable ? const Color(0xFF15803D) : Colors.grey.shade500)),
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.1,
+                color: isAvailable
+                    ? const Color(0xFF15803D)
+                    : Colors.grey.shade500)),
       ]),
     );
   }
 
   Widget _statChip(UserDetail user, Color color) {
-    Widget txt(String t) => Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color));
+    Widget txt(String t) => Text(t,
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color));
     Widget ico(IconData i) => Icon(i, size: 11, color: color);
     late Widget content;
     switch (sortBy) {
       case 'most_called':
-        content = Row(mainAxisSize: MainAxisSize.min, children: [ico(Icons.phone_rounded), const SizedBox(width: 4),
-          txt(user.user_called == '0' ? 'No bookings' : '${Config.formatLargeNumber(int.parse(user.user_called))} bookings')]);
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
+          ico(Icons.phone_rounded),
+          const SizedBox(width: 4),
+          txt(user.user_called == '0'
+              ? 'No bookings'
+              : '${Config.formatLargeNumber(int.parse(user.user_called))} bookings')
+        ]);
         break;
       case 'most_viewed':
-        content = Row(mainAxisSize: MainAxisSize.min, children: [ico(Icons.visibility_rounded), const SizedBox(width: 4),
-          txt(user.user_viewed == '0' ? 'No views' : '${Config.formatLargeNumber(int.parse(user.user_viewed))} views')]);
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
+          ico(Icons.visibility_rounded),
+          const SizedBox(width: 4),
+          txt(user.user_viewed == '0'
+              ? 'No views'
+              : '${Config.formatLargeNumber(int.parse(user.user_viewed))} views')
+        ]);
         break;
       case 'recent':
-        content = Row(mainAxisSize: MainAxisSize.min, children: [ico(Icons.schedule_rounded), const SizedBox(width: 4),
-          txt(Config.getTimeDifference(user.days_since_creation))]);
+        content = Row(mainAxisSize: MainAxisSize.min, children: [
+          ico(Icons.schedule_rounded),
+          const SizedBox(width: 4),
+          txt(Config.getTimeDifference(user.days_since_creation))
+        ]);
         break;
-      default: content = const SizedBox.shrink();
+      default:
+        content = const SizedBox.shrink();
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20)),
       child: content,
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(child: Padding(
+    return Center(
+        child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 80, height: 80,
-            decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), shape: BoxShape.circle),
+        Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+                color: _accent.withValues(alpha: 0.08), shape: BoxShape.circle),
             child: Icon(Icons.person_search_rounded, size: 38, color: _accent)),
         const SizedBox(height: 20),
         const Text('No specialists found',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827))),
         const SizedBox(height: 8),
         const Text('No service providers found.\nTry a different filter.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
+            style:
+                TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5)),
       ]),
     ));
   }
 
   Widget _noImage(Color accent) => Container(
       color: accent.withValues(alpha: 0.08),
-      child: Center(child: Icon(Icons.person_rounded, color: accent, size: 30)));
+      child:
+          Center(child: Icon(Icons.person_rounded, color: accent, size: 30)));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -858,7 +1077,8 @@ class _MapView extends StatefulWidget {
   State<_MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin {
+class _MapViewState extends State<_MapView>
+    with SingleTickerProviderStateMixin {
   UserDetail? _selected;
   final MapController _mapController = MapController();
   late AnimationController _pulseCtrl;
@@ -871,7 +1091,9 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..repeat();
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1600))
+      ..repeat();
   }
 
   @override
@@ -886,32 +1108,33 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
   void _closeSearch() {
     _searchCtrl.clear();
     _searchFocus.unfocus();
-    setState(() { _searchOpen = false; _mapQuery = ''; });
+    setState(() {
+      _searchOpen = false;
+      _mapQuery = '';
+    });
   }
 
   static Color _rimColor(double? distKm) {
     if (distKm == null) return const Color(0xFF3B82F6);
-    if (distKm < 2)    return const Color(0xFFEF4444);
-    if (distKm < 5)    return const Color(0xFFF97316);
-    if (distKm < 15)   return const Color(0xFF3B82F6);
+    if (distKm < 2) return const Color(0xFFEF4444);
+    if (distKm < 5) return const Color(0xFFF97316);
+    if (distKm < 15) return const Color(0xFF3B82F6);
     return const Color(0xFF8B5CF6);
   }
 
   @override
   Widget build(BuildContext context) {
-    final mappable = widget.services
-        .where((s) => s.lat != null && s.lon != null)
-        .toList();
-    final noGps  = widget.services.length - mappable.length;
+    final mappable =
+        widget.services.where((s) => s.lat != null && s.lon != null).toList();
+    final noGps = widget.services.length - mappable.length;
     final userLL = LatLng(widget.userLat, widget.userLon);
 
     // Filter markers when search is active
     final searchResults = _mapQuery.trim().isEmpty
         ? <UserDetail>[]
         : mappable
-            .where((s) => s.business_name
-                .toLowerCase()
-                .contains(_mapQuery.toLowerCase()))
+            .where((s) =>
+                s.business_name.toLowerCase().contains(_mapQuery.toLowerCase()))
             .toList();
     final visibleMappable = _mapQuery.trim().isEmpty ? mappable : searchResults;
 
@@ -952,10 +1175,12 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                         onTap: () {
                           HapticFeedback.lightImpact();
                           setState(() => _selected = sel ? null : s);
-                          if (!sel) _mapController.move(LatLng(s.lat!, s.lon!), 15.0);
+                          if (!sel)
+                            _mapController.move(LatLng(s.lat!, s.lon!), 15.0);
                           if (_searchOpen) _closeSearch();
                         },
-                        child: _ServicePinWidget(service: s, rimColor: rim, selected: sel),
+                        child: _ServicePinWidget(
+                            service: s, rimColor: rim, selected: sel),
                       ),
                     );
                   }),
@@ -967,8 +1192,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     height: 52,
                     child: AnimatedBuilder(
                       animation: _pulseCtrl,
-                      builder: (_, __) =>
-                          _UserDot(accent: widget.accent, pulse: _pulseCtrl.value),
+                      builder: (_, __) => _UserDot(
+                          accent: widget.accent, pulse: _pulseCtrl.value),
                     ),
                   ),
                 ],
@@ -978,7 +1203,9 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
           // ── Floating search bar ─────────────────────────────────────────
           Positioned(
-            top: 14, left: 14, right: 14,
+            top: 14,
+            left: 14,
+            right: 14,
             child: Material(
               color: Colors.transparent,
               elevation: 0,
@@ -1000,7 +1227,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     borderRadius: BorderRadius.circular(999),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: _searchOpen ? 0.18 : 0.13),
+                        color: Colors.black
+                            .withValues(alpha: _searchOpen ? 0.18 : 0.13),
                         blurRadius: _searchOpen ? 28 : 18,
                         spreadRadius: _searchOpen ? 2 : 0,
                         offset: const Offset(0, 5),
@@ -1015,8 +1243,11 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                   ),
                   child: Row(children: [
                     const SizedBox(width: 16),
-                    Icon(Icons.search_rounded, size: 22,
-                        color: _searchOpen ? widget.accent : const Color(0xFF9CA3AF)),
+                    Icon(Icons.search_rounded,
+                        size: 22,
+                        color: _searchOpen
+                            ? widget.accent
+                            : const Color(0xFF9CA3AF)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _searchOpen
@@ -1073,13 +1304,15 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     else
                       Container(
                         margin: const EdgeInsets.only(right: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
                         decoration: BoxDecoration(
                           color: widget.accent.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.place_rounded, size: 13, color: widget.accent),
+                          Icon(Icons.place_rounded,
+                              size: 13, color: widget.accent),
                           const SizedBox(width: 4),
                           Text('${mappable.length}',
                               style: TextStyle(
@@ -1097,36 +1330,45 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
           // ── GPS / Refresh pill ──────────────────────────────────────────
           if (!_searchOpen)
             Positioned(
-              top: 80, left: 14,
+              top: 80,
+              left: 14,
               child: GestureDetector(
                 onTap: widget.onRefresh,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2))
+                    ],
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 7, height: 7,
+                    Container(
+                        width: 7,
+                        height: 7,
                         decoration: const BoxDecoration(
                             color: Color(0xFF22C55E), shape: BoxShape.circle)),
                     const SizedBox(width: 6),
                     Text(
-                      noGps > 0
-                          ? 'GPS active  •  $noGps no-GPS'
-                          : 'GPS active',
-                      style: const TextStyle(fontSize: 11,
-                          color: Color(0xFF4B5563), fontWeight: FontWeight.w600),
+                      noGps > 0 ? 'GPS active  •  $noGps no-GPS' : 'GPS active',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF4B5563),
+                          fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 8),
                     Icon(Icons.refresh_rounded, size: 13, color: widget.accent),
                     const SizedBox(width: 3),
-                    Text('Refresh', style: TextStyle(
-                        fontSize: 11, color: widget.accent,
-                        fontWeight: FontWeight.w700)),
+                    Text('Refresh',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: widget.accent,
+                            fontWeight: FontWeight.w700)),
                   ]),
                 ),
               ),
@@ -1135,7 +1377,9 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
           // ── Search results dropdown ─────────────────────────────────────
           if (_searchOpen && _mapQuery.trim().isNotEmpty)
             Positioned(
-              top: 78, left: 14, right: 14,
+              top: 78,
+              left: 14,
+              right: 14,
               child: Material(
                 color: Colors.transparent,
                 child: Container(
@@ -1146,7 +1390,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 18, offset: const Offset(0, 4)),
+                          blurRadius: 18,
+                          offset: const Offset(0, 4)),
                     ],
                   ),
                   child: searchResults.isEmpty
@@ -1166,7 +1411,7 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                           separatorBuilder: (_, __) =>
                               const Divider(height: 1, indent: 42),
                           itemBuilder: (_, i) {
-                            final s   = searchResults[i];
+                            final s = searchResults[i];
                             final rim = _rimColor(s.distanceKm);
                             final dist = s.distanceKm;
                             final distStr = dist == null
@@ -1194,7 +1439,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                                     horizontal: 14, vertical: 10),
                                 child: Row(children: [
                                   Container(
-                                    width: 10, height: 10,
+                                    width: 10,
+                                    height: 10,
                                     decoration: BoxDecoration(
                                         color: rim, shape: BoxShape.circle),
                                   ),
@@ -1232,8 +1478,7 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
                                   ],
                                   const SizedBox(width: 4),
                                   Icon(Icons.arrow_forward_ios_rounded,
-                                      size: 11,
-                                      color: Colors.grey.shade300),
+                                      size: 11, color: Colors.grey.shade300),
                                 ]),
                               ),
                             );
@@ -1245,19 +1490,22 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
           // Center-on-me FAB
           Positioned(
-            bottom: 16, right: 16,
+            bottom: 16,
+            right: 16,
             child: FloatingActionButton.small(
               heroTag: 'mapLocateMe',
               onPressed: () => _mapController.move(userLL, 14.0),
               backgroundColor: widget.accent,
               elevation: 6,
-              child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.my_location_rounded,
+                  color: Colors.white, size: 18),
             ),
           ),
 
           // OSM attribution — required by tile usage policy
           Positioned(
-            bottom: 4, left: 6,
+            bottom: 4,
+            left: 6,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
@@ -1273,8 +1521,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
       // ── Bottom profile panel ───────────────────────────────────────────
       _ProfilePanel(
-        service:   _selected,
-        accent:    widget.accent,
+        service: _selected,
+        accent: widget.accent,
         onConnect: () => widget.onConnect(_selected!),
         onDismiss: () => setState(() => _selected = null),
       ),
@@ -1288,8 +1536,8 @@ class _MapViewState extends State<_MapView> with SingleTickerProviderStateMixin 
 
 class _ServicePinWidget extends StatelessWidget {
   final UserDetail service;
-  final Color      rimColor;
-  final bool       selected;
+  final Color rimColor;
+  final bool selected;
 
   const _ServicePinWidget({
     required this.service,
@@ -1300,7 +1548,7 @@ class _ServicePinWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAvail = (service.call_status ?? '').toLowerCase() == 'active';
-    final dist    = service.distanceKm;
+    final dist = service.distanceKm;
     final distStr = dist == null
         ? null
         : dist < 1
@@ -1320,20 +1568,28 @@ class _ServicePinWidget extends StatelessWidget {
               color: selected ? rimColor : rimColor.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(6),
               boxShadow: selected
-                  ? [BoxShadow(color: rimColor.withValues(alpha: 0.45),
-                        blurRadius: 6, offset: const Offset(0, 2))]
+                  ? [
+                      BoxShadow(
+                          color: rimColor.withValues(alpha: 0.45),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ]
                   : [],
             ),
-            child: Text(distStr, style: const TextStyle(
-                fontSize: 8, fontWeight: FontWeight.w800,
-                color: Colors.white, letterSpacing: 0.2)),
+            child: Text(distStr,
+                style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.2)),
           ),
 
         // Circle photo + online dot
         Stack(clipBehavior: Clip.none, children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1351,7 +1607,8 @@ class _ServicePinWidget extends StatelessWidget {
             child: ClipOval(
               child: Stack(fit: StackFit.expand, children: [
                 service.photo.isNotEmpty
-                    ? Image.network(service.photo, fit: BoxFit.cover,
+                    ? Image.network(service.photo,
+                        fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _fallback())
                     : _fallback(),
                 DecoratedBox(
@@ -1359,7 +1616,10 @@ class _ServicePinWidget extends StatelessWidget {
                     gradient: RadialGradient(
                       center: const Alignment(-0.5, -0.6),
                       radius: 0.75,
-                      colors: [Colors.white.withValues(alpha: 0.32), Colors.transparent],
+                      colors: [
+                        Colors.white.withValues(alpha: 0.32),
+                        Colors.transparent
+                      ],
                     ),
                   ),
                 ),
@@ -1368,33 +1628,43 @@ class _ServicePinWidget extends StatelessWidget {
           ),
           if (isAvail)
             Positioned(
-              top: 0, right: 0,
+              top: 0,
+              right: 0,
               child: Container(
-                width: 11, height: 11,
+                width: 11,
+                height: 11,
                 decoration: BoxDecoration(
                   color: const Color(0xFF22C55E),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: [BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.45), blurRadius: 4)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.green.withValues(alpha: 0.45),
+                        blurRadius: 4)
+                  ],
                 ),
               ),
             ),
         ]),
 
         // Triangular pin tail pointing down to the coordinate
-        CustomPaint(size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
+        CustomPaint(
+            size: const Size(10, 8), painter: _PinTailPainter(rimColor)),
       ],
     );
   }
 
   Widget _fallback() => Container(
-    color: rimColor.withValues(alpha: 0.15),
-    child: Center(child: Text(
-      service.business_name.isNotEmpty ? service.business_name[0].toUpperCase() : '?',
-      style: TextStyle(color: rimColor, fontSize: 14, fontWeight: FontWeight.w900),
-    )),
-  );
+        color: rimColor.withValues(alpha: 0.15),
+        child: Center(
+            child: Text(
+          service.business_name.isNotEmpty
+              ? service.business_name[0].toUpperCase()
+              : '?',
+          style: TextStyle(
+              color: rimColor, fontSize: 14, fontWeight: FontWeight.w900),
+        )),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1424,7 +1694,7 @@ class _PinTailPainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _UserDot extends StatelessWidget {
-  final Color  accent;
+  final Color accent;
   final double pulse;
   const _UserDot({required this.accent, required this.pulse});
 
@@ -1435,26 +1705,35 @@ class _UserDot extends StatelessWidget {
       Opacity(
         opacity: (1 - pulse).clamp(0.0, 1.0),
         child: Container(
-          width: ringSize, height: ringSize,
+          width: ringSize,
+          height: ringSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
+            border:
+                Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
           ),
         ),
       ),
       Container(
-        width: 22, height: 22,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           color: accent,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [BoxShadow(
-              color: accent.withValues(alpha: 0.45), blurRadius: 10, spreadRadius: 1)],
+          boxShadow: [
+            BoxShadow(
+                color: accent.withValues(alpha: 0.45),
+                blurRadius: 10,
+                spreadRadius: 1)
+          ],
         ),
         child: Center(
           child: Container(
-            width: 7, height: 7,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(
+                color: Colors.white, shape: BoxShape.circle),
           ),
         ),
       ),
@@ -1467,8 +1746,8 @@ class _UserDot extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfilePanel extends StatelessWidget {
-  final UserDetail?  service;
-  final Color        accent;
+  final UserDetail? service;
+  final Color accent;
   final VoidCallback onConnect;
   final VoidCallback onDismiss;
 
@@ -1490,11 +1769,14 @@ class _ProfilePanel extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-            color: service == null ? const Color(0xFFE5E7EB) : accent.withValues(alpha: 0.22),
+            color: service == null
+                ? const Color(0xFFE5E7EB)
+                : accent.withValues(alpha: 0.22),
             width: service == null ? 1 : 1.4),
         boxShadow: [
           BoxShadow(
-              color: (service != null ? accent : Colors.black).withValues(alpha: service != null ? 0.16 : 0.05),
+              color: (service != null ? accent : Colors.black)
+                  .withValues(alpha: service != null ? 0.16 : 0.05),
               blurRadius: service != null ? 26 : 8,
               offset: const Offset(0, -6)),
         ],
@@ -1509,15 +1791,18 @@ class _ProfilePanel extends StatelessWidget {
         Icon(Icons.touch_app_rounded, size: 17, color: Colors.grey.shade400),
         const SizedBox(width: 8),
         Text('Tap a marble to view specialist details',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500)),
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w500)),
       ]),
     );
   }
 
   Widget _card(UserDetail s) {
     final isAvail = (s.call_status ?? '').toLowerCase() == 'active';
-    final views   = int.tryParse(s.user_viewed) ?? 0;
-    final calls   = int.tryParse(s.user_called) ?? 0;
+    final views = int.tryParse(s.user_viewed) ?? 0;
+    final calls = int.tryParse(s.user_called) ?? 0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
@@ -1540,7 +1825,8 @@ class _ProfilePanel extends StatelessWidget {
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   // Avatar with gradient ring
                   Container(
-                    width: 58, height: 58,
+                    width: 58,
+                    height: 58,
                     padding: const EdgeInsets.all(2.5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -1549,33 +1835,53 @@ class _ProfilePanel extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.22), blurRadius: 10, offset: const Offset(0, 3))],
+                      boxShadow: [
+                        BoxShadow(
+                            color: accent.withValues(alpha: 0.22),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3))
+                      ],
                     ),
                     child: Stack(children: [
                       ClipOval(
                         child: Container(
                           color: Colors.white,
                           child: s.photo.isNotEmpty
-                              ? Image.network(s.photo, fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _avatarFallback(s))
+                              ? Image.network(s.photo,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _avatarFallback(s))
                               : _avatarFallback(s),
                         ),
                       ),
                       if (isAvail)
-                        Positioned(bottom: 0, right: 0,
-                          child: Container(width: 13, height: 13,
-                              decoration: BoxDecoration(color: const Color(0xFF22C55E), shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 1.8)))),
+                        Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                                width: 13,
+                                height: 13,
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.8)))),
                     ]),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(child: Column(
+                  Expanded(
+                      child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Expanded(child: Text(s.business_name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)))),
+                        Expanded(
+                            child: Text(s.business_name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A)))),
                         const SizedBox(width: 6),
                         _availabilityPill(isAvail),
                       ]),
@@ -1583,30 +1889,46 @@ class _ProfilePanel extends StatelessWidget {
                       Row(children: [
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2.5),
                             decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
+                                color: accent.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6)),
                             child: Text(s.category,
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 10.5, color: accent, fontWeight: FontWeight.w700)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: accent,
+                                    fontWeight: FontWeight.w700)),
                           ),
                         ),
                         if (s.distance != null) ...[
                           const SizedBox(width: 8),
-                          Icon(Icons.near_me_rounded, size: 10, color: Colors.grey.shade400),
+                          Icon(Icons.near_me_rounded,
+                              size: 10, color: Colors.grey.shade400),
                           const SizedBox(width: 2),
                           Text(s.distance!,
-                              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                              style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ]),
-                      if (s.address.isNotEmpty && s.address != 'No Address') ...[
+                      if (s.address.isNotEmpty &&
+                          s.address != 'No Address') ...[
                         const SizedBox(height: 5),
                         Row(children: [
-                          Icon(Icons.location_on_rounded, size: 11, color: Colors.grey.shade400),
+                          Icon(Icons.location_on_rounded,
+                              size: 11, color: Colors.grey.shade400),
                           const SizedBox(width: 3),
-                          Expanded(child: Text(s.address,
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500))),
+                          Expanded(
+                              child: Text(s.address,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.grey.shade500))),
                         ]),
                       ],
                     ],
@@ -1617,24 +1939,41 @@ class _ProfilePanel extends StatelessWidget {
                 const SizedBox(height: 10),
                 // Bottom row: stat chips + Connect button — mirrors the list card
                 Row(children: [
-                  _miniStat(Icons.visibility_outlined, Config.formatLargeNumber(views)),
+                  _miniStat(Icons.visibility_outlined,
+                      Config.formatLargeNumber(views)),
                   const SizedBox(width: 8),
-                  _miniStat(Icons.phone_outlined, Config.formatLargeNumber(calls)),
+                  _miniStat(
+                      Icons.phone_outlined, Config.formatLargeNumber(calls)),
                   const Spacer(),
                   GestureDetector(
                     onTap: onConnect,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.82)],
-                            begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        gradient: LinearGradient(
+                            colors: [accent, accent.withValues(alpha: 0.82)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.32), blurRadius: 10, offset: const Offset(0, 3))],
+                        boxShadow: [
+                          BoxShadow(
+                              color: accent.withValues(alpha: 0.32),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3))
+                        ],
                       ),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('Connect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.3)),
+                      child:
+                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Connect',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.3)),
                         SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_rounded, size: 13, color: Colors.white),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 13, color: Colors.white),
                       ]),
                     ),
                   ),
@@ -1645,17 +1984,25 @@ class _ProfilePanel extends StatelessWidget {
         ),
         // Floating close button
         Positioned(
-          top: 8, right: 8,
+          top: 8,
+          right: 8,
           child: GestureDetector(
             onTap: onDismiss,
             child: Container(
-              width: 26, height: 26,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ],
               ),
-              child: Icon(Icons.close_rounded, size: 15, color: Colors.grey.shade600),
+              child: Icon(Icons.close_rounded,
+                  size: 15, color: Colors.grey.shade600),
             ),
           ),
         ),
@@ -1670,17 +2017,27 @@ class _ProfilePanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: isAvail ? const Color(0xFFECFDF3) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isAvail ? liveGreen.withValues(alpha: 0.35) : const Color(0xFFE5E7EB)),
+        border: Border.all(
+            color: isAvail
+                ? liveGreen.withValues(alpha: 0.35)
+                : const Color(0xFFE5E7EB)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (isAvail)
           const _PulseDot(color: liveGreen)
         else
-          Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.shade400)),
+          Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: Colors.grey.shade400)),
         const SizedBox(width: 4),
         Text(isAvail ? 'Available' : 'Offline',
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
-                color: isAvail ? const Color(0xFF15803D) : Colors.grey.shade500)),
+            style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color:
+                    isAvail ? const Color(0xFF15803D) : Colors.grey.shade500)),
       ]),
     );
   }
@@ -1688,11 +2045,15 @@ class _ProfilePanel extends StatelessWidget {
   Widget _miniStat(IconData icon, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 11, color: accent),
         const SizedBox(width: 4),
-        Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
       ]),
     );
   }
@@ -1700,9 +2061,13 @@ class _ProfilePanel extends StatelessWidget {
   Widget _avatarFallback(UserDetail s) {
     return Container(
       color: accent.withValues(alpha: 0.10),
-      child: Center(child: Text(
-          s.business_name.isNotEmpty ? s.business_name[0].toUpperCase() : '?',
-          style: TextStyle(color: accent, fontSize: 18, fontWeight: FontWeight.w800))),
+      child: Center(
+          child: Text(
+              s.business_name.isNotEmpty
+                  ? s.business_name[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                  color: accent, fontSize: 18, fontWeight: FontWeight.w800))),
     );
   }
 }
@@ -1718,23 +2083,39 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100))
+      ..repeat(reverse: true);
   }
+
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, __) => Container(
-        width: 8, height: 8,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color,
-          boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.5 * _ctrl.value), blurRadius: 6, spreadRadius: 2)]),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color,
+            boxShadow: [
+              BoxShadow(
+                  color: widget.color.withValues(alpha: 0.5 * _ctrl.value),
+                  blurRadius: 6,
+                  spreadRadius: 2)
+            ]),
       ),
     );
   }

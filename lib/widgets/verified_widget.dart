@@ -218,7 +218,7 @@ Widget verifiedWidgetIcon({
   // ✅ Parse lastPay string safely
   if (lastPayString != null && lastPayString.isNotEmpty) {
     try {
-      lastPay = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'").parseUtc(lastPayString).toLocal();
+      lastPay = Config.parseServerTime(lastPayString)?.toLocal();
     } catch (e) {
       debugPrint('Failed to parse lastPay: $e');
     }

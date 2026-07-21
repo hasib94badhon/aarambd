@@ -109,26 +109,6 @@ class _NotificationShowState extends State<NotificationShow> {
     setState(() {
       notifications[index]['is_read'] = 1; // Local UI update
     });
-
-    getUnreadCount(); // Update badge count
-  }
-
-  void getUnreadCount() async {
-    final userId = await getLoggedInUser();
-    if (userId == null) return;
-
-    final response = await Config.apiGet(
-      '/get_notifications?user_id=$userId&page=1&page_size=100',
-      context,
-    );
-
-    if (response != null && response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final list = (data['notifications'] as List?) ?? const [];
-      final count = list.where((n) => (n['is_read'] == 0)).length;
-      // TODO: pass this 'count' back up to whatever sets your badge
-      debugPrint('[Notif] Unread count: $count');
-    }
   }
 
   String getTimeDifference(String dateTime) {

@@ -11,6 +11,7 @@ import 'package:aaram_bd/screens/advert_screen.dart' show ReviewSheet;
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/widgets/call_history_dialog.dart';
 import 'package:aaram_bd/widgets/confirm_delete_dialog.dart';
+import 'package:aaram_bd/widgets/my_activity_dialog.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/thoughtsection.dart';
 import 'package:aaram_bd/widgets/userstarwidget.dart';
@@ -100,6 +101,13 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
   final int _viewPageSize = 8;
   bool _viewLoading = false;
   bool _viewHasMore = true;
+
+// My Activity pagination
+  List<Map<String, dynamic>> myActivity = [];
+  int _activityPage = 0;
+  final int _activityPageSize = 15;
+  bool _activityLoading = false;
+  bool _activityHasMore = true;
 
   int _postPage = 1;
   final int _postPageSize = 8;
@@ -445,6 +453,47 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
       _viewHasMore = false;
     } finally {
       _viewLoading = false;
+      setState(() {});
+    }
+  }
+
+  Future<void> fetchMyActivity(String userId,
+      {required int page, required BuildContext context}) async {
+    if (_activityLoading) return;
+    if (!_activityHasMore && page != 1) return;
+
+    _activityLoading = true;
+    setState(() {});
+
+    final uri =
+        '/get_my_activity?user_id=$userId&page=$page&page_size=$_activityPageSize';
+    print('Fetching my activity: ${uri.toString()}');
+
+    try {
+      final res = await Config.apiGet(uri, context);
+      if (res != null && res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final List<dynamic> newItems =
+            (data['activity'] ?? []) as List<dynamic>;
+        final List<Map<String, dynamic>> newActivity =
+            newItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+        if (page == 1) {
+          myActivity = newActivity;
+        } else {
+          myActivity = [...myActivity, ...newActivity];
+        }
+
+        _activityPage = page;
+        _activityHasMore = newItems.length == _activityPageSize;
+      } else {
+        _activityHasMore = false;
+      }
+    } catch (e) {
+      print('Error fetching my activity page $page: $e');
+      _activityHasMore = false;
+    } finally {
+      _activityLoading = false;
       setState(() {});
     }
   }
@@ -1495,6 +1544,81 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
                                         ),
                                       ),
                                     ],
+                                  ),
+
+                                  const SizedBox(height: 8),
+                                  // My Activity — tappable button
+                                  Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: () async {
+                                        _activityPage = 0;
+                                        _activityHasMore = true;
+                                        await fetchMyActivity(
+                                            user_id.toString(),
+                                            page: 1,
+                                            context: context);
+                                        if (!context.mounted) return;
+                                        showMyActivityDialog(
+                                          context: context,
+                                          activityList: myActivity,
+                                          loadMore: () => fetchMyActivity(
+                                              user_id.toString(),
+                                              page: _activityPage + 1,
+                                              context: context),
+                                          hasMore: _activityHasMore,
+                                          currentUserId: user_id.toString(),
+                                        );
+                                      },
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3EBFF),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                              color: const Color(0xFF7C3AED)
+                                                  .withValues(alpha: 0.25)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF7C3AED)
+                                                    .withValues(alpha: 0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(7),
+                                              ),
+                                              child: const Icon(
+                                                  Icons.timeline_rounded,
+                                                  size: 15,
+                                                  color: Color(0xFF7C3AED)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Expanded(
+                                              child: Text(
+                                                'My Activity',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13,
+                                                  color: Color(0xFF111827),
+                                                ),
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 16,
+                                              color: Color(0xFF7C3AED),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
 
                                   const SizedBox(height: 10),

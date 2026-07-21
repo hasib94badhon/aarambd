@@ -251,8 +251,7 @@ class _PostUploadState extends State<PostUpload> {
       prefixIcon: prefixIcon,
       filled: true,
       fillColor: _surface,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _border),
@@ -375,7 +374,9 @@ class _PostUploadState extends State<PostUpload> {
             child: Text(
               '${index + 1}',
               style: const TextStyle(
-                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700),
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700),
             ),
           ),
         ),
@@ -451,114 +452,182 @@ class _PostUploadState extends State<PostUpload> {
     );
   }
 
+  // ── Gradient hero header — matches the rest of the app (AccountSettingsPage,
+  // FavoriteProfilesPage, notification_show.dart): back button + icon bubble +
+  // title/subtitle on a rounded-bottom blue gradient.
+  Widget _buildAppBarHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          16, MediaQuery.of(context).padding.top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1040B0), _primary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(context),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 18),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.add_photo_alternate_rounded,
+                color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Create Post',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Share an ad with buyers in your category',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: _surface,
-        foregroundColor: _title,
-        title: const Text(
-          'Create Post',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildHeroHeader(),
-                      const SizedBox(height: 14),
-                      _card(
+      body: Column(
+        children: [
+          _buildAppBarHeader(context),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              "What's on your mind?",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: _title,
+                            
+                            _card(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "What's on your mind?",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: _title,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller:
+                                        _descriptionControllers.isNotEmpty
+                                            ? _descriptionControllers[0]
+                                            : TextEditingController(),
+                                    maxLines: 4,
+                                    style: const TextStyle(color: _text),
+                                    decoration: _fieldDecoration(
+                                        'Write your post here...'),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _descriptionControllers.isNotEmpty
-                                  ? _descriptionControllers[0]
-                                  : TextEditingController(),
-                              maxLines: 4,
-                              style: const TextStyle(color: _text),
-                              decoration:
-                                  _fieldDecoration('Write your post here...'),
-                            ),
+                            const SizedBox(height: 14),
+                            _buildPhotoGrid(),
+                            if (_selectedMediaList.isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              _buildCaptionsCard(),
+                            ],
+                            const SizedBox(height: 14),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _buildPhotoGrid(),
-                      if (_selectedMediaList.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        _buildCaptionsCard(),
-                      ],
-                      const SizedBox(height: 14),
-                    ],
-                  ),
-                ),
-              ),
-
-              _buildProgressBanner(),
-
-              /// Submit button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: _primary,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
                     ),
-                  ),
-                  onPressed: _isUploading ? null : submitPost,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (!_isUploading) ...[
-                        const Icon(Icons.send_outlined, size: 22),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        _isUploading ? 'Posting...' : 'Post Now',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w800),
-                      ),
-                      if (_isUploading) ...[
-                        const SizedBox(width: 14),
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+
+                    _buildProgressBanner(),
+
+                    /// Submit button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: _primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                      ],
-                    ],
-                  ),
+                        onPressed: _isUploading ? null : submitPost,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!_isUploading) ...[
+                              const Icon(Icons.send_outlined, size: 22),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              _isUploading ? 'Posting...' : 'Post Now',
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                            if (_isUploading) ...[
+                              const SizedBox(width: 14),
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -201,27 +201,6 @@ class CategoryImageTile extends StatelessWidget {
                             : _avatarFallback(),
                       ),
                     ),
-                    // Availability dot
-                    Positioned(
-                      right: 1,
-                      bottom: 1,
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF16A34A),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF16A34A)
-                                  .withValues(alpha: 0.40),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
 

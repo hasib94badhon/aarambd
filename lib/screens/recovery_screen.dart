@@ -9,7 +9,9 @@ final String host = Config.host;
 
 class RecoveryScreen extends StatefulWidget {
   final String phone;
-  const RecoveryScreen({super.key, required this.phone});
+  final String resetToken;
+  const RecoveryScreen(
+      {super.key, required this.phone, required this.resetToken});
 
   @override
   State<RecoveryScreen> createState() => _ForgotScreenState();
@@ -147,8 +149,8 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                           height: 68,
                           width: 68,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.18),
+                            color:
+                                const Color(0xFF1A56DB).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Icon(
@@ -264,8 +266,8 @@ class _ForgotScreenState extends State<RecoveryScreen> {
 
                               if (newPass.isEmpty || confirmPass.isEmpty) {
                                 if (mounted) {
-                                  showAppToast(
-                                      context, "Password fields cannot be empty",
+                                  showAppToast(context,
+                                      "Password fields cannot be empty",
                                       icon: Icons.error_outline_rounded);
                                 }
                                 return;
@@ -283,9 +285,12 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                               try {
                                 final response = await http.post(
                                   Uri.parse('$host/reset_password'),
-                                  headers: {'Content-Type': 'application/json'},
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization':
+                                        'Bearer ${widget.resetToken}',
+                                  },
                                   body: jsonEncode({
-                                    'phone': widget.phone,
                                     'password': newPass,
                                   }),
                                 );
@@ -297,8 +302,8 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                                   if (mounted) {
                                     showAppToast(
                                         context, "Password reset successfully",
-                                        icon: Icons
-                                            .check_circle_outline_rounded);
+                                        icon:
+                                            Icons.check_circle_outline_rounded);
 
                                     Navigator.pushAndRemoveUntil(
                                       context,
@@ -327,8 +332,7 @@ class _ForgotScreenState extends State<RecoveryScreen> {
                             },
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor:
-                                  const Color(0xFF1A56DB),
+                              backgroundColor: const Color(0xFF1A56DB),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),

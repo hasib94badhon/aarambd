@@ -93,10 +93,12 @@ class _OTPScreenState extends State<OTPScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['status'] == 'success') {
+        final String resetToken = (data['reset_token'] ?? '').toString();
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => RecoveryScreen(phone: phone)),
+              builder: (context) =>
+                  RecoveryScreen(phone: phone, resetToken: resetToken)),
         );
       } else {
         _showSnackBar(data['message'] ?? _l10n.otpVerificationFailed);
@@ -130,8 +132,7 @@ class _OTPScreenState extends State<OTPScreen> {
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.92),
       prefixIcon: Icon(icon),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -208,8 +209,7 @@ class _OTPScreenState extends State<OTPScreen> {
           // Content
           SafeArea(
             child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               child: Column(
                 children: [
                   const SizedBox(height: 8),
@@ -236,8 +236,8 @@ class _OTPScreenState extends State<OTPScreen> {
                           height: 68,
                           width: 68,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A56DB)
-                                .withValues(alpha: 0.18),
+                            color:
+                                const Color(0xFF1A56DB).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Icon(
@@ -364,8 +364,8 @@ class _OTPScreenState extends State<OTPScreen> {
                         color: Colors.white.withValues(alpha: 0.80),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF1A56DB)
-                              .withValues(alpha: 0.25),
+                          color:
+                              const Color(0xFF1A56DB).withValues(alpha: 0.25),
                         ),
                         boxShadow: [
                           BoxShadow(

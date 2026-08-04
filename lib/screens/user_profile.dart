@@ -546,6 +546,9 @@ class _UserProfileState extends State<UserProfile> with RouteAware {
             (outgoing.length == _callPageSize);
       } else {
         _callHasMore = false;
+
+
+        
       }
     } catch (e) {
       print('Error fetching call list page $page: $e');

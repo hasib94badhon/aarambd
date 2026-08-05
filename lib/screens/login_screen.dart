@@ -307,6 +307,27 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             Positioned(top: -50,  right: -50,  child: _glowCircle(190, 0.07)),
             Positioned(top: 70,   left: -55,   child: _glowCircle(150, 0.05)),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              right: 20,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6)),
+                  ],
+                ),
+                child: ClipOval(
+                  child: Image.asset('assets/images/app_icon.png',
+                      fit: BoxFit.cover),
+                ),
+              ),
+            ),
             Positioned(bottom: screenHeight * 0.08, right: -60,
                 child: _glowCircle(200, 0.06)),
             SafeArea(
@@ -317,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen>
                       physics: const ClampingScrollPhysics(),
                       child: Column(
                         children: [
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 56),
                           _buildBrandHeader(l10n),
                           const SizedBox(height: 30),
                           FadeTransition(
@@ -341,21 +362,6 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildBrandHeader(AppLocalizations l10n) {
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-       
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.14),
-                  blurRadius: 28,
-                  offset: const Offset(0, 10)),
-            ],
-          ),
-          child: Image.asset('images/app_icon.png',
-              height: 100, width: 100, fit: BoxFit.contain),
-        ),
-        const SizedBox(height: 14),
         Text(
           l10n.appName,
           style: const TextStyle(

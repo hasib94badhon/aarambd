@@ -445,7 +445,7 @@ class _SignUpState extends State<SignUpScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: Image.asset(
-                    'images/app_icon.png',
+                    'assets/images/app_icon.png',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.person_add_rounded,

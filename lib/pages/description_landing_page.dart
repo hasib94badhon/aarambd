@@ -552,7 +552,11 @@ class _PostPromptBarState extends State<_PostPromptBar>
             child: Container(
               height: 56,
               decoration: BoxDecoration(
-                color: Colors.white,
+                gradient: LinearGradient(
+                  colors: [Colors.white, const Color(0xFFF6F9FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _brand.withValues(alpha: 0.16),
@@ -577,11 +581,22 @@ class _PostPromptBarState extends State<_PostPromptBar>
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: _brand.withValues(alpha: 0.10),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1040B0), _brand],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _brand.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(Icons.auto_awesome_rounded,
-                          size: 17, color: _brand),
+                          size: 17, color: Colors.white),
                     ),
                   ),
                   const SizedBox(width: 11),
@@ -591,7 +606,7 @@ class _PostPromptBarState extends State<_PostPromptBar>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'সহজে পোস্ট বানান',
+                          'Create a Post in Seconds',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -603,7 +618,7 @@ class _PostPromptBarState extends State<_PostPromptBar>
                         ),
                         SizedBox(height: 1),
                         Text(
-                          'ক্যাটাগরি ও শব্দ বেছে লিখুন',
+                          'Pick a category & start writing',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

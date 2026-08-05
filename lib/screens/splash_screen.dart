@@ -98,7 +98,7 @@ class _SplashScreenState extends State<SplashScreen>
                 CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
               ),
               child: Image.asset(
-                "images/app_icon.png",
+                "assets/images/app_icon.png",
                 width: 120,
                 height: 120,
               ),

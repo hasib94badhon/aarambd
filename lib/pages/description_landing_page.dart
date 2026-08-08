@@ -68,7 +68,7 @@ class _ExpandableTextState extends State<ExpandableText> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                    _expanded ? 'কম দেখুন' : 'আরও দেখুন',
+                    _expanded ? 'Show less' : 'Show more',
                     style: widget.linkStyle),
               ),
             ),
@@ -470,12 +470,12 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
               child: Icon(t.icon, color: t.primary, size: 30),
             ),
             const SizedBox(height: 16),
-            const Text('এখানে এখনো কোনো পোস্ট নেই',
+            const Text('No posts here yet',
                 style: TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w700,
                     color: Color(0xFF1A2340))),
             const SizedBox(height: 8),
-            Text('উপরের "পোস্ট করুন" বোতামে চাপুন।',
+            Text('Tap the "Post" button above to create one.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 13,
@@ -896,7 +896,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                 ),
                 Expanded(
                   child: Text(
-                    widget.catName.isNotEmpty ? widget.catName : 'উপ-বিভাগ',
+                    widget.catName.isNotEmpty ? widget.catName : 'Sub-category',
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -971,7 +971,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                         fontSize: 13.5, color: Color(0xFF1A2340)),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'উপ-বিভাগ খুঁজুন...',
+                      hintText: 'Search sub-category...',
                       hintStyle: const TextStyle(
                           fontSize: 13.5, color: Color(0xFFA0A6B8)),
                       prefixIcon:
@@ -1009,7 +1009,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                   Icon(Icons.search_off_rounded,
                       size: 30, color: Colors.black.withValues(alpha: 0.20)),
                   const SizedBox(height: 8),
-                  Text('কোনো ফলাফল পাওয়া যায়নি',
+                  Text('No results found',
                       style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withValues(alpha: 0.40))),
@@ -1026,7 +1026,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                         color: accent.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text('অনুসন্ধান মুছুন',
+                      child: Text('Clear search',
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -1047,7 +1047,7 @@ class _SubCatPopupState extends State<_SubCatPopup> {
                     children: [
                       if (!searching)
                         _SubChip(
-                          label: 'সব',
+                          label: 'All',
                           selected: widget.selectedSubCatId == null,
                           accent: accent,
                           onTap: () => widget.onSelect(null),

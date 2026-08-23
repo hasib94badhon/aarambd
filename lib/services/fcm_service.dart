@@ -23,7 +23,12 @@ class FCMService {
   factory FCMService() => _instance;
   FCMService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  // Lazy, not a field initializer — FirebaseMessaging.instance requires
+  // Firebase.initializeApp() to have already run, which only happens on
+  // Android today. Evaluating this eagerly would crash the instant anything
+  // references FCMService() at all (even just to set a callback), before
+  // init()'s own Platform.isAndroid guard ever gets a chance to run.
+  FirebaseMessaging get _fcm => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotif =
       FlutterLocalNotificationsPlugin();
 
@@ -46,7 +51,7 @@ class FCMService {
     BuildContext context, [
     GlobalKey<NavigatorState>? navigatorKey,
   ]) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     if (navigatorKey != null) _navigatorKey = navigatorKey;
     await _requestPermission();
     await _setupLocalNotifications();

@@ -26,7 +26,7 @@ void main() async {
   final langProvider = LanguageProvider();
   await langProvider.init();
 
-  if (Platform.isAndroid) {
+  if (Platform.isAndroid || Platform.isIOS) {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
   }

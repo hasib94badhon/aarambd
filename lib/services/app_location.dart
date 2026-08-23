@@ -55,12 +55,27 @@ class AppLocation {
         if (perm != loc.PermissionStatus.granted) return false;
       }
 
-      // 3. Initial fix
-      final data = await _location.getLocation();
-      lat = data.latitude;
-      lon = data.longitude;
-
+      // 3. Initial fix — getLocation() (a one-shot request) is known to hang
+      // indefinitely on iOS in some environments, even with permission
+      // granted and location services enabled. Start the live stream first
+      // (a separate native code path) so we have a fallback source, then
+      // try the one-shot call with a timeout; if it doesn't return in time,
+      // fall back to the stream's first event instead of hanging forever.
       _ensureStream();
+      try {
+        final data =
+            await _location.getLocation().timeout(const Duration(seconds: 6));
+        lat = data.latitude;
+        lon = data.longitude;
+      } catch (_) {
+        if (lat == null || lon == null) {
+          final data = await _location.onLocationChanged.first
+              .timeout(const Duration(seconds: 6));
+          lat = data.latitude;
+          lon = data.longitude;
+        }
+      }
+
       return lat != null && lon != null;
     } catch (_) {
       return false;

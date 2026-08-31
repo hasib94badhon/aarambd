@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/thoughtdetails.dart';
+import 'package:aaram_bd/utils/auth_guard.dart';
 import 'package:aaram_bd/widgets/thoughtsection.dart';
 import 'package:flutter/material.dart';
 
@@ -371,7 +372,12 @@ class _DescriptionLandingPageState extends State<DescriptionLandingPage>
               statusH: statusH,
               onTap: catId == null
                   ? null
-                  : () {
+                  : () async {
+                      if (!await requireLogin(context,
+                          message: 'Please sign in to create a post')) {
+                        return;
+                      }
+                      if (!context.mounted) return;
                       HapticFeedback.mediumImpact();
                       Navigator.push(
                           context,

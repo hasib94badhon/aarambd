@@ -199,7 +199,7 @@ class _InitialScreenState extends State<InitialScreen> {
         // true (confirmed) or null (couldn't check, e.g. offline) — both
         // continue into the app using the cached local session.
         if (phoneExists == true) await _updateLoginTime(userPhone);
-        if (Platform.isAndroid) {
+        if (Platform.isAndroid || Platform.isIOS) {
           await FCMService().init(context, navigatorKey);
         }
         Navigator.pushReplacement(
@@ -209,9 +209,13 @@ class _InitialScreenState extends State<InitialScreen> {
         );
       }
     } else {
+      // Not logged in — browse as a guest instead of forcing registration.
+      // Apple Guideline 5.1.1(v): registration may only gate account-based
+      // features (posting, favorites, My Account), not browsing itself.
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
+        MaterialPageRoute(
+            builder: (context) => const NavigationScreen(userPhone: '')),
       );
     }
   }

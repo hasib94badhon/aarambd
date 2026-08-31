@@ -7,6 +7,8 @@ import 'package:aaram_bd/pages/NotificationSettingsPage.dart';
 import 'package:aaram_bd/screens/FavoriteProfilesPage.dart';
 import 'package:aaram_bd/screens/AboutAaramBDPage.dart';
 import 'package:aaram_bd/screens/login_screen.dart';
+import 'package:aaram_bd/screens/navigation_screen.dart';
+import 'package:aaram_bd/utils/auth_guard.dart';
 import 'package:aaram_bd/widgets/termsPolicies.dart';
 import 'package:aaram_bd/widgets/app_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -41,10 +43,16 @@ class _AppDrawerState extends State<AppDrawer> {
 
   static const Color _blue = Color(0xFF1A56DB);
 
+  bool get _isGuest => widget.userPhone.isEmpty;
+
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    if (_isGuest) {
+      _isLoading = false;
+    } else {
+      _fetchProfile();
+    }
   }
 
   Future<void> _fetchProfile() async {
@@ -71,6 +79,37 @@ class _AppDrawerState extends State<AppDrawer> {
   void _push(Widget page) {
     _close();
     widget.onNavigate(page);
+  }
+
+  /// Account-based drawer destinations (favorites, settings, account
+  /// control) go through here — guests get sent to sign in instead.
+  Future<void> _pushIfLoggedIn(Widget page) async {
+    if (_isGuest) {
+      _close();
+      final loggedIn = await requireLogin(context);
+      if (loggedIn) await _refreshAsLoggedIn();
+      return;
+    }
+    _push(page);
+  }
+
+  void _signIn() async {
+    _close();
+    final loggedIn = await requireLogin(context, message: 'Sign in to your account');
+    if (loggedIn) await _refreshAsLoggedIn();
+  }
+
+  /// This drawer's parent NavigationScreen instance still has the old empty
+  /// userPhone baked in from construction — swap in a freshly authenticated
+  /// shell instead of trying to mutate state that was never meant to change.
+  Future<void> _refreshAsLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString('userPhone') ?? '';
+    if (!mounted || phone.isEmpty) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => NavigationScreen(userPhone: phone)),
+    );
   }
 
   Future<void> _logout() async {
@@ -209,13 +248,13 @@ class _AppDrawerState extends State<AppDrawer> {
           const SizedBox(width: 18),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(userName,
+              Text(_isGuest ? 'Guest' : userName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
               const SizedBox(height: 3),
-              Text(category,
+              Text(_isGuest ? 'Sign in to get started' : category,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -242,7 +281,11 @@ class _AppDrawerState extends State<AppDrawer> {
           bgColor: const Color(0xFFFFF0F6),
           borderColor: const Color(0xFFFBCFE8),
           title: 'Favorite Contacts',
-          onTap: () {
+          onTap: () async {
+            if (_isGuest) {
+              await requireLogin(context);
+              return;
+            }
             if (userID.isEmpty) {
               showAppToast(context, 'User ID not loaded yet',
                   icon: Icons.error_outline_rounded);
@@ -281,7 +324,7 @@ class _AppDrawerState extends State<AppDrawer> {
           borderColor: const Color(0xFFBFDBFE),
           title: 'Account Settings',
           subtitle: 'Phone, email, password',
-          onTap: () => _push(AccountSettingsPage()),
+          onTap: () => _pushIfLoggedIn(AccountSettingsPage()),
         ),
 
         // ── Notification Settings ────────────────────────────────────────
@@ -292,7 +335,7 @@ class _AppDrawerState extends State<AppDrawer> {
           borderColor: const Color(0xFFFED7AA),
           title: 'Notification Settings',
           subtitle: 'Choose what you get notified about',
-          onTap: () => _push(const NotificationSettingsPage()),
+          onTap: () => _pushIfLoggedIn(const NotificationSettingsPage()),
         ),
 
         // ── Terms & Policies ─────────────────────────────────────────────
@@ -325,24 +368,30 @@ class _AppDrawerState extends State<AppDrawer> {
           borderColor: const Color(0xFFFECACA),
           title: 'Account Control',
           subtitle: 'Deactivate account',
-          onTap: () => _push(AccountControlPage()),
+          onTap: () => _pushIfLoggedIn(AccountControlPage()),
         ),
 
         const SizedBox(height: 28),
 
-        // ── Log Out ───────────────────────────────────────────────────────
+        // ── Log Out / Sign In ────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFFEF4444), Color(0xFFEA580C)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight),
+              gradient: _isGuest
+                  ? const LinearGradient(
+                      colors: [Color(0xFF1040B0), _blue],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight)
+                  : const LinearGradient(
+                      colors: [Color(0xFFEF4444), Color(0xFFEA580C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                    color: (_isGuest ? _blue : const Color(0xFFEF4444))
+                        .withValues(alpha: 0.35),
                     blurRadius: 14,
                     offset: const Offset(0, 5)),
               ],
@@ -352,16 +401,21 @@ class _AppDrawerState extends State<AppDrawer> {
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-                onTap: _logout,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 15),
+                onTap: _isGuest ? _signIn : _logout,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 10),
-                      Text('Log Out',
-                          style: TextStyle(
+                      Icon(
+                          _isGuest
+                              ? Icons.login_rounded
+                              : Icons.logout_rounded,
+                          color: Colors.white,
+                          size: 20),
+                      const SizedBox(width: 10),
+                      Text(_isGuest ? 'Sign In' : 'Log Out',
+                          style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: Colors.white,

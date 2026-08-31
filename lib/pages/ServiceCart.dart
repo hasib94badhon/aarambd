@@ -578,7 +578,11 @@ class _ServiceCartState extends State<ServiceCart> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              childAspectRatio: 0.80,
+                              // Measured via intrinsic-height test: at a
+                              // typical ~167-177px cell width the card needs
+                              // an aspect ratio no higher than ~0.70-0.79 to
+                              // fit a 2-line title without overflowing.
+                              childAspectRatio: 0.68,
                             ),
                           ),
                         ),

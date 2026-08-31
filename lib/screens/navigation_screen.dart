@@ -10,7 +10,9 @@ import 'package:aaram_bd/widgets/UpdatePost.dart';
 import 'package:flutter/material.dart';
 import 'package:aaram_bd/pages/ServiceCart.dart';
 import 'package:aaram_bd/screens/user_profile.dart';
+import 'package:aaram_bd/screens/login_screen.dart';
 import 'package:aaram_bd/services/fcm_service.dart';
+import 'package:aaram_bd/utils/auth_guard.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -62,6 +64,61 @@ class _NotificationBadge extends StatelessWidget {
             fontWeight: FontWeight.w800,
             letterSpacing: 0.2,
             inherit: false,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Guest "My Account" prompt ─────────────────────────────────────────────
+class _GuestAccountPrompt extends StatelessWidget {
+  const _GuestAccountPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4FA),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle_rounded,
+                  size: 72, color: Color(0xFFA0AABF)),
+              const SizedBox(height: 16),
+              const Text(
+                'Sign in to view your account',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A2340),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Create an account or sign in to manage your profile, '
+                'saved favorites, and settings.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => LoginScreen())),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text('Sign In'),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -263,7 +320,9 @@ class _NavigationScreenState extends State<NavigationScreen>
       // 4 — Services
       ServiceCart(key: pageKeys[4], dataa: serviceData, userPhone: userPhone),
       // 5 — My Acc
-      UserProfile(key: pageKeys[5], userPhone: userPhone, userData: userData),
+      userPhone.isEmpty
+          ? const _GuestAccountPrompt()
+          : UserProfile(key: pageKeys[5], userPhone: userPhone, userData: userData),
     ];
   }
 
@@ -284,6 +343,23 @@ class _NavigationScreenState extends State<NavigationScreen>
   Future<String?> getLoggedInUser() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('user_id');
+  }
+
+  /// A guest just signed in from within this shell (My Account tab, or the
+  /// drawer's Sign In button) — this instance's userPhone is immutable and
+  /// still empty, so swap in a freshly authenticated shell instead of trying
+  /// to mutate state that was never meant to change after construction.
+  Future<void> _refreshAsLoggedIn({int initialPage = 0}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString('userPhone') ?? '';
+    if (!mounted || phone.isEmpty) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            NavigationScreen(userPhone: phone, initialPage: initialPage),
+      ),
+    );
   }
 
   Future<void> markNotificationsRead(String userId) async {
@@ -400,6 +476,7 @@ class _NavigationScreenState extends State<NavigationScreen>
         }
         break;
       case 5:
+        if (userPhone.isEmpty) break; // guest — _GuestAccountPrompt shown instead
         final resp =
             await Config.apiGet('/get_user_by_phone?phone=$userPhone', ctx);
         if (resp != null && resp.statusCode == 200) {
@@ -952,7 +1029,22 @@ class _NavigationScreenState extends State<NavigationScreen>
                             isActive: pageIndex == i,
                             icon: _navIcons[i],
                             label: navLabels[i],
-                            onTap: () {
+                            onTap: () async {
+                              // My Account is account-based — guests get
+                              // prompted to sign in instead of switching tabs.
+                              if (i == 5 && userPhone.isEmpty) {
+                                final loggedIn = await requireLogin(context,
+                                    message:
+                                        'Please sign in to view your account');
+                                // Successful sign-in — this shell instance is
+                                // still holding the old empty userPhone, so
+                                // swap in a freshly authenticated one landed
+                                // straight on My Account.
+                                if (loggedIn && mounted) {
+                                  await _refreshAsLoggedIn(initialPage: 5);
+                                }
+                                return;
+                              }
                               if (pageIndex == i) {
                                 refreshPage(i);
                               } else {

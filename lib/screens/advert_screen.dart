@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:aaram_bd/config.dart';
 import 'package:aaram_bd/screens/post_details.dart';
 import 'package:aaram_bd/services/app_location.dart';
+import 'package:aaram_bd/utils/auth_guard.dart';
 import 'package:aaram_bd/widgets/notification_service.dart';
 import 'package:aaram_bd/widgets/post_sorting_buttons.dart';
 import 'package:aaram_bd/widgets/profile_picture_dialog.dart';
@@ -267,7 +268,12 @@ class _AdvertScreenState extends State<AdvertScreen> {
 
   bool isFavorited(UserDetail user) => favoriteUserIds.contains(user.user_id);
 
-  void toggleFavorite(UserDetail user) {
+  void toggleFavorite(UserDetail user) async {
+    if (!await requireLogin(context,
+        message: 'Please sign in to save favorites')) {
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       if (isFavorited(user)) {
         favoriteUserIds.remove(user.user_id);
@@ -1059,6 +1065,11 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     isActive: isActive,
                     onTap: isActive
                         ? () async {
+                            if (!await requireLogin(context,
+                                message: 'Please sign in to call')) {
+                              return;
+                            }
+                            if (!context.mounted) return;
                             if (await _blockedByInactiveStatus()) return;
                             handleAction(user.user_id, 'call', 0);
                             updateUserCalled(
@@ -1090,6 +1101,11 @@ class _AdvertScreenState extends State<AdvertScreen> {
                     isActive: isActive,
                     onTap: isActive
                         ? () async {
+                            if (!await requireLogin(context,
+                                message: 'Please sign in to message on WhatsApp')) {
+                              return;
+                            }
+                            if (!context.mounted) return;
                             if (await _blockedByInactiveStatus()) return;
                             handleAction(user.user_id, 'call', 0);
                             updateUserCalled(

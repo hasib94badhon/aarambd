@@ -16,6 +16,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 final String host = Config.host;
 
 class LoginScreen extends StatefulWidget {
+  /// When true (reached via a guest sign-in prompt), a successful login pops
+  /// back to whatever screen prompted it — with `true` as the pop result —
+  /// instead of replacing the stack with a fresh NavigationScreen. Defaults
+  /// to false so standalone flows (account recovery, post-deactivation, etc.)
+  /// keep their existing hard-reset-to-NavigationScreen behavior.
+  final bool popOnSuccess;
+
+  LoginScreen({super.key, this.popOnSuccess = false});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -140,14 +149,18 @@ class _LoginScreenState extends State<LoginScreen>
         }
 
         if (!mounted) return;
-        if (Platform.isAndroid) await FCMService().init(context);
+        if (Platform.isAndroid || Platform.isIOS) await FCMService().init(context);
 
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => NavigationScreen(userPhone: userPhone)),
-        );
+        if (widget.popOnSuccess) {
+          Navigator.pop(context, true);
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => NavigationScreen(userPhone: userPhone)),
+          );
+        }
         await DeepLinkService.instance.consumePendingShare();
       } else {
         final data      = json.decode(response.body);
@@ -307,6 +320,30 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             Positioned(top: -50,  right: -50,  child: _glowCircle(190, 0.07)),
             Positioned(top: 70,   left: -55,   child: _glowCircle(150, 0.05)),
+            if (Navigator.canPop(context))
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 20,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.16),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: const Icon(Icons.arrow_back_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                ),
+              ),
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
               right: 20,
@@ -630,12 +667,18 @@ class _LoginScreenState extends State<LoginScreen>
                           color: Colors.black.withValues(alpha: 0.50)),
                     ),
                     TextButton(
-                      onPressed: () {
-                        Navigator.push(
+                      onPressed: () async {
+                        final signedUp = await Navigator.push<bool>(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => SignUpScreen()),
+                              builder: (context) =>
+                                  SignUpScreen(popOnSuccess: widget.popOnSuccess)),
                         );
+                        // Relay a successful signup further back to whatever
+                        // originally prompted this login screen.
+                        if (signedUp == true && widget.popOnSuccess && mounted) {
+                          Navigator.pop(context, true);
+                        }
                       },
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
